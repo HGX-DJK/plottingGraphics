@@ -150,11 +150,17 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       } else if (basemap === 'street') {
         tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
         subdomains = ['a', 'b', 'c', 'd'];
+      } else if (basemap === 'grid') {
+        tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png';
+        subdomains = ['a', 'b', 'c', 'd'];
       }
 
       const baseTileLayer = new maptalks.TileLayer('base-tiles', {
         urlTemplate: tileUrl,
         subdomains: subdomains.length > 0 ? subdomains : undefined,
+        crossOrigin: 'anonymous',
+        repeatWorld: true,
+        maxAvailableZoom: basemap === 'satellite' ? 19 : 20,
         attribution: '&copy; GeoPlot Studio & MapTalks GL',
       });
       baseTileLayerRef.current = baseTileLayer;
@@ -163,8 +169,8 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       const map = new maptalks.Map(mapContainerRef.current, {
         center: [120.15, 30.28],
         zoom: 12,
-        minZoom: 3,
-        maxZoom: 18,
+        minZoom: 2,
+        maxZoom: 19,
         baseLayer: baseTileLayer,
         spatialReference: {
           projection: 'EPSG:3857',
@@ -234,6 +240,10 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       const newBaseLayer = new maptalks.TileLayer('base-tiles-' + Date.now(), {
         urlTemplate: tileUrl,
         subdomains: subdomains.length > 0 ? subdomains : undefined,
+        crossOrigin: 'anonymous',
+        repeatWorld: true,
+        maxAvailableZoom: basemap === 'satellite' ? 19 : 20,
+        attribution: '&copy; GeoPlot Studio & MapTalks GL',
       });
 
       mapInstanceRef.current.setBaseLayer(newBaseLayer);

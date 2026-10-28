@@ -34,10 +34,10 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
   onLogout,
 }) => {
   const basemaps: { id: BasemapType; label: string; desc: string }[] = [
-    { id: 'dark', label: '暗夜科技', desc: 'Carto Dark 态势高对比' },
-    { id: 'satellite', label: '卫星遥感', desc: 'ArcGIS 高清卫星影像' },
-    { id: 'street', label: '现代街道', desc: 'Carto Voyager 详细路网' },
-    { id: 'grid', label: '态势网格', desc: '战役推演仿真坐标底板' },
+    { id: 'dark', label: '暗色矢量', desc: 'Carto Dark 全要素暗黑高对比' },
+    { id: 'satellite', label: '卫星遥感', desc: 'ArcGIS 高清全球正射影像' },
+    { id: 'street', label: '现代街道', desc: 'Carto Voyager 彩色市政路网' },
+    { id: 'grid', label: '极简底板', desc: 'Carto Dark 无注记纯净底图' },
   ];
 
   return (

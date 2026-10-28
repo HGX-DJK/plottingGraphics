@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { PlotLayer } from '../../types';
 import { X, Layers, Palette, Check, AlertCircle } from 'lucide-react';
@@ -30,13 +30,22 @@ export const NewLayerModal: React.FC<NewLayerModalProps> = ({
   const [description, setDescription] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // 每次打开弹窗时重置表单状态
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const descInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // 每次打开弹窗时重置表单状态并聚焦
   useEffect(() => {
     if (isOpen) {
       setName('');
       setDescription('');
       setErrorMsg('');
       setColor(PRESET_COLORS[0].hex);
+      if (nameInputRef.current) nameInputRef.current.value = '';
+      if (descInputRef.current) descInputRef.current.value = '';
+      const timer = setTimeout(() => {
+        nameInputRef.current?.focus();
+      }, 120);
+      return () => clearTimeout(timer);
     }
   }, [isOpen]);
 
@@ -48,23 +57,36 @@ export const NewLayerModal: React.FC<NewLayerModalProps> = ({
       e.stopPropagation();
     }
 
-    const trimmedName = name.trim();
-    if (!trimmedName) {
+    // 双重源取值：优先读取 DOM 节点原生实时值，彻底避免移动端中文拼音输入法(IME)未触发 compositionend 导致 state 延迟为空
+    const domVal = nameInputRef.current?.value;
+    const finalName = (domVal !== undefined && domVal !== '' ? domVal : name).trim();
+
+    if (!finalName) {
       setErrorMsg('请输入图层名称');
+      nameInputRef.current?.focus();
       return;
     }
 
-    onCreateLayer({
-      name: trimmedName,
-      color,
-      visible: true,
-      locked: false,
-      opacity: 0.9,
-      description: description.trim(),
-    });
+    const domDesc = descInputRef.current?.value;
+    const finalDesc = (domDesc !== undefined && domDesc !== '' ? domDesc : description).trim();
+
+    try {
+      onCreateLayer({
+        name: finalName,
+        color,
+        visible: true,
+        locked: false,
+        opacity: 0.9,
+        description: finalDesc,
+      });
+    } catch (err) {
+      console.error('Failed to create layer:', err);
+    }
 
     setName('');
     setDescription('');
+    if (nameInputRef.current) nameInputRef.current.value = '';
+    if (descInputRef.current) descInputRef.current.value = '';
     setErrorMsg('');
     onClose();
   };
@@ -101,19 +123,29 @@ export const NewLayerModal: React.FC<NewLayerModalProps> = ({
         </div>
 
         {/* 表单内容 */}
-        <form onSubmit={handleConfirmCreate} className="p-5 sm:p-6 space-y-4">
+        <form onSubmit={handleConfirmCreate} action="javascript:void(0);" noValidate className="p-5 sm:p-6 space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-gray-300 mb-1.5 ml-0.5">
               图层名称 <span className="text-red-500 dark:text-red-400">*</span>
             </label>
             <input
+              ref={nameInputRef}
               type="text"
-              required
               placeholder="例如: 城市空间规划红线 / 水系保护范围"
               value={name}
               onChange={(e) => {
                 setName(e.target.value);
                 if (errorMsg) setErrorMsg('');
+              }}
+              onInput={(e) => {
+                const val = (e.target as HTMLInputElement).value;
+                setName(val);
+                if (val.trim() && errorMsg) setErrorMsg('');
+              }}
+              onCompositionEnd={(e) => {
+                const val = (e.target as HTMLInputElement).value;
+                setName(val);
+                if (val.trim() && errorMsg) setErrorMsg('');
               }}
               className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-950 border rounded-2xl text-xs text-slate-900 dark:text-gray-100 placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 transition shadow-inner ${
                 errorMsg
@@ -123,7 +155,7 @@ export const NewLayerModal: React.FC<NewLayerModalProps> = ({
               autoFocus
             />
             {errorMsg && (
-              <p className="flex items-center gap-1 text-[11px] text-red-500 mt-1 ml-1">
+              <p className="flex items-center gap-1 text-[11px] text-red-500 mt-1 ml-1 animate-in fade-in duration-150">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                 <span>{errorMsg}</span>
               </p>
@@ -186,6 +218,7 @@ export const NewLayerModal: React.FC<NewLayerModalProps> = ({
               图层业务描述 / 说明
             </label>
             <textarea
+              ref={descInputRef}
               rows={2}
               placeholder="记录该图层的标绘目的、责任工程师或管理要求（选填）..."
               value={description}

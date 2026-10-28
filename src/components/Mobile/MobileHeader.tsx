@@ -1,82 +1,54 @@
 import React from 'react';
-import { User, PlotLayer, BasemapType } from '../../types';
-import { Layers, Globe2, Shield, Compass, PenTool } from 'lucide-react';
+import { User, PlotLayer } from '../../types';
+import { Layers, ChevronDown, MoreHorizontal } from 'lucide-react';
 
 interface MobileHeaderProps {
   currentUser: User | null;
   activeLayer: PlotLayer | undefined;
-  basemap: BasemapType;
-  cursorCoords: [number, number];
-  zoomLevel: number;
   onOpenLayers: () => void;
   onOpenMore: () => void;
-  onOpenPlotting?: () => void;
 }
 
 export const MobileHeader: React.FC<MobileHeaderProps> = ({
   currentUser,
   activeLayer,
-  basemap,
-  cursorCoords,
-  zoomLevel,
   onOpenLayers,
   onOpenMore,
-  onOpenPlotting,
 }) => {
   return (
-    <header className="absolute top-0 left-0 right-0 z-30 bg-gray-950/85 backdrop-blur-md border-b border-gray-800/80 safe-top select-none transition-all">
-      <div className="h-12 px-3 flex items-center justify-between">
-        {/* 左侧：当前工作图层快捷药丸按钮 */}
+    <header className="absolute top-0 left-0 right-0 z-30 pointer-events-none px-3.5 pt-[max(env(safe-area-inset-top),12px)] select-none">
+      <div className="flex items-center justify-between">
+        {/* 左侧：当前工作图层灵动胶囊 */}
         <button
           onClick={onOpenLayers}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-gray-900 border border-gray-800 active:bg-gray-800 transition shadow-sm max-w-[140px]"
+          className="pointer-events-auto flex items-center gap-2 pl-3 pr-2.5 py-1.5 rounded-full bg-gray-950/85 backdrop-blur-xl border border-white/10 shadow-2xl active:scale-95 transition-transform"
         >
           <span
-            className="w-2.5 h-2.5 rounded-full shrink-0 shadow"
+            className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm ring-2 ring-white/20"
             style={{ backgroundColor: activeLayer?.color || '#3b82f6' }}
           />
-          <span className="text-xs font-semibold text-gray-200 truncate">
-            {activeLayer?.name || '图层'}
-          </span>
-          <Layers className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+          <div className="flex flex-col text-left max-w-[130px]">
+            <span className="text-[9px] text-gray-400 font-medium tracking-wide uppercase leading-none">
+              当前图层
+            </span>
+            <span className="text-xs font-bold text-gray-100 truncate mt-0.5 leading-tight">
+              {activeLayer?.name || '默认工作图层'}
+            </span>
+          </div>
+          <ChevronDown className="w-3.5 h-3.5 text-gray-400 shrink-0" />
         </button>
 
-        {/* 中间：坐标与缩放状态 */}
-        <div className="flex flex-col items-center">
-          <div className="flex items-center gap-1 text-xs font-bold text-white tracking-wider">
-            <Shield className="w-3.5 h-3.5 text-blue-400" />
-            <span>GeoPlot GIS</span>
-          </div>
-          <div className="text-[10px] text-gray-400 font-mono flex items-center gap-1">
-            <span>Z{zoomLevel.toFixed(1)}</span>
-            <span className="text-gray-600">•</span>
-            <span>{cursorCoords[0].toFixed(3)}°, {cursorCoords[1].toFixed(3)}°</span>
-          </div>
-        </div>
-
-        {/* 右侧：快捷新建标绘 & 用户 */}
-        <div className="flex items-center gap-1.5">
-          {onOpenPlotting && (
-            <button
-              onClick={onOpenPlotting}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-blue-600/30 border border-blue-500/50 text-blue-300 font-bold active:bg-blue-600/50 transition shadow-sm text-xs"
-              title="快捷新建标绘要素"
-            >
-              <PenTool className="w-3 h-3 text-blue-400" />
-              <span>标绘</span>
-            </button>
-          )}
-
-          <button
-            onClick={onOpenMore}
-            className="flex items-center gap-1.5 p-1.5 rounded-full bg-gray-900 border border-gray-800 text-gray-300 active:bg-gray-800 transition"
-          >
-            <span className="text-sm leading-none">{currentUser?.avatar || '👤'}</span>
-            <span className="text-[11px] font-medium text-gray-200 pr-1 hidden sm:inline">
-              {currentUser?.displayName.split(' ')[0] || '指挥官'}
-            </span>
-          </button>
-        </div>
+        {/* 右侧：用户与控制中心胶囊 */}
+        <button
+          onClick={onOpenMore}
+          className="pointer-events-auto flex items-center gap-1.5 pl-2.5 pr-3 py-1.5 rounded-full bg-gray-950/85 backdrop-blur-xl border border-white/10 shadow-2xl active:scale-95 transition-transform"
+        >
+          <span className="text-sm leading-none">{currentUser?.avatar || '👤'}</span>
+          <span className="text-xs font-bold text-gray-200">
+            {currentUser?.displayName.split(' ')[0] || '李工'}
+          </span>
+          <MoreHorizontal className="w-3.5 h-3.5 text-gray-400 shrink-0 ml-0.5" />
+        </button>
       </div>
     </header>
   );

@@ -145,19 +145,19 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
 
       const maptalks = (window as any).maptalks;
 
-      // 创建底图切片层
-      let tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
-      let subdomains = ['a', 'b', 'c', 'd'];
+      // 创建底图切片层 (采用无水印高可用地理数据源)
+      let tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
+      let subdomains: string[] = [];
 
       if (basemap === 'satellite') {
         tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
         subdomains = [];
       } else if (basemap === 'street') {
-        tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
-        subdomains = ['a', 'b', 'c', 'd'];
+        tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+        subdomains = [];
       } else if (basemap === 'grid') {
-        tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png';
-        subdomains = ['a', 'b', 'c', 'd'];
+        tileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+        subdomains = [];
       }
 
       const baseTileLayer = new maptalks.TileLayer('base-tiles', {
@@ -228,18 +228,18 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       if (!mapInstanceRef.current || !(window as any).maptalks) return;
       const maptalks = (window as any).maptalks;
 
-      let tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
-      let subdomains = ['a', 'b', 'c', 'd'];
+      let tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
+      let subdomains: string[] = [];
 
       if (basemap === 'satellite') {
         tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
         subdomains = [];
       } else if (basemap === 'street') {
-        tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
-        subdomains = ['a', 'b', 'c', 'd'];
+        tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+        subdomains = [];
       } else if (basemap === 'grid') {
-        tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png';
-        subdomains = ['a', 'b', 'c', 'd'];
+        tileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+        subdomains = [];
       }
 
       const newBaseLayer = new maptalks.TileLayer('base-tiles-' + Date.now(), {

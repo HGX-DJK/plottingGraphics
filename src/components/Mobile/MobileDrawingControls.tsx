@@ -184,62 +184,63 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
         </div>
       )}
 
-      {/* 右侧悬浮移动端 GIS 交互工具组 */}
+      {/* 右侧悬浮移动端 GIS 交互工具组 (模块化整合设计) */}
       <div
-        className={`absolute right-3.5 z-20 flex flex-col gap-2 transition-all duration-200 ${
-          drawingTool ? 'bottom-36' : 'bottom-20'
+        className={`absolute right-3 z-20 flex flex-col gap-2.5 transition-all duration-300 ${
+          drawingTool ? 'bottom-40' : 'bottom-20'
         }`}
       >
-        {/* 空间测距 */}
-        <button
-          onClick={onToggleMeasureDistance}
-          className={`w-11 h-11 rounded-2xl border shadow-xl flex items-center justify-center transition ${
-            drawingTool === 'measure-distance'
-              ? 'bg-amber-500 border-amber-400 text-gray-950 ring-2 ring-amber-500/40'
-              : 'bg-gray-900/90 border-gray-800 text-gray-300 active:bg-gray-800 backdrop-blur-md'
-          }`}
-          title="折线测距 (Distance)"
-        >
-          <Ruler className="w-5 h-5" />
-        </button>
+        {/* 1. 空间量算双功能模块 (测距 / 测面) */}
+        <div className="flex flex-col bg-gray-950/85 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+          <button
+            onClick={onToggleMeasureDistance}
+            className={`w-10 h-10 flex items-center justify-center transition border-b border-white/10 ${
+              drawingTool === 'measure-distance'
+                ? 'bg-amber-500 text-gray-950 font-bold shadow-inner'
+                : 'text-gray-300 active:bg-gray-800/80 hover:text-white'
+            }`}
+            title="空间折线测距 (Distance)"
+          >
+            <Ruler className="w-4 h-4" />
+          </button>
 
-        {/* 空间测面 */}
-        <button
-          onClick={onToggleMeasureArea}
-          className={`w-11 h-11 rounded-2xl border shadow-xl flex items-center justify-center transition ${
-            drawingTool === 'measure-area'
-              ? 'bg-emerald-500 border-emerald-400 text-gray-950 ring-2 ring-emerald-500/40'
-              : 'bg-gray-900/90 border-gray-800 text-gray-300 active:bg-gray-800 backdrop-blur-md'
-          }`}
-          title="多边形测面 (Area)"
-        >
-          <Maximize2 className="w-5 h-5 text-emerald-400" />
-        </button>
+          <button
+            onClick={onToggleMeasureArea}
+            className={`w-10 h-10 flex items-center justify-center transition ${
+              drawingTool === 'measure-area'
+                ? 'bg-emerald-500 text-gray-950 font-bold shadow-inner'
+                : 'text-gray-300 active:bg-gray-800/80 hover:text-white'
+            }`}
+            title="空间多边形测面 (Area)"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </button>
+        </div>
 
-        {/* 复位到中心 */}
-        <button
-          onClick={onResetView}
-          className="w-11 h-11 rounded-2xl bg-gray-900/90 border border-gray-800 text-gray-300 active:bg-gray-800 backdrop-blur-md shadow-xl flex items-center justify-center transition"
-          title="复位中心视角 (Zoom to Extent)"
-        >
-          <Crosshair className="w-5 h-5 text-blue-400" />
-        </button>
+        {/* 2. 地图视图控制模块 (全景复位 + 缩放控制) */}
+        <div className="flex flex-col bg-gray-950/85 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+          <button
+            onClick={onResetView}
+            className="w-10 h-10 flex items-center justify-center text-blue-400 active:bg-gray-800/80 border-b border-white/10 transition"
+            title="复位全景范围"
+          >
+            <Crosshair className="w-4 h-4" />
+          </button>
 
-        {/* 缩放按钮 */}
-        <div className="flex flex-col bg-gray-900/90 border border-gray-800 rounded-2xl backdrop-blur-md shadow-xl overflow-hidden">
           <button
             onClick={onZoomIn}
-            className="w-11 h-11 flex items-center justify-center text-gray-200 active:bg-gray-800 border-b border-gray-800/80 transition"
+            className="w-10 h-10 flex items-center justify-center text-gray-200 active:bg-gray-800/80 border-b border-white/10 transition"
             title="放大"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-4 h-4" />
           </button>
+
           <button
             onClick={onZoomOut}
-            className="w-11 h-11 flex items-center justify-center text-gray-200 active:bg-gray-800 transition"
+            className="w-10 h-10 flex items-center justify-center text-gray-200 active:bg-gray-800/80 transition"
             title="缩小"
           >
-            <Minus className="w-5 h-5" />
+            <Minus className="w-4 h-4" />
           </button>
         </div>
       </div>

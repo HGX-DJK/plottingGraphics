@@ -14,7 +14,7 @@ import { MobileDrawingControls } from './components/Mobile/MobileDrawingControls
 import { MobileLoginView } from './components/Mobile/MobileLoginView';
 import { NewLayerModal } from './components/Modals/NewLayerModal';
 import { ImportExportModal } from './components/Modals/ImportExportModal';
-import { Smartphone, Monitor } from 'lucide-react';
+import { Smartphone, Monitor, Compass } from 'lucide-react';
 
 export const App: React.FC = () => {
   const mapRef = useRef<MaptalksContainerRef>(null);
@@ -202,21 +202,17 @@ export const App: React.FC = () => {
   // 移动端主界面容器渲染
   const renderMobileAppContent = () => (
     <div className="relative w-full h-full flex flex-col bg-gray-950 overflow-hidden select-none">
-      {/* 1. 移动端顶部状态与标题栏 */}
+      {/* 1. 移动端顶部状态与标题栏 (灵动胶囊风格，宽敞无挤压) */}
       <MobileHeader
         currentUser={currentUser}
         activeLayer={activeLayer}
-        basemap={basemap}
-        cursorCoords={cursorCoords}
-        zoomLevel={zoomLevel}
         onOpenLayers={() => setActiveTab('layers')}
         onOpenMore={() => setActiveTab('more')}
-        onOpenPlotting={() => setActiveTab('plot')}
       />
 
       {/* 标绘与操作反馈 Toast */}
       {toastMessage && (
-        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-gray-900/95 border border-emerald-500/60 shadow-2xl text-emerald-300 text-xs font-bold flex items-center gap-2 backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200 pointer-events-none">
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-gray-900/95 border border-emerald-500/60 shadow-2xl text-emerald-300 text-xs font-bold flex items-center gap-2 backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200 pointer-events-none">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
           <span>{toastMessage}</span>
         </div>
@@ -246,6 +242,16 @@ export const App: React.FC = () => {
           }}
           onDrawingPointsChange={setDrawingPointsCount}
         />
+
+        {/* 底部左侧：空间经纬度与比例尺沉浸式微章 (专业GIS底栏布局) */}
+        <div className="absolute bottom-20 left-3.5 z-10 pointer-events-none flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-gray-950/80 backdrop-blur-md border border-white/10 shadow text-gray-300 font-mono text-[10px]">
+          <Compass className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+          <div className="flex items-center gap-1.5">
+            <span>{cursorCoords[0].toFixed(4)}°E, {cursorCoords[1].toFixed(4)}°N</span>
+            <span className="text-gray-600">|</span>
+            <span className="text-blue-300 font-bold">Z{zoomLevel.toFixed(1)}</span>
+          </div>
+        </div>
 
         {/* 3. 移动端悬浮标绘指导与右侧触控按钮 */}
         <MobileDrawingControls

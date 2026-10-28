@@ -43,10 +43,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   const activeLayer = layers.find((l) => l.id === activeLayerId);
 
   const basemapOptions: { id: BasemapType; label: string }[] = [
-    { id: 'dark', label: '暗色矢量' },
+    { id: 'dark', label: '暗夜科技' },
     { id: 'satellite', label: '高清遥感卫星' },
     { id: 'street', label: '现代街道' },
-    { id: 'grid', label: '极简底板' },
+    { id: 'grid', label: '开源地图' },
   ];
 
   return (

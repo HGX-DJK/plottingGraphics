@@ -23,6 +23,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { MobileBottomSheet } from './MobileBottomSheet';
+import { ConfirmModal } from '../Modals/ConfirmModal';
 import { formatArea, formatDistance } from '../../utils/geoUtils';
 
 interface MobileLayerSheetProps {
@@ -67,6 +68,14 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
 
   // 记录哪个图层的透明度调节面板处于打开状态（默认收起，保持极简视觉）
   const [sliderLayerId, setSliderLayerId] = useState<string | null>(null);
+
+  // 中文定制二次确认弹窗状态（彻底杜绝系统原生 CANCEL / OK 弹窗）
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    type: 'feature' | 'layer';
+    id: string;
+    name: string;
+    count?: number;
+  } | null>(null);
 
   const toggleExpand = (layerId: string) => {
     setExpandedMap((prev) => ({
@@ -299,9 +308,12 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
                       {layers.length > 1 && (
                         <button
                           onClick={() => {
-                            if (window.confirm(`确定删除图层 "${layer.name}" 及其包含的全部 ${layerFeatures.length} 个要素吗？`)) {
-                              onDeleteLayer(layer.id);
-                            }
+                            setDeleteConfirm({
+                              type: 'layer',
+                              id: layer.id,
+                              name: layer.name,
+                              count: layerFeatures.length,
+                            });
                           }}
                           className="flex items-center gap-1 text-xs text-rose-400 hover:text-rose-300 px-2.5 py-1 rounded-lg bg-rose-950/40 border border-rose-900/40 transition"
                         >
@@ -413,9 +425,11 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
 
                                 <button
                                   onClick={() => {
-                                    if (window.confirm(`确定删除要素 "${feat.name}" 吗？`)) {
-                                      onDeleteFeature?.(feat.id);
-                                    }
+                                    setDeleteConfirm({
+                                      type: 'feature',
+                                      id: feat.id,
+                                      name: feat.name,
+                                    });
                                   }}
                                   className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-950/30 transition"
                                   title="删除该要素"
@@ -448,6 +462,29 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
           );
         })}
       </div>
+
+      {/* 中文定制确认弹窗 (取代系统默认 CANCEL / OK) */}
+      <ConfirmModal
+        isOpen={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => {
+          if (deleteConfirm?.type === 'feature') {
+            onDeleteFeature?.(deleteConfirm.id);
+          } else if (deleteConfirm?.type === 'layer') {
+            onDeleteLayer?.(deleteConfirm.id);
+          }
+          setDeleteConfirm(null);
+        }}
+        title={deleteConfirm?.type === 'layer' ? '删除图层确认' : '删除要素确认'}
+        message={
+          deleteConfirm?.type === 'layer'
+            ? `确定删除图层 "${deleteConfirm.name}" 及其包含的全部 ${deleteConfirm.count || 0} 个要素吗？删除后不可恢复。`
+            : `确定删除要素 "${deleteConfirm?.name}" 吗？删除后将从当前图层和地图中完全移除。`
+        }
+        confirmText="确定删除"
+        cancelText="取消"
+        type="danger"
+      />
     </MobileBottomSheet>
   );
 };

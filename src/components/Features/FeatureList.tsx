@@ -14,6 +14,7 @@ import {
   Hexagon,
   Sparkles,
 } from 'lucide-react';
+import { ConfirmModal } from '../Modals/ConfirmModal';
 
 interface FeatureListProps {
   features: PlotFeature[];
@@ -32,6 +33,7 @@ export const FeatureList: React.FC<FeatureListProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLayerFilter, setSelectedLayerFilter] = useState<string>('all');
+  const [featureToDelete, setFeatureToDelete] = useState<PlotFeature | null>(null);
 
   const getFeatureIcon = (type: string) => {
     if (type.includes('arrow')) return Navigation;
@@ -144,9 +146,7 @@ export const FeatureList: React.FC<FeatureListProps> = ({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (window.confirm(`确定删除要素 "${feat.name}" 吗？`)) {
-                          onDeleteFeature(feat.id);
-                        }
+                        setFeatureToDelete(feat);
                       }}
                       className="p-1 text-gray-500 hover:text-red-400 hover:bg-red-950/30 rounded transition"
                       title="删除要素"
@@ -171,6 +171,23 @@ export const FeatureList: React.FC<FeatureListProps> = ({
         <span>当前共 {features.length} 个标绘要素</span>
         <span>显示 {filteredFeatures.length} 个</span>
       </div>
+
+      {/* 中文定制删除确认弹窗 */}
+      <ConfirmModal
+        isOpen={!!featureToDelete}
+        onClose={() => setFeatureToDelete(null)}
+        onConfirm={() => {
+          if (featureToDelete) {
+            onDeleteFeature(featureToDelete.id);
+          }
+          setFeatureToDelete(null);
+        }}
+        title="删除要素确认"
+        message={`确定删除要素 "${featureToDelete?.name}" 吗？删除后将从当前图层和地图中完全移除。`}
+        confirmText="确定删除"
+        cancelText="取消"
+        type="danger"
+      />
     </div>
   );
 };

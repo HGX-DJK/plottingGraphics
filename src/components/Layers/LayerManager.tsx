@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
+import { ConfirmModal } from '../Modals/ConfirmModal';
 
 interface LayerManagerProps {
   layers: PlotLayer[];
@@ -38,6 +39,7 @@ export const LayerManager: React.FC<LayerManagerProps> = ({
   onOpenNewLayerModal,
 }) => {
   const [expandedLayerId, setExpandedLayerId] = useState<string | null>(null);
+  const [layerToDelete, setLayerToDelete] = useState<PlotLayer | null>(null);
 
   const getFeatureCount = (layerId: string) => {
     return features.filter((f) => f.layerId === layerId).length;
@@ -192,11 +194,7 @@ export const LayerManager: React.FC<LayerManagerProps> = ({
 
                       {layers.length > 1 && (
                         <button
-                          onClick={() => {
-                            if (window.confirm(`确定删除图层 "${layer.name}" 及该图层的所有要素吗？`)) {
-                              onDeleteLayer(layer.id);
-                            }
-                          }}
+                          onClick={() => setLayerToDelete(layer)}
                           className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-950/30 transition"
                         >
                           <Trash2 className="w-3 h-3" />
@@ -211,6 +209,23 @@ export const LayerManager: React.FC<LayerManagerProps> = ({
           );
         })}
       </div>
+
+      {/* 中文定制确认弹窗 */}
+      <ConfirmModal
+        isOpen={!!layerToDelete}
+        onClose={() => setLayerToDelete(null)}
+        onConfirm={() => {
+          if (layerToDelete) {
+            onDeleteLayer(layerToDelete.id);
+          }
+          setLayerToDelete(null);
+        }}
+        title="删除图层确认"
+        message={`确定删除图层 "${layerToDelete?.name}" 及其包含的全部要素吗？删除后不可恢复。`}
+        confirmText="确定删除"
+        cancelText="取消"
+        type="danger"
+      />
 
       {/* 底部小提示 */}
       <div className="p-3 bg-gray-950/80 border-t border-gray-800/80 text-[11px] text-gray-400 flex items-center gap-2">

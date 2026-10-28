@@ -15,6 +15,7 @@ import {
   exportToGeoJSON,
   downloadFile,
 } from '../../utils/geoUtils';
+import { ConfirmModal } from './ConfirmModal';
 
 interface ImportExportModalProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   if (!isOpen) return null;
 
@@ -246,12 +248,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
           {/* 重置默认态势 */}
           <div className="pt-2 border-t border-gray-800">
             <button
-              onClick={() => {
-                if (window.confirm('确定恢复初始演训演示态势吗？当前未保存的修改将被覆盖。')) {
-                  onResetDemo();
-                  onClose();
-                }
-              }}
+              onClick={() => setShowResetConfirm(true)}
               className="w-full flex items-center justify-center gap-2 p-2.5 bg-gray-950 hover:bg-gray-800 border border-gray-800 rounded-xl text-xs text-gray-400 hover:text-amber-300 transition"
             >
               <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
@@ -260,6 +257,21 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* 中文定制重置确认弹窗 */}
+      <ConfirmModal
+        isOpen={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        onConfirm={() => {
+          onResetDemo();
+          onClose();
+        }}
+        title="恢复默认态势演示数据确认"
+        message="确定恢复初始演训演示态势吗？当前工程中未保存的修改将被覆盖。"
+        confirmText="确定恢复"
+        cancelText="取消"
+        type="warning"
+      />
     </div>
   );
 };

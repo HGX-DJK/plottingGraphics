@@ -17,6 +17,7 @@ import {
   Check,
 } from 'lucide-react';
 import { MobileBottomSheet } from './MobileBottomSheet';
+import { ConfirmModal } from '../Modals/ConfirmModal';
 import { formatArea, formatDistance } from '../../utils/geoUtils';
 
 interface MobilePropertySheetProps {
@@ -40,6 +41,7 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
   const [newAttrVal, setNewAttrVal] = useState('');
   const [showAddAttr, setShowAddAttr] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   if (!feature) return null;
 
@@ -472,12 +474,7 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
         {/* 删除要素 */}
         <div className="pt-2">
           <button
-            onClick={() => {
-              if (window.confirm(`确定删除要素 "${feature.name}" 吗？`)) {
-                onDeleteFeature(feature.id);
-                onClose();
-              }
-            }}
+            onClick={() => setShowDeleteConfirm(true)}
             className="w-full flex items-center justify-center gap-2 py-2.5 bg-red-950/40 border border-red-800/60 text-red-300 rounded-xl font-medium transition"
           >
             <Trash2 className="w-4 h-4" />
@@ -485,6 +482,21 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
           </button>
         </div>
       </div>
+
+      {/* 中文定制确认弹窗 */}
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => {
+          onDeleteFeature(feature.id);
+          onClose();
+        }}
+        title="删除要素确认"
+        message={`确定删除要素 "${feature.name}" 吗？删除后将从当前图层和地图中完全移除。`}
+        confirmText="确定删除"
+        cancelText="取消"
+        type="danger"
+      />
     </MobileBottomSheet>
   );
 };

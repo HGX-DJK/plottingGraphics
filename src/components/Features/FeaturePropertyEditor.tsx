@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { PlotFeature, PlotLayer } from '../../types';
 import {
   X,
@@ -10,6 +10,7 @@ import {
   Type,
   Maximize2,
 } from 'lucide-react';
+import { ConfirmModal } from '../Modals/ConfirmModal';
 
 interface FeaturePropertyEditorProps {
   feature: PlotFeature | null;
@@ -26,6 +27,8 @@ export const FeaturePropertyEditor: React.FC<FeaturePropertyEditorProps> = ({
   onDeleteFeature,
   onClose,
 }) => {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   if (!feature) return null;
 
   const handleNameChange = (name: string) => {
@@ -296,17 +299,28 @@ export const FeaturePropertyEditor: React.FC<FeaturePropertyEditorProps> = ({
           ID: {feature.id.slice(0, 14)}...
         </span>
         <button
-          onClick={() => {
-            if (window.confirm(`确认删除要素 "${feature.name}" 吗？`)) {
-              onDeleteFeature(feature.id);
-            }
-          }}
+          onClick={() => setShowDeleteConfirm(true)}
           className="flex items-center gap-1 px-3 py-1.5 bg-red-950/40 hover:bg-red-900/50 border border-red-800/60 text-red-300 rounded-lg text-xs font-medium transition"
         >
           <Trash2 className="w-3.5 h-3.5" />
           <span>删除此要素</span>
         </button>
       </div>
+
+      {/* 中文定制删除确认弹窗 */}
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => {
+          onDeleteFeature(feature.id);
+          onClose();
+        }}
+        title="删除要素确认"
+        message={`确认删除要素 "${feature.name}" 吗？删除后将从当前图层和地图中完全移除。`}
+        confirmText="确定删除"
+        cancelText="取消"
+        type="danger"
+      />
     </div>
   );
 };

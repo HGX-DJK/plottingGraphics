@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { PlotFeature, PlotLayer } from '../../types';
 import {
   Crosshair,
@@ -17,6 +17,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { formatDistance, calculateAzimuth } from '../../utils/geoUtils';
+import { ConfirmModal } from '../Modals/ConfirmModal';
 
 interface MobileFeatureQuickCardProps {
   feature: PlotFeature | null;
@@ -35,6 +36,8 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
   onDelete,
   onClose,
 }) => {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   if (!feature) return null;
 
   const getFeatureIcon = (type: string) => {
@@ -150,11 +153,7 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
 
           {/* 快捷删除 */}
           <button
-            onClick={() => {
-              if (window.confirm(`确定删除要素 "${feature.name}" 吗？`)) {
-                onDelete();
-              }
-            }}
+            onClick={() => setShowDeleteConfirm(true)}
             className="p-2 rounded-xl bg-red-950/40 border border-red-900/40 text-red-400 active:bg-red-900/40 transition"
             title="删除"
           >
@@ -171,6 +170,18 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
           </button>
         </div>
       </div>
+
+      {/* 中文定制确认弹窗 */}
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={onDelete}
+        title="删除要素确认"
+        message={`确定删除要素 "${feature.name}" 吗？删除后将从当前图层和地图中完全移除。`}
+        confirmText="确定删除"
+        cancelText="取消"
+        type="danger"
+      />
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { User, BasemapType } from '../../types';
 import {
   MoreHorizontal,
@@ -11,6 +11,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { MobileBottomSheet } from './MobileBottomSheet';
+import { ConfirmModal } from '../Modals/ConfirmModal';
 
 interface MobileMoreSheetProps {
   isOpen: boolean;
@@ -33,6 +34,8 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
   onResetDemo,
   onLogout,
 }) => {
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
   const basemaps: { id: BasemapType; label: string; desc: string }[] = [
     { id: 'dark', label: '暗夜科技', desc: 'Esri Dark 纯净深色无水印' },
     { id: 'satellite', label: '卫星遥感', desc: 'ArcGIS 高清全球正射影像' },
@@ -124,12 +127,7 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
         {/* 恢复演示数据 */}
         <div>
           <button
-            onClick={() => {
-              if (window.confirm('确定恢复初始演训态势数据吗？')) {
-                onResetDemo();
-                onClose();
-              }
-            }}
+            onClick={() => setShowResetConfirm(true)}
             className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-950 border border-gray-800 text-gray-400 active:text-amber-300 transition"
           >
             <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
@@ -142,6 +140,21 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
           <span>GeoPlot Studio Mobile App • MapTalks GL</span>
         </div>
       </div>
+
+      {/* 中文定制重置确认弹窗 */}
+      <ConfirmModal
+        isOpen={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        onConfirm={() => {
+          onResetDemo();
+          onClose();
+        }}
+        title="恢复默认演练数据确认"
+        message="确定恢复初始预置的图层与标绘要素吗？当前地图中的新增和修改将被重置。"
+        confirmText="确定恢复"
+        cancelText="取消"
+        type="warning"
+      />
     </MobileBottomSheet>
   );
 };

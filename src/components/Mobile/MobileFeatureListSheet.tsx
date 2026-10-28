@@ -20,6 +20,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { MobileBottomSheet } from './MobileBottomSheet';
+import { ConfirmModal } from '../Modals/ConfirmModal';
 import { formatArea, formatDistance } from '../../utils/geoUtils';
 
 interface MobileFeatureListSheetProps {
@@ -52,6 +53,7 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
   // 默认开启 "按图层级联分组"，让要素与图层的隶属关系一目了然
   const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const toggleGroup = (layerId: string) => {
     setCollapsedGroups((prev) => ({
@@ -166,9 +168,7 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              if (window.confirm(`确定删除要素 "${feat.name}" 吗？`)) {
-                onDeleteFeature(feat.id);
-              }
+              setDeleteTarget({ id: feat.id, name: feat.name });
             }}
             className="p-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-950/30 transition"
             title="删除要素"
@@ -393,6 +393,23 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
           </div>
         )}
       </div>
+
+      {/* 中文定制删除确认弹窗 (取代系统默认 CANCEL / OK) */}
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (deleteTarget) {
+            onDeleteFeature(deleteTarget.id);
+          }
+          setDeleteTarget(null);
+        }}
+        title="删除要素确认"
+        message={`确定删除要素 "${deleteTarget?.name}" 吗？删除后将从当前图层和地图中完全移除。`}
+        confirmText="确定删除"
+        cancelText="取消"
+        type="danger"
+      />
     </MobileBottomSheet>
   );
 };

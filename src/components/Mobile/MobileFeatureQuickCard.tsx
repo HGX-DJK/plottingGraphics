@@ -92,7 +92,7 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
   };
 
   return (
-    <div className="absolute bottom-20 left-3 right-3 z-30 pointer-events-auto bg-gray-950/90 backdrop-blur-xl border border-blue-500/40 rounded-2xl p-3 shadow-2xl animate-in slide-in-from-bottom-3 duration-200">
+    <div className="absolute bottom-[66px] left-3 right-3 z-30 pointer-events-auto bg-slate-950/95 backdrop-blur-2xl border border-blue-500/50 rounded-2xl p-3 shadow-2xl animate-in slide-in-from-bottom-3 duration-200 ring-1 ring-blue-500/20">
       <div className="flex items-center justify-between gap-2.5">
         {/* 左侧：要素标识与图层信息 */}
         <div className="flex items-center gap-2.5 min-w-0 flex-1">

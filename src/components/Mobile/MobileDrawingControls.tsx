@@ -36,6 +36,7 @@ interface MobileDrawingControlsProps {
   onToggleMeasureDistance: () => void;
   onToggleMeasureArea: () => void;
   onLocateGPS?: () => void;
+  hasSelectedFeature?: boolean;
 }
 
 export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
@@ -57,6 +58,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
   onToggleMeasureDistance,
   onToggleMeasureArea,
   onLocateGPS,
+  hasSelectedFeature = false,
 }) => {
   const getToolDisplayName = (tool: string) => {
     const names: Record<string, string> = {
@@ -235,10 +237,10 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
         </div>
       )}
 
-      {/* 右侧悬浮移动端 GIS 交互工具组 (模块化整合设计，提升高度彻底避免与底部坐标栏重叠) */}
+      {/* 右侧悬浮移动端 GIS 交互工具组 (模块化整合设计，当选中要素时智能抬升避让，彻底避免遮挡) */}
       <div
         className={`absolute right-3 z-20 flex flex-col gap-2.5 transition-all duration-300 ${
-          drawingTool ? 'bottom-44' : 'bottom-[102px]'
+          drawingTool ? 'bottom-44' : hasSelectedFeature ? 'bottom-[180px]' : 'bottom-[102px]'
         }`}
       >
         {/* 1. 空间量算双功能模块 (测距 / 测面) */}

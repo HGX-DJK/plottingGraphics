@@ -204,7 +204,7 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
               </div>
 
               {/* 辅助操作栏与账号快捷轻标签 */}
-              <div className="flex items-center justify-between pt-1 text-[11px]">
+              <div className="flex items-center justify-between pt-2 text-[11px]">
                 <label className="flex items-center gap-1.5 text-slate-400 cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -235,11 +235,11 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
                 </div>
               </div>
 
-              {/* 登录操作主按钮 */}
+              {/* 登录操作主按钮 (适当往下移，呼吸留白充足) */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 active:scale-[0.98] text-white font-bold rounded-2xl text-xs shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition duration-200 mt-2 cursor-pointer disabled:opacity-60"
+                className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 active:scale-[0.98] text-white font-bold rounded-2xl text-xs shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition duration-200 mt-6 sm:mt-7 cursor-pointer disabled:opacity-60"
               >
                 {loading ? (
                   <>

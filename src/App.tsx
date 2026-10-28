@@ -350,8 +350,8 @@ export const App: React.FC = () => {
           }}
         />
 
-        {/* 底部左侧：空间经纬度与比例尺沉浸式徽章 (专业GIS底栏布局，可切换格式与一键复制，高度位于右侧工具下方，彻底杜绝重叠遮挡) */}
-        {!drawingTool && (
+        {/* 底部左侧：空间经纬度与比例尺沉浸式徽章 (专业GIS底栏布局，当未选中要素时呈现，要素快览卡片弹出时智能隐藏，彻底杜绝重叠遮挡) */}
+        {!drawingTool && !selectedFeature && (
           <div
             onClick={handleCycleCoordinateFormat}
             className="absolute bottom-[68px] left-3 z-10 pointer-events-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-gray-950/90 backdrop-blur-md border border-white/10 shadow-lg text-gray-300 font-mono text-[10px] active:scale-95 transition cursor-pointer select-none max-w-[calc(100%-60px)]"
@@ -386,6 +386,7 @@ export const App: React.FC = () => {
           enableSnapping={enableSnapping}
           topologyWarning={topologyWarning}
           activeSegment={activeSegment}
+          hasSelectedFeature={!!selectedFeature && !drawingTool && activeTab !== 'properties'}
           onCancelDrawing={() => setDrawingTool(null)}
           onUndoPoint={() => mapRef.current?.undoPoint()}
           onFinishDrawing={() => mapRef.current?.finishCurrentDrawing()}

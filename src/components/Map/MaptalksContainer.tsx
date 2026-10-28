@@ -49,6 +49,7 @@ interface MaptalksContainerProps {
   onCreateFeature: (feature: Omit<PlotFeature, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onCancelDrawing: () => void;
   onCoordinatesChange?: (coords: [number, number], zoom: number) => void;
+  onBearingChange?: (bearing: number, pitch: number) => void;
   onDrawingPointsChange?: (count: number) => void;
   onTopologyWarning?: (msg: string | null) => void;
   onActiveSegmentChange?: (segment: { length: number; azimuth: { degrees: number; text: string } } | null) => void;
@@ -69,6 +70,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       onCreateFeature,
       onCancelDrawing,
       onCoordinatesChange,
+      onBearingChange,
       onDrawingPointsChange,
       onTopologyWarning,
       onActiveSegmentChange,
@@ -145,7 +147,12 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
             bearing: 0,
             pitch: 0,
           },
-          { duration: 400 }
+          { duration: 400 },
+          (frame: any) => {
+            if (frame && frame.state && frame.state.playState === 'finished') {
+              onBearingChange?.(0, 0);
+            }
+          }
         );
       },
       undoPoint: () => {
@@ -321,6 +328,17 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
           onCoordinatesChange([e.coordinate.x, e.coordinate.y], map.getZoom());
         }
       });
+
+      // 实时监听地图旋转朝向 (Bearing) 与倾角 (Pitch)
+      const handleMapTransform = () => {
+        if (!map) return;
+        const b = typeof map.getBearing === 'function' ? map.getBearing() : 0;
+        const p = typeof map.getPitch === 'function' ? map.getPitch() : 0;
+        onBearingChange?.(b, p);
+      };
+
+      map.on('rotate pitch viewchange moveend animateend zoomend', handleMapTransform);
+      handleMapTransform();
 
       // 点击空白处取消要素选中
       map.on('click', (e: any) => {

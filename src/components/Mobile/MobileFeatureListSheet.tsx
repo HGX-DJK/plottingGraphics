@@ -26,6 +26,7 @@ interface MobileFeatureListSheetProps {
   onSelectFeature: (featureId: string) => void;
   onDeleteFeature: (featureId: string) => void;
   onOpenPlotting?: () => void;
+  onOpenClearFeatures?: () => void;
 }
 
 export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
@@ -37,6 +38,7 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
   onSelectFeature,
   onDeleteFeature,
   onOpenPlotting,
+  onOpenClearFeatures,
 }) => {
   const [search, setSearch] = useState('');
   const [layerFilter, setLayerFilter] = useState('all');
@@ -70,16 +72,31 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
       title="标绘要素清单"
       icon={<ListFilter className="w-4 h-4" />}
       headerAction={
-        <button
-          onClick={() => {
-            onClose();
-            onOpenPlotting?.();
-          }}
-          className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-blue-600 active:bg-blue-500 text-white text-[11px] font-bold shadow-md shadow-blue-600/30 transition"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>新增标绘</span>
-        </button>
+        <div className="flex items-center gap-1.5">
+          {onOpenClearFeatures && features.length > 0 && (
+            <button
+              onClick={() => {
+                onClose();
+                onOpenClearFeatures();
+              }}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-red-950/40 border border-red-500/30 text-red-300 active:bg-red-900/50 text-[11px] font-bold transition"
+              title="清空地图要素"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-red-400" />
+              <span>清空</span>
+            </button>
+          )}
+          <button
+            onClick={() => {
+              onClose();
+              onOpenPlotting?.();
+            }}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-blue-600 active:bg-blue-500 text-white text-[11px] font-bold shadow-md shadow-blue-600/30 transition"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>新增</span>
+          </button>
+        </div>
       }
     >
       <div className="space-y-3 pb-4">

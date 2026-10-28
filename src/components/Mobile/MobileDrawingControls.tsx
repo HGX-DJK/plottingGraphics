@@ -13,12 +13,14 @@ import {
   Magnet,
   Compass,
   AlertTriangle,
+  Trash2,
 } from 'lucide-react';
 import { formatDistance } from '../../utils/geoUtils';
 
 interface MobileDrawingControlsProps {
   drawingTool: PlotFeatureType | 'measure-distance' | 'measure-area' | null;
   drawingPointsCount: number;
+  bearing?: number;
   enableSnapping?: boolean;
   topologyWarning?: string | null;
   activeSegment?: { length: number; azimuth: { degrees: number; text: string } } | null;
@@ -30,6 +32,7 @@ interface MobileDrawingControlsProps {
   onZoomOut: () => void;
   onResetView: () => void;
   onResetNorth?: () => void;
+  onOpenClearFeatures?: () => void;
   onToggleMeasureDistance: () => void;
   onToggleMeasureArea: () => void;
   onLocateGPS?: () => void;
@@ -38,6 +41,7 @@ interface MobileDrawingControlsProps {
 export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
   drawingTool,
   drawingPointsCount,
+  bearing = 0,
   enableSnapping = true,
   topologyWarning,
   activeSegment,
@@ -49,6 +53,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
   onZoomOut,
   onResetView,
   onResetNorth,
+  onOpenClearFeatures,
   onToggleMeasureDistance,
   onToggleMeasureArea,
   onLocateGPS,
@@ -230,10 +235,10 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
         </div>
       )}
 
-      {/* 右侧悬浮移动端 GIS 交互工具组 (模块化整合设计) */}
+      {/* 右侧悬浮移动端 GIS 交互工具组 (模块化整合设计，提升高度彻底避免与底部坐标栏重叠) */}
       <div
         className={`absolute right-3 z-20 flex flex-col gap-2.5 transition-all duration-300 ${
-          drawingTool ? 'bottom-40' : 'bottom-20'
+          drawingTool ? 'bottom-44' : 'bottom-[102px]'
         }`}
       >
         {/* 1. 空间量算双功能模块 (测距 / 测面) */}
@@ -263,15 +268,33 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
           </button>
         </div>
 
-        {/* 2. 地图视图控制模块 (正北复位 + 全景复位 + GPS定位 + 缩放控制) */}
+        {/* 2. 地图视图控制模块 (物理动态指北针 + 全景复位 + GPS定位 + 缩放控制 + 清空地图要素) */}
         <div className="flex flex-col bg-gray-950/85 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
           {onResetNorth && (
             <button
               onClick={onResetNorth}
-              className="w-10 h-10 flex items-center justify-center text-cyan-400 active:bg-gray-800/80 border-b border-white/10 transition"
-              title="复位正北与俯仰倾角 (Reset True North)"
+              className={`w-10 h-10 flex flex-col items-center justify-center border-b border-white/10 active:bg-gray-800/80 transition relative ${
+                Math.abs(bearing) > 0.5 ? 'bg-cyan-950/40 text-cyan-300 shadow-inner' : 'text-gray-300 hover:text-white'
+              }`}
+              title={`当前地图朝向: ${Math.round(((bearing % 360) + 360) % 360)}° (点击一键复位正北)`}
             >
-              <Compass className="w-4 h-4" />
+              {/* 物理真实动态指南针磁针 (跟随地图旋转角动态转动) */}
+              <div
+                className="relative w-5 h-5 flex items-center justify-center pointer-events-none transition-transform duration-100 ease-out"
+                style={{ transform: `rotate(${-bearing}deg)` }}
+              >
+                {/* 北极红色磁针 */}
+                <div className="absolute top-0.5 w-0 h-0 border-l-[3.5px] border-l-transparent border-r-[3.5px] border-r-transparent border-b-[8px] border-b-red-500" />
+                {/* 南极浅灰磁针 */}
+                <div className="absolute bottom-0.5 w-0 h-0 border-l-[3.5px] border-l-transparent border-r-[3.5px] border-r-transparent border-t-[8px] border-t-gray-300" />
+                {/* 轴心点 */}
+                <div className="w-1.5 h-1.5 rounded-full bg-white z-10 shadow-sm" />
+              </div>
+              {Math.abs(bearing) > 2 && (
+                <span className="text-[7.5px] font-bold text-cyan-400 font-mono -mt-0.5 leading-none">
+                  {Math.round(((bearing % 360) + 360) % 360)}°
+                </span>
+              )}
             </button>
           )}
 
@@ -303,11 +326,24 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
 
           <button
             onClick={onZoomOut}
-            className="w-10 h-10 flex items-center justify-center text-gray-200 active:bg-gray-800/80 transition"
+            className={`w-10 h-10 flex items-center justify-center text-gray-200 active:bg-gray-800/80 transition ${
+              onOpenClearFeatures ? 'border-b border-white/10' : ''
+            }`}
             title="缩小"
           >
             <Minus className="w-4 h-4" />
           </button>
+
+          {/* 清除地图要素按钮 */}
+          {onOpenClearFeatures && (
+            <button
+              onClick={onOpenClearFeatures}
+              className="w-10 h-10 flex items-center justify-center text-red-400 hover:text-red-300 active:bg-red-950/40 transition"
+              title="清空地图要素 (Clear Features)"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
     </>

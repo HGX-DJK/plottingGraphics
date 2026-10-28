@@ -33,7 +33,7 @@ export function toWebMercator(lng: number, lat: number): [number, number] {
 /**
  * 多格式坐标格式化展示
  */
-export function formatCoordinates(coords: [number, number], format: CoordinateFormat): string {
+export function formatCoordinates(coords: [number, number], format: CoordinateFormat, precision = 6): string {
   const [lng, lat] = coords;
   if (format === 'DMS') {
     return `${toDMS(lng, true)}, ${toDMS(lat, false)}`;
@@ -43,7 +43,7 @@ export function formatCoordinates(coords: [number, number], format: CoordinateFo
     return `X: ${x.toLocaleString()} m, Y: ${y.toLocaleString()} m`;
   }
   // 默认 DD (十进制度)
-  return `${lng.toFixed(6)}° E, ${lat.toFixed(6)}° N`;
+  return `${lng.toFixed(precision)}° E, ${lat.toFixed(precision)}° N`;
 }
 
 /**

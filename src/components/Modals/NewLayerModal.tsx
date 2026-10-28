@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { PlotLayer } from '../../types';
 import { X, Layers, Palette, Check } from 'lucide-react';
 
@@ -50,8 +51,11 @@ export const NewLayerModal: React.FC<NewLayerModalProps> = ({
 
   const selectedColorItem = PRESET_COLORS.find((c) => c.hex === color) || PRESET_COLORS[0];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+  const modalNode = (
+    <div
+      className="fixed inset-0 z-[9990] flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in duration-200 pointer-events-auto"
+      style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+    >
       <div className="w-full max-w-md bg-gray-900 border border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
         {/* 标题 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800 bg-gray-950/60">
@@ -169,4 +173,6 @@ export const NewLayerModal: React.FC<NewLayerModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalNode, document.body) : modalNode;
 };

@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, Trash2, HelpCircle } from 'lucide-react';
 
 export interface ConfirmModalProps {
@@ -40,18 +41,25 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
   if (!isOpen) return null;
 
-  return (
+  const modalNode = (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150 select-none"
+      className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-150 select-none pointer-events-auto"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+      }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[310px] bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-2xl ring-1 ring-white/10 flex flex-col items-center text-center animate-in zoom-in-95 duration-150"
+        className="w-full max-w-[320px] bg-slate-900 border border-slate-700/80 rounded-3xl p-5 sm:p-6 shadow-2xl ring-1 ring-white/10 flex flex-col items-center text-center animate-in zoom-in-95 duration-150 my-auto"
       >
         {/* 顶部醒目图标 */}
         <div
-          className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 shadow-inner ${
+          className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 shadow-inner shrink-0 ${
             type === 'danger'
               ? 'bg-rose-500/15 border border-rose-500/30 text-rose-400'
               : type === 'warning'
@@ -69,7 +77,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         </div>
 
         {/* 标题 */}
-        <h3 className="text-sm font-bold text-slate-100 mb-1.5">
+        <h3 className="text-sm font-bold text-slate-100 mb-1.5 shrink-0">
           {title || (type === 'danger' ? '确认删除' : '操作确认')}
         </h3>
 
@@ -78,12 +86,12 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
           {message}
         </p>
 
-        {/* 底部中文操作按钮组 (彻底替代原生 CANCEL 与 OK) */}
-        <div className="flex items-center gap-2.5 w-full">
+        {/* 底部中文操作按钮组 (彻底替代原生 CANCEL 与 OK，确保永远完整展示) */}
+        <div className="flex items-center gap-3 w-full shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 active:bg-slate-700 text-slate-300 font-bold text-xs transition border border-slate-700/60"
+            className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 active:bg-slate-700 text-slate-300 font-bold text-xs transition border border-slate-700/60 shadow-sm"
           >
             {cancelText}
           </button>
@@ -106,4 +114,6 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalNode, document.body) : modalNode;
 };

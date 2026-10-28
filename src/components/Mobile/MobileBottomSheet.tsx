@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface MobileBottomSheetProps {
@@ -33,8 +34,11 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+  const sheetNode = (
+    <div
+      className="fixed inset-0 z-[60] flex flex-col justify-end pointer-events-auto"
+      style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+    >
       {/* 半透明暗黑遮罩 */}
       <div
         onClick={onClose}
@@ -76,4 +80,6 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(sheetNode, document.body) : sheetNode;
 };

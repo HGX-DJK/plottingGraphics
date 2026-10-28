@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Trash2, AlertTriangle, X, RefreshCw, Layers, ShieldAlert } from 'lucide-react';
 
 interface ClearFeaturesModalProps {
@@ -26,9 +27,12 @@ export const ClearFeaturesModal: React.FC<ClearFeaturesModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-sm bg-gray-900 border border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-6 sm:zoom-in-95 duration-200">
+  const modalNode = (
+    <div
+      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-md p-3 sm:p-4 animate-in fade-in duration-200 pointer-events-auto"
+      style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+    >
+      <div className="w-full max-w-sm bg-gray-900 border border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-6 sm:zoom-in-95 duration-200 mb-2 sm:mb-0">
         {/* 头部 */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800 bg-gray-950/60">
           <div className="flex items-center gap-2">
@@ -139,4 +143,6 @@ export const ClearFeaturesModal: React.FC<ClearFeaturesModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalNode, document.body) : modalNode;
 };

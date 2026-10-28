@@ -34,7 +34,7 @@ export interface MaptalksContainerRef {
   undoPoint: () => void;
   finishCurrentDrawing: () => void;
   locateUser: (coord: [number, number]) => void;
-  focusFeature: (featId: string) => void;
+  focusFeature: (target: string | PlotFeature) => void;
 }
 
 interface MaptalksContainerProps {
@@ -176,6 +176,9 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
     const layersRef = useRef(layers);
     layersRef.current = layers;
 
+    const featuresRef = useRef(features);
+    featuresRef.current = features;
+
     const enableSnappingRef = useRef(enableSnapping);
     enableSnappingRef.current = enableSnapping;
 
@@ -200,6 +203,86 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
     useEffect(() => {
       onDrawingPointsChange?.(drawingPoints.length);
     }, [drawingPoints, onDrawingPointsChange]);
+
+    // 精准聚焦与视口平滑居中 (支持要素对象或要素ID，自适应点/线/面/战术箭头视距)
+    const focusFeatureOnMap = (feat: PlotFeature) => {
+      const map = mapInstanceRef.current;
+      if (!map || !feat || !feat.coordinates || feat.coordinates.length === 0) return;
+
+      let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+      let sumLng = 0, sumLat = 0;
+      feat.coordinates.forEach(([lng, lat]) => {
+        if (lng < minLng) minLng = lng;
+        if (lng > maxLng) maxLng = lng;
+        if (lat < minLat) minLat = lat;
+        if (lat > maxLat) maxLat = lat;
+        sumLng += lng;
+        sumLat += lat;
+      });
+      const centerLng = sumLng / feat.coordinates.length;
+      const centerLat = sumLat / feat.coordinates.length;
+      const targetCenter: [number, number] = [centerLng, centerLat];
+
+      const spanLng = maxLng - minLng;
+      const spanLat = maxLat - minLat;
+      const isSinglePoint = feat.coordinates.length === 1;
+
+      let targetZoom = 15.5;
+      if (isSinglePoint) {
+        targetZoom = Math.max(map.getZoom(), 16);
+      } else if (spanLng > 0.08 || spanLat > 0.08) {
+        targetZoom = 13.5;
+      } else if (spanLng > 0.03 || spanLat > 0.03) {
+        targetZoom = 14.5;
+      } else {
+        targetZoom = Math.max(map.getZoom(), 15.5);
+      }
+
+      map.animateTo(
+        {
+          center: targetCenter,
+          zoom: targetZoom,
+        },
+        { duration: 500 }
+      );
+
+      // 显示高亮聚焦脉冲光环 (引导视线)
+      const maptalks = (window as any).maptalks;
+      if (maptalks) {
+        let focusLayer = map.getLayer('system-focus-beacon');
+        if (!focusLayer) {
+          focusLayer = new maptalks.VectorLayer('system-focus-beacon', [], { zIndex: 1001 }).addTo(map);
+        }
+        focusLayer.clear();
+        const beacon = new maptalks.Marker(targetCenter, {
+          symbol: [
+            {
+              markerType: 'ellipse',
+              markerWidth: 44,
+              markerHeight: 44,
+              markerFill: '#38bdf8',
+              markerFillOpacity: 0.35,
+              markerLineColor: '#0284c7',
+              markerLineWidth: 2,
+            },
+            {
+              markerType: 'ellipse',
+              markerWidth: 16,
+              markerHeight: 16,
+              markerFill: '#f59e0b',
+              markerLineColor: '#ffffff',
+              markerLineWidth: 2.5,
+            },
+          ],
+        });
+        focusLayer.addGeometry(beacon);
+        setTimeout(() => {
+          try {
+            focusLayer?.clear();
+          } catch (e) {}
+        }, 2200);
+      }
+    };
 
     // 暴露地图控制接口给移动端外部悬浮按钮
     useImperativeHandle(ref, () => ({
@@ -299,30 +382,16 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         });
         gpsLayer.addGeometry(pulseMarker);
       },
-      focusFeature: (featId: string) => {
-        const map = mapInstanceRef.current;
-        if (!map) return;
-        const feat = features.find((f) => f.id === featId);
-        if (!feat || !feat.coordinates || feat.coordinates.length === 0) return;
-
-        let centerLng = 0;
-        let centerLat = 0;
-        feat.coordinates.forEach((c) => {
-          centerLng += c[0];
-          centerLat += c[1];
-        });
-        const targetCenter: [number, number] = [
-          centerLng / feat.coordinates.length,
-          centerLat / feat.coordinates.length,
-        ];
-
-        map.animateTo(
-          {
-            center: targetCenter,
-            zoom: Math.max(map.getZoom(), 15),
-          },
-          { duration: 500 }
-        );
+      focusFeature: (target: string | PlotFeature) => {
+        let feat: PlotFeature | undefined;
+        if (typeof target === 'string') {
+          feat = featuresRef.current.find((f) => f.id === target);
+        } else {
+          feat = target;
+        }
+        if (feat) {
+          focusFeatureOnMap(feat);
+        }
       },
     }));
 
@@ -507,33 +576,21 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       });
     }, [features, layers, selectedFeatureId, drawingTool, onSelectFeature]);
 
-    // 6. 选中要素时聚焦
+    // 6. 选中要素时聚焦 (使用 prevSelectedIdRef 避免重复触发与闭包失效)
+    const prevSelectedIdRef = useRef<string | null>(null);
     useEffect(() => {
-      const map = mapInstanceRef.current;
-      if (!map || !selectedFeatureId) return;
-
-      const feat = features.find((f) => f.id === selectedFeatureId);
-      if (feat && feat.coordinates && feat.coordinates.length > 0) {
-        let centerLng = 0;
-        let centerLat = 0;
-        feat.coordinates.forEach((c) => {
-          centerLng += c[0];
-          centerLat += c[1];
-        });
-        const targetCenter: [number, number] = [
-          centerLng / feat.coordinates.length,
-          centerLat / feat.coordinates.length,
-        ];
-        map.animateTo(
-          {
-            center: targetCenter,
-          },
-          {
-            duration: 400,
-          }
-        );
+      if (!selectedFeatureId) {
+        prevSelectedIdRef.current = null;
+        return;
       }
-    }, [selectedFeatureId]);
+      if (prevSelectedIdRef.current !== selectedFeatureId) {
+        prevSelectedIdRef.current = selectedFeatureId;
+        const feat = features.find((f) => f.id === selectedFeatureId);
+        if (feat) {
+          focusFeatureOnMap(feat);
+        }
+      }
+    }, [selectedFeatureId, features]);
 
     // 7. 辅助函数：构造 Geometry
     const createGeometryFromFeature = (maptalks: any, feat: PlotFeature, isSelected: boolean) => {

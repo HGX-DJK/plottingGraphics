@@ -4,39 +4,35 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- 深邃科技深蓝底色 -->
+    <!-- 明亮现代 GIS 科技皇家蓝底色 (告别暗黑沉闷) -->
     <path
-        android:fillColor="#0A1128"
+        android:fillColor="#1D4ED8"
         android:pathData="M0,0h108v108h-108z" />
 
-    <!-- 空间地理底纹网格 (经纬网格线) -->
+    <!-- 顶角高亮渐变光晕面 -->
+    <path
+        android:fillColor="#2563EB"
+        android:pathData="M0,0 L108,0 L108,70 L0,108 Z" />
+
+    <!-- 空间地理经纬网格线 (明亮蓝白微透) -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#142847"
-        android:strokeWidth="1"
+        android:strokeColor="#3B82F6"
+        android:strokeWidth="1.2"
+        android:strokeAlpha="0.6"
         android:pathData="M18,0L18,108 M36,0L36,108 M54,0L54,108 M72,0L72,108 M90,0L90,108 M0,18L108,18 M0,36L108,36 M0,54L108,54 M0,72L108,72 M0,90L108,90" />
 
-    <!-- 空间测距基准环 -->
+    <!-- 空间测距同心圆环 -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#1E3A5F"
+        android:strokeColor="#60A5FA"
         android:strokeWidth="1.2"
-        android:pathData="M54,18 A36,36 0 1,1 53.9,18 Z" />
+        android:strokeAlpha="0.4"
+        android:pathData="M54,16 A38,38 0 1,1 53.9,16 Z" />
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#172F4D"
+        android:strokeColor="#93C5FD"
         android:strokeWidth="1"
+        android:strokeAlpha="0.3"
         android:pathData="M54,32 A22,22 0 1,1 53.9,32 Z" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#112238"
-        android:strokeWidth="1"
-        android:pathData="M54,6 A48,48 0 1,1 53.9,6 Z" />
-
-    <!-- 四向刻度准心标尺 -->
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#2563EB"
-        android:strokeWidth="1.5"
-        android:pathData="M54,12 L54,18 M54,90 L54,96 M12,54 L18,54 M90,54 L96,54" />
 </vector>

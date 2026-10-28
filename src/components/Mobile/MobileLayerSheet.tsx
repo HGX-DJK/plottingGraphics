@@ -413,14 +413,18 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
                               key={feat.id}
                               className="group flex items-center justify-between p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-900/70 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-800/80 transition-all shadow-sm"
                             >
-                              {/* 点击查看要素属性 */}
+                              {/* 点击查看要素并在地图中定位 */}
                               <div
                                 onClick={() => {
-                                  onSelectFeature?.(feat.id);
+                                  if (onLocateFeature) {
+                                    onLocateFeature(feat.id);
+                                  } else {
+                                    onSelectFeature?.(feat.id);
+                                  }
                                   onClose();
                                 }}
                                 className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer"
-                                title="点击查看/编辑要素属性"
+                                title="点击在地图中定位该要素"
                               >
                                 <div
                                   className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border"

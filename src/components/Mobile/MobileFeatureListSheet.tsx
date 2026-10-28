@@ -31,6 +31,7 @@ interface MobileFeatureListSheetProps {
   activeLayerId?: string;
   selectedFeatureId: string | null;
   onSelectFeature: (featureId: string) => void;
+  onLocateFeature?: (featureId: string) => void;
   onDeleteFeature: (featureId: string) => void;
   onOpenPlotting?: () => void;
   onOpenClearFeatures?: () => void;
@@ -45,6 +46,7 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
   activeLayerId,
   selectedFeatureId,
   onSelectFeature,
+  onLocateFeature,
   onDeleteFeature,
   onOpenPlotting,
   onOpenClearFeatures,
@@ -106,7 +108,11 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
   });
 
   const handleCardClick = (id: string) => {
-    onSelectFeature(id);
+    if (onLocateFeature) {
+      onLocateFeature(id);
+    } else {
+      onSelectFeature(id);
+    }
     onClose();
   };
 
@@ -164,7 +170,11 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onSelectFeature(feat.id);
+              if (onLocateFeature) {
+                onLocateFeature(feat.id);
+              } else {
+                onSelectFeature(feat.id);
+              }
               onClose();
             }}
             className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-500/15 dark:hover:bg-blue-500/25 active:bg-blue-200 border border-blue-200 dark:border-blue-500/30 text-blue-600 dark:text-blue-400 text-[11px] font-medium transition"

@@ -261,6 +261,29 @@ export const App: React.FC = () => {
     setFeatures((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
   };
 
+  // 精准定位与聚焦要素 (无论图层是否显示，自动点亮图层并飞跃至中心)
+  const handleLocateFeature = (featureId: string) => {
+    const feat = features.find((f) => f.id === featureId);
+    if (!feat) return;
+
+    // 1. 确保该要素所属的图层为可见状态，并设为当前激活图层
+    setLayers((prev) =>
+      prev.map((l) => (l.id === feat.layerId ? { ...l, visible: true } : l))
+    );
+    setActiveLayerId(feat.layerId);
+
+    // 2. 选中该要素
+    setSelectedFeatureId(featureId);
+
+    // 3. 关闭移动端所有抽屉弹层，返回主地图视野
+    setActiveTab(null);
+
+    // 4. 调用地图组件的精准导航聚焦 (直接传入要素对象，避免异步状态未提交时的闭包延迟)
+    mapRef.current?.focusFeature(feat);
+
+    showToast(`📍 已在地图中精准定位: ${feat.name}`);
+  };
+
   const handleDeleteFeature = (featureId: string) => {
     setFeatures((prev) => prev.filter((f) => f.id !== featureId));
     if (selectedFeatureId === featureId) {
@@ -503,7 +526,7 @@ export const App: React.FC = () => {
           <MobileFeatureQuickCard
             feature={selectedFeature}
             layer={layers.find((l) => l.id === selectedFeature.layerId)}
-            onFocus={() => mapRef.current?.focusFeature?.(selectedFeature.id)}
+            onFocus={() => handleLocateFeature(selectedFeature.id)}
             onOpenProperties={() => setActiveTab('properties')}
             onDelete={() => handleDeleteFeature(selectedFeature.id)}
             onClose={() => setSelectedFeatureId(null)}
@@ -538,18 +561,8 @@ export const App: React.FC = () => {
         onShowOnlyActiveLayer={handleShowOnlyActiveLayer}
         onShowAllLayers={handleShowAllLayers}
         onStartPlotting={() => setActiveTab('plot')}
-        onSelectFeature={(id) => {
-          setSelectedFeatureId(id);
-          setActiveTab('properties');
-        }}
-        onLocateFeature={(id) => {
-          setSelectedFeatureId(id);
-          setActiveTab(null);
-          const feat = features.find((f) => f.id === id);
-          if (feat) {
-            showToast(`📍 已在地图中居中聚焦要素: ${feat.name}`);
-          }
-        }}
+        onSelectFeature={handleLocateFeature}
+        onLocateFeature={handleLocateFeature}
         onDeleteFeature={handleDeleteFeature}
       />
 
@@ -577,10 +590,8 @@ export const App: React.FC = () => {
         layers={layers}
         activeLayerId={activeLayerId}
         selectedFeatureId={selectedFeatureId}
-        onSelectFeature={(id) => {
-          setSelectedFeatureId(id);
-          setActiveTab('properties');
-        }}
+        onSelectFeature={handleLocateFeature}
+        onLocateFeature={handleLocateFeature}
         onDeleteFeature={handleDeleteFeature}
         onOpenPlotting={() => setActiveTab('plot')}
         onOpenClearFeatures={() => setIsClearModalOpen(true)}

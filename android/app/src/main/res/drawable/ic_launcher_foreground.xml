@@ -5,84 +5,108 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- 内部空间测距与剖分引导弦 -->
+    <!-- 1. 三折空间地图投影底层阴影 -->
+    <path
+        android:fillColor="#0B1C4D"
+        android:fillAlpha="0.45"
+        android:pathData="M25,79 L41,75 L57,79 L73,75 L76,77 L57,81 L41,77 L23,81 Z" />
+
+    <!-- 2. 三折页空间地图 (Folded Map) -->
+    <!-- 左折页 -->
+    <path
+        android:fillColor="#E2E8F0"
+        android:strokeColor="#CBD5E1"
+        android:strokeWidth="1"
+        android:pathData="M24,37 L40,33 L40,73 L24,77 Z" />
+
+    <!-- 中折页 (微背光阴影) -->
+    <path
+        android:fillColor="#CBD5E1"
+        android:strokeColor="#94A3B8"
+        android:strokeWidth="1"
+        android:pathData="M40,33 L56,37 L56,77 L40,73 Z" />
+
+    <!-- 右折页 (高光亮白) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#E2E8F0"
+        android:strokeWidth="1"
+        android:pathData="M56,37 L72,33 L72,73 L56,77 Z" />
+
+    <!-- 地图等高线与网格纹理 -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#1E40AF"
+        android:strokeColor="#93C5FD"
         android:strokeWidth="1.2"
-        android:strokeAlpha="0.6"
-        android:pathData="M54,28 L64,76 M28,48 L74,46" />
+        android:strokeAlpha="0.75"
+        android:pathData="M26,56 Q33,50 40,53 Q48,56 56,47 Q64,41 70,45 M26,66 Q33,60 40,63 Q48,66 56,57 Q64,52 70,55" />
 
-    <!-- 标绘矢量多边形闭合面 (高亮透明青蓝) -->
-    <path
-        android:fillColor="#380284C7"
-        android:strokeColor="#38BDF8"
-        android:strokeWidth="2.4"
-        android:strokeLineJoin="round"
-        android:strokeLineCap="round"
-        android:pathData="M54,28 L74,46 L64,76 L36,70 L28,48 Z" />
-
-    <!-- 顶点锚点 1: 顶部 (54, 28) -->
-    <path
-        android:fillColor="#38BDF8"
-        android:pathData="M54,24 A4,4 0 1,1 53.9,24 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,26 A2,2 0 1,1 53.9,26 Z" />
-
-    <!-- 顶点锚点 2: 右上 (74, 46) -->
-    <path
-        android:fillColor="#38BDF8"
-        android:pathData="M74,42.5 A3.5,3.5 0 1,1 73.9,42.5 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M74,44.2 A1.8,1.8 0 1,1 73.9,44.2 Z" />
-
-    <!-- 顶点锚点 3: 右下 (64, 76) -->
-    <path
-        android:fillColor="#38BDF8"
-        android:pathData="M64,72.5 A3.5,3.5 0 1,1 63.9,72.5 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M64,74.2 A1.8,1.8 0 1,1 63.9,74.2 Z" />
-
-    <!-- 顶点锚点 4: 左下 (36, 70) -->
-    <path
-        android:fillColor="#38BDF8"
-        android:pathData="M36,66.5 A3.5,3.5 0 1,1 35.9,66.5 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M36,68.2 A1.8,1.8 0 1,1 35.9,68.2 Z" />
-
-    <!-- 顶点锚点 5: 左侧 (28, 48) -->
-    <path
-        android:fillColor="#38BDF8"
-        android:pathData="M28,44.5 A3.5,3.5 0 1,1 27.9,44.5 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M28,46.2 A1.8,1.8 0 1,1 27.9,46.2 Z" />
-
-    <!-- 空间准心指示器 (中心 (54, 52)) -->
-    <!-- 准心外环 -->
-    <path
-        android:fillColor="#25F59E0B"
-        android:strokeColor="#F59E0B"
-        android:strokeWidth="1.8"
-        android:pathData="M54,44.5 A7.5,7.5 0 1,1 53.9,44.5 Z" />
-
-    <!-- 准心四向瞄准刻度线 -->
+    <!-- 3. 矢量标绘轨迹线与折点 ("绘") -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#F59E0B"
-        android:strokeWidth="1.8"
+        android:strokeColor="#0284C7"
+        android:strokeWidth="2.8"
         android:strokeLineCap="round"
-        android:pathData="M54,41 L54,44 M54,60 L54,63 M43,52 L46,52 M62,52 L65,52" />
+        android:strokeLineJoin="round"
+        android:pathData="M32,63 L47,53 L64,48" />
 
-    <!-- 准心中心标定点 -->
+    <!-- 标绘起点锚点 -->
+    <path
+        android:fillColor="#0284C7"
+        android:pathData="M32,59.5 A3.5,3.5 0 1,1 31.9,59.5 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M32,61.2 A1.8,1.8 0 1,1 31.9,61.2 Z" />
+
+    <!-- 4. 高亮红心 GPS 空间定位标 ("标") -->
+    <!-- 地面投影 -->
+    <path
+        android:fillColor="#0F172A"
+        android:fillAlpha="0.3"
+        android:pathData="M47,51.5 A4,1.8 0 1,1 46.9,51.5 Z" />
+
+    <!-- 红色水滴定位图钉 -->
+    <path
+        android:fillColor="#EF4444"
+        android:strokeColor="#B91C1C"
+        android:strokeWidth="1"
+        android:pathData="M47,53 C44,48 39,43 39,37 A8,8 0 1,1 55,37 C55,43 50,48 47,53 Z" />
+
+    <!-- 定位图钉中心白芯 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M47,34.2 A2.8,2.8 0 1,1 46.9,34.2 Z" />
+
+    <!-- 5. 标绘触控笔 / 制图仪 ("绘") -->
+    <!-- 笔身白色外壳 -->
+    <path
+        android:fillColor="#F8FAFC"
+        android:strokeColor="#0369A1"
+        android:strokeWidth="1"
+        android:pathData="M67,45 L77,35 L81,39 L71,49 Z" />
+
+    <!-- 笔尖金色圆锥 -->
     <path
         android:fillColor="#F59E0B"
-        android:pathData="M54,49.5 A2.5,2.5 0 1,1 53.9,49.5 Z" />
+        android:strokeColor="#B45309"
+        android:strokeWidth="0.8"
+        android:pathData="M64,48 L67,45 L71,49 Z" />
+
+    <!-- 笔杆防滑饰环 -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,50.7 A1.3,1.3 0 1,1 53.9,50.7 Z" />
+        android:fillColor="#F59E0B"
+        android:pathData="M70,42 L73,39 L75,41 L72,44 Z" />
+
+    <!-- 笔帽末端科技蓝 -->
+    <path
+        android:fillColor="#2563EB"
+        android:pathData="M77,35 L80,32 L83,35 L80,38 Z" />
+
+    <!-- 标绘笔尖发光十字星芒 -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FCD34D"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round"
+        android:pathData="M64,44 L64,52 M60,48 L68,48" />
 </vector>

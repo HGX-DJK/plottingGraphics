@@ -12,9 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: read
 
 concurrency:
   group: 'ci-${{ github.ref }}'
@@ -85,8 +83,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build Web Bundle
-        run: pnpm run build
+      - name: Download web build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: plotting-mobile-dist
+          path: dist/
 
       - name: Sync Capacitor Android
         run: pnpm exec cap sync android
@@ -105,34 +106,3 @@ jobs:
           name: GeoPlot-GIS-v1.0-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
-
-  deploy:
-    name: Deploy to GitHub Pages
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-    needs: build
-    runs-on: ubuntu-latest
-    continue-on-error: true # 若仓库尚未在 Settings 中开启 Pages，不阻塞主构建状态
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: plotting-mobile-dist
-          path: dist/
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist/
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4

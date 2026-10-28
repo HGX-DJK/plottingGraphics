@@ -67,8 +67,11 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
   };
 
   const canFinish =
-    (drawingTool === 'polyline' || drawingTool === 'polygon' || drawingTool === 'freehand') &&
-    drawingPointsCount >= 2;
+    drawingTool === 'polyline' || drawingTool === 'freehand'
+      ? drawingPointsCount >= 2
+      : drawingTool === 'polygon'
+      ? drawingPointsCount >= 3
+      : false;
 
   return (
     <>

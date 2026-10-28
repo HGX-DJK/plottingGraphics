@@ -429,8 +429,34 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         });
       }
 
-      // 普通多边形与矩形
-      if (type === 'polygon' || type === 'rectangle') {
+      // 矩形 (根据2个对角点或4个顶点生成)
+      if (type === 'rectangle') {
+        let rectCoords = coordinates;
+        if (coordinates.length === 2) {
+          const [p1, p2] = coordinates;
+          rectCoords = [
+            [p1[0], p1[1]],
+            [p2[0], p1[1]],
+            [p2[0], p2[1]],
+            [p1[0], p2[1]],
+          ];
+        }
+        if (rectCoords.length < 3) return null;
+        return new maptalks.Polygon([rectCoords], {
+          id: feat.id,
+          symbol: {
+            lineColor: strokeColor,
+            lineWidth: strokeWidth,
+            lineDasharray: dash,
+            polygonFill: properties.fillColor,
+            polygonOpacity: properties.fillOpacity,
+          },
+        });
+      }
+
+      // 普通多边形
+      if (type === 'polygon') {
+        if (coordinates.length < 3) return null;
         return new maptalks.Polygon([coordinates], {
           id: feat.id,
           symbol: {
@@ -690,13 +716,17 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
           fillOpacity:
             drawingTool.includes('arrow') ||
             drawingTool.includes('poly') ||
-            drawingTool === 'gathering-place'
+            drawingTool === 'gathering-place' ||
+            drawingTool === 'rectangle'
               ? 0.35
               : 0.2,
           text: defaultNames[drawingTool] || '',
           textColor: '#ffffff',
           textSize: 13,
-          radius: drawingTool === 'circle' ? 1200 : undefined,
+          radius:
+            drawingTool === 'circle' && pts.length >= 2
+              ? Math.round(calculateSphericalDistance(pts[0], pts[1]))
+              : 1200,
         },
       };
 
@@ -750,6 +780,17 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       } else if (drawingTool === 'polygon') {
         if (pts.length >= 3) {
           previewLayer.addGeometry(new maptalks.Polygon([pts], { symbol }));
+        }
+      } else if (drawingTool === 'rectangle') {
+        if (pts.length >= 2) {
+          const [p1, p2] = pts;
+          const rectCoords = [
+            [p1[0], p1[1]],
+            [p2[0], p1[1]],
+            [p2[0], p2[1]],
+            [p1[0], p2[1]],
+          ];
+          previewLayer.addGeometry(new maptalks.Polygon([rectCoords], { symbol }));
         }
       } else if (drawingTool === 'circle') {
         const r = calculateSphericalDistance(pts[0], pts[1]);

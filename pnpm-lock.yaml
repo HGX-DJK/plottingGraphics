@@ -11,15 +11,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      leaflet:
-        specifier: ^1.9.4
-        version: 1.9.4
       lucide-react:
         specifier: ^0.460.0
         version: 0.460.0(react@18.3.1)
-      maptalks:
-        specifier: ^1.13.0
-        version: 1.13.0
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -30,9 +24,6 @@ importers:
         specifier: ^2.5.4
         version: 2.6.1
     devDependencies:
-      '@types/leaflet':
-        specifier: ^1.9.14
-        version: 1.9.22
       '@types/react':
         specifier: ^18.3.12
         version: 18.3.31
@@ -301,12 +292,6 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@maptalks/feature-filter@1.3.0':
-    resolution: {integrity: sha512-O6GcFzPuCbz6bO4TNBnmP8VunS0GexTzZ4m36A4HbYQICY1cplpFgntX2fyB/TY3cZrFRGoeMePBeMZFMOOhcQ==}
-
-  '@maptalks/function-type@1.4.1':
-    resolution: {integrity: sha512-Z78FdI8mZ4vdcBqxlMDV6HP6WE/njZ9PhlM5JwbURxW1DnQK7R1GP+fubkGJPP6hVSv0Y52/dK8cZE/HuXVZ3A==}
-
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     resolution: {integrity: sha512-oTXEIha4SsuXdTA4Iyskj0kpdx2yVXdhd75c2v3xGrHFfVMsbhTPZU/nMPL4sWKo4pBHm3aucLaqGlF696dTyQ==}
     engines: {node: ^22.20 || ^24.12 || >=25}
@@ -468,12 +453,6 @@ packages:
   '@types/estree@1.0.9':
     resolution: {integrity: sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg==}
 
-  '@types/geojson@7946.0.16':
-    resolution: {integrity: sha512-6C8nqWur3j98U6+lXDfTUWIfgvZU+EumvpHKcYjujKH7woYyLj2sUmff0tRhrqM7BohUw7Pz3ZB1jj2gW9Fvmg==}
-
-  '@types/leaflet@1.9.22':
-    resolution: {integrity: sha512-h3lhECYEKDasG7LFHu+GiHqAvsgLuQvlJvVZzJDGONo3sEL+wUOqSFLnwkZlK0qVxnxbuGFW8iBlJNYs5wgndA==}
-
   '@types/prop-types@15.7.15':
     resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
 
@@ -540,12 +519,6 @@ packages:
   clsx@2.1.1:
     resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
     engines: {node: '>=6'}
-
-  colorin@0.5.0:
-    resolution: {integrity: sha512-gN6fIMCehYUonAhbmm5+ZHeFunG75u77hI2tRlVndNthO6v0wZMV2G2FwYSi8Ws4b4lpFJK1ql2a/MlW9z/Vhg==}
-
-  colorin@0.6.0:
-    resolution: {integrity: sha512-huI54MwKNMP6eypurqzxGf7rvTA3pNWdXZopQbN7v3TDxXYWyyGQ3CtQndNZ2Z0Gy6HDWqA7sRYxbjRDO2FZMA==}
 
   commander@4.1.1:
     resolution: {integrity: sha512-NOKm8xhkzAjzFx8B2v5OAHT+u5pRQc2UCa2Vq9jYL/31o2wi9mxBA7LIFs3sV5VSC49z6pEhfbMULvShKj26WA==}
@@ -616,9 +589,6 @@ packages:
   fraction.js@5.3.4:
     resolution: {integrity: sha512-1X1NTtiJphryn/uLQz3whtY6jK3fTqoE3ohKs0tT+Ujr1W59oopxmoEh7Lu5p6vBaPbgoM0bzveAW4Qi5RyWDQ==}
 
-  frustum-intersects@0.1.0:
-    resolution: {integrity: sha512-W0S6dmX5LJLtamimyuKhvbkpDTm5eVfMgk4X9yXNyWQ1zZ/cMm0PZoeX9Pm0tL302l+erQVrdfRGhV3ILfeTeQ==}
-
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
@@ -680,15 +650,9 @@ packages:
     engines: {node: '>=6'}
     hasBin: true
 
-  leaflet@1.9.4:
-    resolution: {integrity: sha512-nxS1ynzJOmOlHp+iL3FyWqK89GtNL8U8rvlMOsQdTTssxZwCXh8N2NB3GDQOL+YR3XnWyZAxwQixURb+FA74PA==}
-
   lilconfig@3.1.4:
     resolution: {integrity: sha512-zJZyBmQhArDRefuWTypZxwDpFDIYmrj8ypSBvwGD5P13Y95s6DjzKgu4DVdGbeQa5PDEsAOCAPNk4X+QOR006w==}
     engines: {node: '>=14'}
-
-  lineclip@1.1.5:
-    resolution: {integrity: sha512-KlA/wRSjpKl7tS9iRUdlG72oQ7qZ1IlVbVgHwoO10TBR/4gQ86uhKow6nlzMAJJhjCWKto8OeoAzzIzKSmN25A==}
 
   lines-and-columns@1.2.4:
     resolution: {integrity: sha512-7ylylesZQ/PV29jhEDl3Ufjo6ZX7gCqJr5F7PKrqc93v7fzSymt1BpwEU8nAUXs8qzzvqhbjhK5QZg6Mt/HkBg==}
@@ -704,9 +668,6 @@ packages:
     resolution: {integrity: sha512-BVtq/DykVeIvRTJvRAgCsOwaGL8Un3Bxh8MbDxMhEWlZay3T4IpEKDEpwt5KZ0KJMHzgm6jrltxlT5eXOWXDHg==}
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0-rc
-
-  maptalks@1.13.0:
-    resolution: {integrity: sha512-6af66jelXDitknv2Nb2yRNQigULSkT7reAkLeZXiM8HtEpS/Vf+frtWwatHUjPKsqXmEDSHKJ8Gd7XoP2cifww==}
 
   merge2@1.4.1:
     resolution: {integrity: sha512-8q7VEgMJW4J8tcfVPy8g09NcQwZdbwFEqhe/WZkoIzjn/3TGDwtOCYtXGxA3O8tPzpczCCDgv+P2P5y00ZJOOg==}
@@ -811,12 +772,6 @@ packages:
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
 
-  quickselect@1.1.1:
-    resolution: {integrity: sha512-qN0Gqdw4c4KGPsBOQafj6yj/PA6c/L63f6CaZ/DCF/xF4Esu3jVmKLUDYxghFx8Kb/O7y9tI7x2RjTSXwdK1iQ==}
-
-  rbush@2.0.2:
-    resolution: {integrity: sha512-XBOuALcTm+O/H8G90b6pzu6nX6v2zCKiFG4BJho8a+bY6AER6t8uQUZdi5bomQc0AprCWhEGa7ncAbbRap0bRA==}
-
   react-dom@18.3.1:
     resolution: {integrity: sha512-5m4nQKp+rZRb09LNH59GM4BxTh9251/ylbKIbpe7TpGxfJ+9kv6BLkLBXIjjspbgbnIBNqlI23tRnTWT0snUIw==}
     peerDependencies:
@@ -860,9 +815,6 @@ packages:
   semver@6.3.1:
     resolution: {integrity: sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==}
     hasBin: true
-
-  simplify-js@1.2.4:
-    resolution: {integrity: sha512-vITfSlwt7h/oyrU42R83mtzFpwYk3+mkH9bOHqq/Qw6n8rtR7aE3NZQ5fbcyCUVVmuMJR6ynsAhOfK2qoah8Jg==}
 
   source-map-js@1.2.2:
     resolution: {integrity: sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==}
@@ -1155,12 +1107,6 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
 
-  '@maptalks/feature-filter@1.3.0': {}
-
-  '@maptalks/function-type@1.4.1':
-    dependencies:
-      colorin: 0.5.0
-
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     optional: true
 
@@ -1276,12 +1222,6 @@ snapshots:
 
   '@types/estree@1.0.9': {}
 
-  '@types/geojson@7946.0.16': {}
-
-  '@types/leaflet@1.9.22':
-    dependencies:
-      '@types/geojson': 7946.0.16
-
   '@types/prop-types@15.7.15': {}
 
   '@types/react-dom@18.3.7(@types/react@18.3.31)':
@@ -1357,10 +1297,6 @@ snapshots:
 
   clsx@2.1.1: {}
 
-  colorin@0.5.0: {}
-
-  colorin@0.6.0: {}
-
   commander@4.1.1: {}
 
   convert-source-map@2.0.0: {}
@@ -1431,8 +1367,6 @@ snapshots:
 
   fraction.js@5.3.4: {}
 
-  frustum-intersects@0.1.0: {}
-
   fsevents@2.3.3:
     optional: true
 
@@ -1476,11 +1410,7 @@ snapshots:
 
   json5@2.2.3: {}
 
-  leaflet@1.9.4: {}
-
   lilconfig@3.1.4: {}
-
-  lineclip@1.1.5: {}
 
   lines-and-columns@1.2.4: {}
 
@@ -1495,19 +1425,6 @@ snapshots:
   lucide-react@0.460.0(react@18.3.1):
     dependencies:
       react: 18.3.1
-
-  maptalks@1.13.0:
-    dependencies:
-      '@maptalks/feature-filter': 1.3.0
-      '@maptalks/function-type': 1.4.1
-      colorin: 0.6.0
-      frustum-intersects: 0.1.0
-      lineclip: 1.1.5
-      rbush: 2.0.2
-      simplify-js: 1.2.4
-    optionalDependencies:
-      '@rollup/rollup-darwin-x64': 4.65.1
-      '@rollup/rollup-linux-x64-gnu': 4.65.1
 
   merge2@1.4.1: {}
 
@@ -1583,12 +1500,6 @@ snapshots:
 
   queue-microtask@1.2.3: {}
 
-  quickselect@1.1.1: {}
-
-  rbush@2.0.2:
-    dependencies:
-      quickselect: 1.1.1
-
   react-dom@18.3.1(react@18.3.1):
     dependencies:
       loose-envify: 1.4.0
@@ -1657,8 +1568,6 @@ snapshots:
       loose-envify: 1.4.0
 
   semver@6.3.1: {}
-
-  simplify-js@1.2.4: {}
 
   source-map-js@1.2.2: {}
 

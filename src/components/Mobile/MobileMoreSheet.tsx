@@ -37,9 +37,9 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const basemaps: { id: BasemapType; label: string; desc: string }[] = [
-    { id: 'dark', label: '暗夜科技', desc: 'CartoDB Dark 极夜深邃沉浸科技' },
+    { id: 'dark', label: '暗夜科技', desc: 'Esri 极夜深灰底图，高对比度护眼' },
     { id: 'satellite', label: '卫星遥感', desc: 'ArcGIS 高清全球正射遥感影像' },
-    { id: 'street', label: '清新街道', desc: 'CartoDB Voyager 现代极简清新街区' },
+    { id: 'street', label: '现代街道', desc: 'Esri 高清街道图，全路网与地标' },
   ];
 
   return (

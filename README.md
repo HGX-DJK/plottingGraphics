@@ -18,9 +18,9 @@
   <script type="text/javascript" src="https://maptalks.com/api/maptalks-gl.js"></script>
   ```
 - **多底图无缝切换**：
-  - 暗夜科技底图 (Carto Dark)
-  - 高清遥感卫星影像 (ArcGIS Satellite)
-  - 现代街道地图 (Carto Light/Voyager)
+  - 暗夜科技底图 (Esri Dark Canvas，免 Key 零水印)
+  - 高清遥感卫星影像 (ArcGIS Satellite 正射遥感)
+  - 现代街道地图 (Esri World Street Map 高清路网)
   - 态势推演网格 (Tactical Grid)
 - **状态栏与量算工具**：
   - 鼠标移动实时显示高精度经纬度坐标（精确到 5 位小数）与地图缩放级别（Zoom）。

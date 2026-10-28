@@ -51,8 +51,15 @@ export const App: React.FC = () => {
   // 1. 用户会话管理 (免后端模拟认证)
   const [currentUser, setCurrentUser] = useState<User | null>(() => authService.getCurrentUser());
 
-  // 2. 标绘图层与要素数据状态
-  const [layers, setLayers] = useState<PlotLayer[]>(() => storageService.loadLayers());
+  // 2. 标绘图层与要素数据状态 (默认确保仅显示当前激活图层下的要素)
+  const [layers, setLayers] = useState<PlotLayer[]>(() => {
+    const loaded = storageService.loadLayers();
+    const activeId = storageService.getActiveLayerId(loaded);
+    return loaded.map((l) => ({
+      ...l,
+      visible: l.id === activeId,
+    }));
+  });
   const [features, setFeatures] = useState<PlotFeature[]>(() => storageService.loadFeatures());
   const [activeLayerId, setActiveLayerId] = useState<string>(() =>
     storageService.getActiveLayerId(layers)
@@ -145,18 +152,56 @@ export const App: React.FC = () => {
     setActiveTab(null);
   };
 
+  // 切换激活工作图层：核心逻辑，仅显示该图层下要素，自动隐藏其他图层要素
+  const handleSelectActiveLayer = (layerId: string) => {
+    setActiveLayerId(layerId);
+    setLayers((prev) =>
+      prev.map((l) => ({
+        ...l,
+        visible: l.id === layerId,
+      }))
+    );
+    const target = layers.find((l) => l.id === layerId);
+    if (target) {
+      showToast(`已切换至「${target.name}」，地图仅显示该图层要素`);
+    }
+  };
+
+  // 快捷视图范围控制：仅显示当前工作图层 vs 显示全图层
+  const handleShowOnlyActiveLayer = () => {
+    setLayers((prev) =>
+      prev.map((l) => ({
+        ...l,
+        visible: l.id === activeLayerId,
+      }))
+    );
+    showToast('已切换为仅显示当前图层要素');
+  };
+
+  const handleShowAllLayers = () => {
+    setLayers((prev) =>
+      prev.map((l) => ({
+        ...l,
+        visible: true,
+      }))
+    );
+    showToast('已显示全部图层要素');
+  };
+
   // 图层操作
   const handleCreateLayer = (newLayerData: Omit<PlotLayer, 'id' | 'createdAt'>) => {
     const newLayer: PlotLayer = {
       ...newLayerData,
       id: `layer-${Date.now()}`,
       createdAt: Date.now(),
+      visible: true,
     };
-    const updated = [...layers, newLayer];
+    // 新建图层并设为当前显示图层，其余图层自动隐藏
+    const updated = [...layers.map((l) => ({ ...l, visible: false })), newLayer];
     setLayers(updated);
     setActiveLayerId(newLayer.id);
     setActiveTab('layers'); // 自动唤起图层管控抽屉，让用户立即看到新图层
-    setToastMessage(`✓ 已成功新建图层「${newLayer.name}」并设为当前工作图层`);
+    setToastMessage(`✓ 已新建并切换至「${newLayer.name}」，地图仅显示该图层要素`);
     setTimeout(() => setToastMessage(null), 3000);
   };
 
@@ -187,7 +232,7 @@ export const App: React.FC = () => {
     setLayers(updated);
     setFeatures((prev) => prev.filter((f) => f.layerId !== layerId));
     if (activeLayerId === layerId) {
-      setActiveLayerId(updated[0].id);
+      handleSelectActiveLayer(updated[0].id);
     }
   };
 
@@ -225,20 +270,33 @@ export const App: React.FC = () => {
 
   // 导入与重置
   const handleImportData = (importedLayers: PlotLayer[], importedFeatures: PlotFeature[]) => {
-    setLayers(importedLayers);
-    setFeatures(importedFeatures);
     if (importedLayers.length > 0) {
-      setActiveLayerId(importedLayers[0].id);
+      const firstId = importedLayers[0].id;
+      // 默认仅激活的第一个图层可见
+      const isolated = importedLayers.map((l) => ({
+        ...l,
+        visible: l.id === firstId,
+      }));
+      setLayers(isolated);
+      setActiveLayerId(firstId);
+    } else {
+      setLayers(importedLayers);
     }
+    setFeatures(importedFeatures);
     setSelectedFeatureId(null);
   };
 
   const handleResetDemo = () => {
     const { layers: demoLayers, features: demoFeatures } = storageService.resetToDefault();
-    setLayers(demoLayers);
+    const isolated = demoLayers.map((l, idx) => ({
+      ...l,
+      visible: idx === 0,
+    }));
+    setLayers(isolated);
     setFeatures(demoFeatures);
     setActiveLayerId(demoLayers[0].id);
     setSelectedFeatureId(null);
+    showToast('已恢复初始演示态势，仅显示当前图层要素');
   };
 
   // 空间量算模式切换 (测距与测面)
@@ -471,14 +529,14 @@ export const App: React.FC = () => {
         layers={layers}
         features={features}
         activeLayerId={activeLayerId}
-        onSelectActiveLayer={(id) => {
-          setActiveLayerId(id);
-        }}
+        onSelectActiveLayer={handleSelectActiveLayer}
         onToggleVisibility={handleToggleLayerVisibility}
         onToggleLock={handleToggleLayerLock}
         onChangeOpacity={handleChangeLayerOpacity}
         onDeleteLayer={handleDeleteLayer}
         onOpenNewLayerModal={() => setIsNewLayerModalOpen(true)}
+        onShowOnlyActiveLayer={handleShowOnlyActiveLayer}
+        onShowAllLayers={handleShowAllLayers}
         onStartPlotting={() => setActiveTab('plot')}
         onSelectFeature={(id) => {
           setSelectedFeatureId(id);
@@ -508,11 +566,7 @@ export const App: React.FC = () => {
         activeLayerColor={activeLayer?.color || '#3b82f6'}
         layers={layers}
         activeLayerId={activeLayerId}
-        onSelectActiveLayer={(id) => {
-          setActiveLayerId(id);
-          const l = layers.find((item) => item.id === id);
-          if (l) showToast(`已切换当前工作图层至「${l.name}」`);
-        }}
+        onSelectActiveLayer={handleSelectActiveLayer}
       />
 
       {/* 要素清单抽屉 */}
@@ -521,6 +575,7 @@ export const App: React.FC = () => {
         onClose={() => setActiveTab(null)}
         features={features}
         layers={layers}
+        activeLayerId={activeLayerId}
         selectedFeatureId={selectedFeatureId}
         onSelectFeature={(id) => {
           setSelectedFeatureId(id);
@@ -529,9 +584,7 @@ export const App: React.FC = () => {
         onDeleteFeature={handleDeleteFeature}
         onOpenPlotting={() => setActiveTab('plot')}
         onOpenClearFeatures={() => setIsClearModalOpen(true)}
-        onSelectActiveLayer={(id) => {
-          setActiveLayerId(id);
-        }}
+        onSelectActiveLayer={handleSelectActiveLayer}
       />
 
       {/* 选中的要素属性配置抽屉 */}

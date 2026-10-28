@@ -38,6 +38,8 @@ interface MobileLayerSheetProps {
   onChangeOpacity: (layerId: string, opacity: number) => void;
   onDeleteLayer: (layerId: string) => void;
   onOpenNewLayerModal: () => void;
+  onShowOnlyActiveLayer?: () => void;
+  onShowAllLayers?: () => void;
   onStartPlotting?: () => void;
   onSelectFeature?: (featureId: string) => void;
   onDeleteFeature?: (featureId: string) => void;
@@ -56,6 +58,8 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
   onChangeOpacity,
   onDeleteLayer,
   onOpenNewLayerModal,
+  onShowOnlyActiveLayer,
+  onShowAllLayers,
   onStartPlotting,
   onSelectFeature,
   onDeleteFeature,
@@ -68,6 +72,9 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
 
   // 记录哪个图层的透明度调节面板处于打开状态（默认收起，保持极简视觉）
   const [sliderLayerId, setSliderLayerId] = useState<string | null>(null);
+
+  const isOnlyActiveVisible = layers.every((l) => (l.id === activeLayerId ? l.visible : !l.visible));
+  const isAllVisible = layers.length > 0 && layers.every((l) => l.visible);
 
   // 中文定制二次确认弹窗状态（彻底杜绝系统原生 CANCEL / OK 弹窗）
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -140,6 +147,37 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
             <span className="text-slate-500 dark:text-slate-400">{layers.length} 个图层</span>
             <span className="text-slate-300 dark:text-slate-600">•</span>
             <span className="text-blue-600 dark:text-blue-400 font-bold">{features.length} 个要素</span>
+          </div>
+        </div>
+
+        {/* 快捷视图过滤栏：仅显当前工作层要素 vs 显示全部 */}
+        <div className="flex items-center justify-between px-1 py-0.5 text-xs">
+          <span className="text-slate-500 dark:text-slate-400 text-[11px]">
+            地图要素范围:
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => onShowOnlyActiveLayer?.()}
+              className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition cursor-pointer ${
+                isOnlyActiveVisible
+                  ? 'bg-blue-600 text-white border-blue-600 font-bold shadow-sm'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+              }`}
+            >
+              仅显当前层
+            </button>
+            <button
+              type="button"
+              onClick={() => onShowAllLayers?.()}
+              className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition cursor-pointer ${
+                !isOnlyActiveVisible && isAllVisible
+                  ? 'bg-blue-600 text-white border-blue-600 font-bold shadow-sm'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+              }`}
+            >
+              显示全部
+            </button>
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PlotFeature, PlotLayer } from '../../types';
 import {
   ListFilter,
@@ -28,6 +28,7 @@ interface MobileFeatureListSheetProps {
   onClose: () => void;
   features: PlotFeature[];
   layers: PlotLayer[];
+  activeLayerId?: string;
   selectedFeatureId: string | null;
   onSelectFeature: (featureId: string) => void;
   onDeleteFeature: (featureId: string) => void;
@@ -41,6 +42,7 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
   onClose,
   features,
   layers,
+  activeLayerId,
   selectedFeatureId,
   onSelectFeature,
   onDeleteFeature,
@@ -49,10 +51,17 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
   onSelectActiveLayer,
 }) => {
   const [search, setSearch] = useState('');
-  const [layerFilter, setLayerFilter] = useState('all');
+  // 默认过滤为当前工作图层，让要素列表与当前激活图层保持一致
+  const [layerFilter, setLayerFilter] = useState(activeLayerId || 'all');
   // 默认开启 "按图层级联分组"，让要素与图层的隶属关系一目了然
   const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (activeLayerId) {
+      setLayerFilter(activeLayerId);
+    }
+  }, [activeLayerId, isOpen]);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const toggleGroup = (layerId: string) => {

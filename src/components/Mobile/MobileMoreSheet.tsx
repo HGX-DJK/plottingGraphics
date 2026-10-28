@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { User, BasemapType } from '../../types';
+import { ThemeMode } from '../../services/themeService';
 import {
   MoreHorizontal,
   Globe2,
@@ -9,6 +10,9 @@ import {
   Download,
   Upload,
   ShieldCheck,
+  Sun,
+  Moon,
+  SunMedium,
 } from 'lucide-react';
 import { MobileBottomSheet } from './MobileBottomSheet';
 import { ConfirmModal } from '../Modals/ConfirmModal';
@@ -22,6 +26,8 @@ interface MobileMoreSheetProps {
   onOpenImportExport: () => void;
   onResetDemo: () => void;
   onLogout: () => void;
+  theme?: ThemeMode;
+  onSelectTheme?: (theme: ThemeMode) => void;
 }
 
 export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
@@ -33,6 +39,8 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
   onOpenImportExport,
   onResetDemo,
   onLogout,
+  theme = 'dark',
+  onSelectTheme,
 }) => {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
@@ -74,6 +82,48 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
             <LogOut className="w-3.5 h-3.5" />
             <span>退出</span>
           </button>
+        </div>
+
+        {/* 系统明暗主题风格切换 */}
+        <div>
+          <label className="block text-gray-400 font-semibold mb-2 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <SunMedium className="w-3.5 h-3.5 text-amber-400" />
+              <span>界面明暗外观风格</span>
+            </span>
+            <span className="text-[10px] text-gray-500 font-normal">全系统实时响应</span>
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => onSelectTheme?.('dark')}
+              className={`p-2.5 rounded-xl border flex items-center gap-2.5 transition text-left ${
+                theme === 'dark'
+                  ? 'border-blue-500 bg-blue-500/15 shadow ring-1 ring-blue-500 text-white'
+                  : 'border-gray-800 bg-gray-950 text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              <Moon className="w-4 h-4 text-indigo-400 shrink-0" />
+              <div className="min-w-0">
+                <div className="font-bold text-xs">极夜暗色 (Dark)</div>
+                <div className="text-[10px] text-gray-500 truncate mt-0.5">科技感夜间护眼</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => onSelectTheme?.('light')}
+              className={`p-2.5 rounded-xl border flex items-center gap-2.5 transition text-left ${
+                theme === 'light'
+                  ? 'border-blue-500 bg-blue-500/15 shadow ring-1 ring-blue-500 text-white'
+                  : 'border-gray-800 bg-gray-950 text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              <Sun className="w-4 h-4 text-amber-400 shrink-0" />
+              <div className="min-w-0">
+                <div className="font-bold text-xs">清新浅色 (Light)</div>
+                <div className="text-[10px] text-gray-500 truncate mt-0.5">户外强光高对比</div>
+              </div>
+            </button>
+          </div>
         </div>
 
         {/* 底图选择 */}

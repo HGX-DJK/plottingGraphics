@@ -244,13 +244,13 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
         }`}
       >
         {/* 1. 空间量算双功能模块 (测距 / 测面) */}
-        <div className="flex flex-col bg-gray-950/85 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="flex flex-col bg-white/90 dark:bg-gray-950/85 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-xl overflow-hidden">
           <button
             onClick={onToggleMeasureDistance}
-            className={`w-10 h-10 flex items-center justify-center transition border-b border-white/10 ${
+            className={`w-10 h-10 flex items-center justify-center transition border-b border-slate-200/80 dark:border-white/10 ${
               drawingTool === 'measure-distance'
                 ? 'bg-amber-500 text-gray-950 font-bold shadow-inner'
-                : 'text-gray-300 active:bg-gray-800/80 hover:text-white'
+                : 'text-slate-700 dark:text-gray-300 active:bg-slate-100 dark:active:bg-gray-800/80 hover:text-blue-600 dark:hover:text-white'
             }`}
             title="空间折线测距 (Distance)"
           >
@@ -262,7 +262,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
             className={`w-10 h-10 flex items-center justify-center transition ${
               drawingTool === 'measure-area'
                 ? 'bg-emerald-500 text-gray-950 font-bold shadow-inner'
-                : 'text-gray-300 active:bg-gray-800/80 hover:text-white'
+                : 'text-slate-700 dark:text-gray-300 active:bg-slate-100 dark:active:bg-gray-800/80 hover:text-blue-600 dark:hover:text-white'
             }`}
             title="空间多边形测面 (Area)"
           >
@@ -271,12 +271,12 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
         </div>
 
         {/* 2. 地图视图控制模块 (物理动态指北针 + 全景复位 + GPS定位 + 缩放控制 + 清空地图要素) */}
-        <div className="flex flex-col bg-gray-950/85 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="flex flex-col bg-white/90 dark:bg-gray-950/85 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-xl overflow-hidden">
           {onResetNorth && (
             <button
               onClick={onResetNorth}
-              className={`w-10 h-10 flex flex-col items-center justify-center border-b border-white/10 active:bg-gray-800/80 transition relative ${
-                Math.abs(bearing) > 0.5 ? 'bg-cyan-950/40 text-cyan-300 shadow-inner' : 'text-gray-300 hover:text-white'
+              className={`w-10 h-10 flex flex-col items-center justify-center border-b border-slate-200/80 dark:border-white/10 active:bg-slate-100 dark:active:bg-gray-800/80 transition relative ${
+                Math.abs(bearing) > 0.5 ? 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-300 shadow-inner' : 'text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white'
               }`}
               title={`当前地图朝向: ${Math.round(((bearing % 360) + 360) % 360)}° (点击一键复位正北)`}
             >
@@ -288,12 +288,12 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
                 {/* 北极红色磁针 */}
                 <div className="absolute top-0.5 w-0 h-0 border-l-[3.5px] border-l-transparent border-r-[3.5px] border-r-transparent border-b-[8px] border-b-red-500" />
                 {/* 南极浅灰磁针 */}
-                <div className="absolute bottom-0.5 w-0 h-0 border-l-[3.5px] border-l-transparent border-r-[3.5px] border-r-transparent border-t-[8px] border-t-gray-300" />
+                <div className="absolute bottom-0.5 w-0 h-0 border-l-[3.5px] border-l-transparent border-r-[3.5px] border-r-transparent border-t-[8px] border-t-gray-400 dark:border-t-gray-300" />
                 {/* 轴心点 */}
-                <div className="w-1.5 h-1.5 rounded-full bg-white z-10 shadow-sm" />
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-800 dark:bg-white z-10 shadow-sm" />
               </div>
               {Math.abs(bearing) > 2 && (
-                <span className="text-[7.5px] font-bold text-cyan-400 font-mono -mt-0.5 leading-none">
+                <span className="text-[7.5px] font-bold text-cyan-600 dark:text-cyan-400 font-mono -mt-0.5 leading-none">
                   {Math.round(((bearing % 360) + 360) % 360)}°
                 </span>
               )}
@@ -302,7 +302,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
 
           <button
             onClick={onResetView}
-            className="w-10 h-10 flex items-center justify-center text-blue-400 active:bg-gray-800/80 border-b border-white/10 transition"
+            className="w-10 h-10 flex items-center justify-center text-blue-600 dark:text-blue-400 active:bg-slate-100 dark:active:bg-gray-800/80 border-b border-slate-200/80 dark:border-white/10 transition"
             title="复位全景范围"
           >
             <Crosshair className="w-4 h-4" />
@@ -311,7 +311,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
           {onLocateGPS && (
             <button
               onClick={onLocateGPS}
-              className="w-10 h-10 flex items-center justify-center text-emerald-400 active:bg-gray-800/80 border-b border-white/10 transition"
+              className="w-10 h-10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 active:bg-slate-100 dark:active:bg-gray-800/80 border-b border-slate-200/80 dark:border-white/10 transition"
               title="GPS 实时设备定位"
             >
               <Navigation className="w-4 h-4" />
@@ -320,7 +320,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
 
           <button
             onClick={onZoomIn}
-            className="w-10 h-10 flex items-center justify-center text-gray-200 active:bg-gray-800/80 border-b border-white/10 transition"
+            className="w-10 h-10 flex items-center justify-center text-slate-700 dark:text-gray-200 active:bg-slate-100 dark:active:bg-gray-800/80 border-b border-slate-200/80 dark:border-white/10 transition"
             title="放大"
           >
             <Plus className="w-4 h-4" />
@@ -328,8 +328,8 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
 
           <button
             onClick={onZoomOut}
-            className={`w-10 h-10 flex items-center justify-center text-gray-200 active:bg-gray-800/80 transition ${
-              onOpenClearFeatures ? 'border-b border-white/10' : ''
+            className={`w-10 h-10 flex items-center justify-center text-slate-700 dark:text-gray-200 active:bg-slate-100 dark:active:bg-gray-800/80 transition ${
+              onOpenClearFeatures ? 'border-b border-slate-200/80 dark:border-white/10' : ''
             }`}
             title="缩小"
           >
@@ -340,7 +340,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
           {onOpenClearFeatures && (
             <button
               onClick={onOpenClearFeatures}
-              className="w-10 h-10 flex items-center justify-center text-red-400 hover:text-red-300 active:bg-red-950/40 transition"
+              className="w-10 h-10 flex items-center justify-center text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 active:bg-red-50 dark:active:bg-red-950/40 transition"
               title="清空地图要素 (Clear Features)"
             >
               <Trash2 className="w-4 h-4" />

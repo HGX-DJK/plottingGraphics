@@ -12,8 +12,23 @@
     <!-- MapTalks GL 官方 CDN 引入 (通过 link 与 script 方式) -->
     <link rel="stylesheet" href="https://maptalks.com/api/maptalks-gl.css" />
     <script type="text/javascript" src="https://maptalks.com/api/maptalks-gl.js"></script>
+    <script>
+      try {
+        var t = localStorage.getItem('geoplot_studio_theme_mode');
+        if (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+          t = 'light';
+        }
+        if (t === 'light') {
+          document.documentElement.classList.add('light');
+          document.documentElement.classList.remove('dark');
+        } else {
+          document.documentElement.classList.add('dark');
+          document.documentElement.classList.remove('light');
+        }
+      } catch (e) {}
+    </script>
   </head>
-  <body class="bg-gray-950 text-gray-100 overflow-hidden select-none touch-manipulation">
+  <body class="bg-slate-50 dark:bg-gray-950 text-slate-800 dark:text-gray-100 overflow-hidden select-none touch-manipulation transition-colors duration-200">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

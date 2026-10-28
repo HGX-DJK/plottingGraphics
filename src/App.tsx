@@ -18,9 +18,24 @@ import { ImportExportModal } from './components/Modals/ImportExportModal';
 import { ClearFeaturesModal } from './components/Modals/ClearFeaturesModal';
 import { Smartphone, Monitor, Compass, Copy } from 'lucide-react';
 import { CoordinateFormat, formatCoordinates } from './utils/geoUtils';
+import { ThemeMode, themeService } from './services/themeService';
 
 export const App: React.FC = () => {
   const mapRef = useRef<MaptalksContainerRef>(null);
+
+  // 0. 全局明暗风格主题管理 (支持在登录页、顶部胶囊与控制中心即时切换)
+  const [theme, setTheme] = useState<ThemeMode>(() => themeService.initTheme());
+
+  const handleToggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    themeService.setTheme(next);
+  };
+
+  const handleSelectTheme = (newTheme: ThemeMode) => {
+    setTheme(newTheme);
+    themeService.setTheme(newTheme);
+  };
 
   // 1. 用户会话管理 (免后端模拟认证)
   const [currentUser, setCurrentUser] = useState<User | null>(() => authService.getCurrentUser());
@@ -258,58 +273,68 @@ export const App: React.FC = () => {
   const activeLayer = layers.find((l) => l.id === activeLayerId) || layers[0];
   const selectedFeature = features.find((f) => f.id === selectedFeatureId) || null;
 
-  // 未登录时展示移动端登录 (支持真机外框仿真与全屏自适应)
+  // 未登录时展示移动端登录 (支持真机外框仿真与全屏自适应，双色实时自适应)
   if (!currentUser) {
     if (deviceFrameMode) {
       return (
-        <div className="w-screen h-screen bg-gray-950 flex flex-col items-center justify-center overflow-hidden">
-          <div className="fixed top-2 right-2 z-50 hidden md:flex items-center gap-2 px-3 py-1 bg-gray-900/80 backdrop-blur-md border border-gray-800 rounded-full text-[11px] text-gray-400">
+        <div className="w-screen h-screen bg-slate-200 dark:bg-gray-950 flex flex-col items-center justify-center overflow-hidden transition-colors duration-200">
+          <div className="fixed top-2 right-2 z-50 hidden md:flex items-center gap-2 px-3 py-1 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border border-slate-300 dark:border-gray-800 rounded-full text-[11px] text-slate-700 dark:text-gray-400">
             <button
               onClick={() => setDeviceFrameMode(false)}
-              className="flex items-center gap-1 hover:text-white transition"
+              className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-white transition"
               title="切换为全屏铺满模式"
             >
-              <Monitor className="w-3.5 h-3.5 text-blue-400" />
+              <Monitor className="w-3.5 h-3.5 text-blue-500" />
               <span>铺满移动屏</span>
             </button>
           </div>
-          <div className="relative w-[390px] h-[844px] max-h-[96vh] rounded-[48px] border-[10px] border-gray-800 bg-gray-950 shadow-2xl shadow-blue-950/30 overflow-hidden flex flex-col ring-1 ring-white/10">
+          <div className="relative w-[390px] h-[844px] max-h-[96vh] rounded-[48px] border-[10px] border-slate-800 dark:border-gray-800 bg-slate-100 dark:bg-gray-950 shadow-2xl shadow-blue-950/30 overflow-hidden flex flex-col ring-1 ring-black/10 dark:ring-white/10">
             <div className="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-6 bg-black rounded-full z-40 flex items-center justify-center">
               <div className="w-2.5 h-2.5 rounded-full bg-gray-900 border border-gray-800 mr-2" />
               <div className="w-2 h-2 rounded-full bg-blue-900/60" />
             </div>
-            <MobileLoginView onLoginSuccess={handleLoginSuccess} />
+            <MobileLoginView
+              onLoginSuccess={handleLoginSuccess}
+              theme={theme}
+              onToggleTheme={handleToggleTheme}
+            />
             <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-32 h-1 bg-gray-600 rounded-full z-40" />
           </div>
         </div>
       );
     }
     return (
-      <div className="w-screen h-screen bg-gray-950 flex flex-col items-center justify-center overflow-hidden relative">
-        <div className="fixed top-2 right-2 z-50 hidden md:flex items-center gap-2 px-3 py-1 bg-gray-900/80 backdrop-blur-md border border-gray-800 rounded-full text-[11px] text-gray-400">
+      <div className="w-screen h-screen bg-slate-100 dark:bg-gray-950 flex flex-col items-center justify-center overflow-hidden relative transition-colors duration-200">
+        <div className="fixed top-2 right-2 z-50 hidden md:flex items-center gap-2 px-3 py-1 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border border-slate-300 dark:border-gray-800 rounded-full text-[11px] text-slate-700 dark:text-gray-400">
           <button
             onClick={() => setDeviceFrameMode(true)}
-            className="flex items-center gap-1 hover:text-white transition"
+            className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-white transition"
             title="切换为手机真机外框预览"
           >
-            <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
+            <Smartphone className="w-3.5 h-3.5 text-cyan-500" />
             <span>手机真机外框预览</span>
           </button>
         </div>
-        <MobileLoginView onLoginSuccess={handleLoginSuccess} />
+        <MobileLoginView
+          onLoginSuccess={handleLoginSuccess}
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
+        />
       </div>
     );
   }
 
   // 移动端主界面容器渲染
   const renderMobileAppContent = () => (
-    <div className="relative w-full h-full flex flex-col bg-gray-950 overflow-hidden select-none">
-      {/* 1. 移动端顶部状态与标题栏 (灵动胶囊风格，宽敞无挤压) */}
+    <div className="relative w-full h-full flex flex-col bg-slate-100 dark:bg-gray-950 overflow-hidden select-none transition-colors duration-200">
+      {/* 1. 移动端顶部状态与标题栏 (灵动胶囊风格，包含快速主题切换与图层概览) */}
       <MobileHeader
         currentUser={currentUser}
         activeLayer={activeLayer}
         onOpenLayers={() => setActiveTab('layers')}
         onOpenMore={() => setActiveTab('more')}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
       />
 
       {/* 标绘与操作反馈 Toast */}
@@ -518,6 +543,8 @@ export const App: React.FC = () => {
         onOpenImportExport={() => setIsImportExportModalOpen(true)}
         onResetDemo={handleResetDemo}
         onLogout={handleLogout}
+        theme={theme}
+        onSelectTheme={handleSelectTheme}
       />
 
       {/* 新建图层弹窗 */}

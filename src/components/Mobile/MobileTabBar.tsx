@@ -27,18 +27,18 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
   isDrawing,
 }) => {
   return (
-    <nav className="absolute bottom-0 left-0 right-0 z-30 bg-gray-950/90 backdrop-blur-lg border-t border-gray-800/80 safe-bottom select-none">
+    <nav className="absolute bottom-0 left-0 right-0 z-30 bg-white/90 dark:bg-gray-950/90 backdrop-blur-lg border-t border-slate-200/80 dark:border-gray-800/80 safe-bottom select-none transition-colors duration-200">
       <div className="h-14 px-2 flex items-center justify-around">
         {/* 1. 图层管理 */}
         <button
           onClick={() => onSelectTab(activeTab === 'layers' ? null : 'layers')}
           className={`flex-1 flex flex-col items-center justify-center py-1 transition relative ${
-            activeTab === 'layers' ? 'text-blue-400 font-bold' : 'text-gray-400'
+            activeTab === 'layers' ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-500 dark:text-gray-400'
           }`}
         >
           <div className="relative">
             <Layers className="w-5 h-5" />
-            <span className="absolute -top-1 -right-2 text-[9px] px-1 py-0 rounded-full bg-gray-800 text-gray-300 font-mono">
+            <span className="absolute -top-1 -right-2 text-[9px] px-1 py-0 rounded-full bg-slate-200 dark:bg-gray-800 text-slate-700 dark:text-gray-300 font-mono">
               {layersCount}
             </span>
           </div>
@@ -64,10 +64,10 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
           <span
             className={`text-[10px] mt-1 font-medium ${
               isDrawing
-                ? 'text-amber-400 font-bold'
+                ? 'text-amber-500 dark:text-amber-400 font-bold'
                 : activeTab === 'plot'
-                ? 'text-blue-400'
-                : 'text-gray-300'
+                ? 'text-blue-600 dark:text-blue-400 font-bold'
+                : 'text-slate-600 dark:text-gray-300'
             }`}
           >
             {isDrawing ? '标绘中' : '标绘'}
@@ -78,12 +78,12 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
         <button
           onClick={() => onSelectTab(activeTab === 'features' ? null : 'features')}
           className={`flex-1 flex flex-col items-center justify-center py-1 transition relative ${
-            activeTab === 'features' ? 'text-blue-400 font-bold' : 'text-gray-400'
+            activeTab === 'features' ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-500 dark:text-gray-400'
           }`}
         >
           <div className="relative">
             <ListFilter className="w-5 h-5" />
-            <span className="absolute -top-1 -right-2 text-[9px] px-1 py-0 rounded-full bg-gray-800 text-gray-300 font-mono">
+            <span className="absolute -top-1 -right-2 text-[9px] px-1 py-0 rounded-full bg-slate-200 dark:bg-gray-800 text-slate-700 dark:text-gray-300 font-mono">
               {featuresCount}
             </span>
           </div>
@@ -100,10 +100,10 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
           disabled={!hasSelectedFeature}
           className={`flex-1 flex flex-col items-center justify-center py-1 transition relative ${
             !hasSelectedFeature
-              ? 'opacity-30 cursor-not-allowed text-gray-600'
+              ? 'opacity-30 cursor-not-allowed text-slate-400 dark:text-gray-600'
               : activeTab === 'properties'
-              ? 'text-blue-400 font-bold'
-              : 'text-amber-400'
+              ? 'text-blue-600 dark:text-blue-400 font-bold'
+              : 'text-amber-600 dark:text-amber-400'
           }`}
         >
           <div className="relative">
@@ -119,7 +119,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
         <button
           onClick={() => onSelectTab(activeTab === 'more' ? null : 'more')}
           className={`flex-1 flex flex-col items-center justify-center py-1 transition ${
-            activeTab === 'more' ? 'text-blue-400 font-bold' : 'text-gray-400'
+            activeTab === 'more' ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-500 dark:text-gray-400'
           }`}
         >
           <MoreHorizontal className="w-5 h-5" />

@@ -110,14 +110,14 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
     <>
       {/* 顶部标绘状态指示条 (仅在标绘或量算交互模式时显示) */}
       {drawingTool && (
-        <div className="absolute top-14 left-3 right-3 z-30 flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-gray-900/95 backdrop-blur-md border border-blue-500/50 shadow-2xl animate-in slide-in-from-top-4 duration-200">
+        <div className="absolute top-14 left-3 right-3 z-30 flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border border-blue-500/50 shadow-2xl animate-in slide-in-from-top-4 duration-200">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-ping shrink-0" />
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-500 dark:bg-blue-400 animate-ping shrink-0" />
             <div className="min-w-0">
-              <div className="text-xs font-bold text-blue-300 truncate">
+              <div className="text-xs font-bold text-blue-600 dark:text-blue-300 truncate">
                 {getToolDisplayName(drawingTool)}
               </div>
-              <div className="text-[10px] text-gray-300 truncate">
+              <div className="text-[10px] text-slate-600 dark:text-gray-300 truncate">
                 {getRequiredPointsText(drawingTool, drawingPointsCount)}
               </div>
             </div>
@@ -129,12 +129,12 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
                 onClick={onToggleSnapping}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold transition ${
                   enableSnapping
-                    ? 'bg-cyan-600/30 text-cyan-300 border border-cyan-500/50'
-                    : 'bg-gray-800/80 text-gray-400 border border-gray-700/60'
+                    ? 'bg-cyan-50 dark:bg-cyan-600/30 text-cyan-700 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-500/50'
+                    : 'bg-slate-100 dark:bg-gray-800/80 text-slate-500 dark:text-gray-400 border border-slate-200 dark:border-gray-700/60'
                 }`}
                 title="智能顶点磁吸吸附"
               >
-                <Magnet className={`w-3.5 h-3.5 ${enableSnapping ? 'text-cyan-400' : 'text-gray-500'}`} />
+                <Magnet className={`w-3.5 h-3.5 ${enableSnapping ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400 dark:text-gray-500'}`} />
                 <span>吸附{enableSnapping ? '开' : '关'}</span>
               </button>
             )}
@@ -142,7 +142,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
             {drawingPointsCount > 0 && onUndoPoint && (
               <button
                 onClick={onUndoPoint}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-gray-800 text-gray-300 active:bg-gray-700 text-xs font-medium transition"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-300 active:bg-slate-200 dark:active:bg-gray-700 text-xs font-medium transition"
               >
                 <Undo2 className="w-3.5 h-3.5" />
                 <span>撤回</span>
@@ -161,7 +161,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
 
             <button
               onClick={onCancelDrawing}
-              className="p-1.5 rounded-xl bg-gray-800 text-gray-400 hover:text-white transition"
+              className="p-1.5 rounded-xl bg-slate-100 dark:bg-gray-800 text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white transition"
               title="退出标绘"
             >
               <X className="w-4 h-4" />
@@ -172,28 +172,28 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
 
       {/* 拓扑规范警示提示条 */}
       {drawingTool && topologyWarning && (
-        <div className="absolute top-28 left-3 right-3 z-30 flex items-center gap-2 p-2.5 rounded-xl bg-red-950/95 border border-red-500/60 text-red-200 text-xs font-semibold backdrop-blur-md shadow-2xl animate-in slide-in-from-top-2 duration-200">
-          <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 animate-pulse" />
+        <div className="absolute top-28 left-3 right-3 z-30 flex items-center gap-2 p-2.5 rounded-xl bg-red-50 dark:bg-red-950/95 border border-red-300 dark:border-red-500/60 text-red-700 dark:text-red-200 text-xs font-semibold backdrop-blur-md shadow-2xl animate-in slide-in-from-top-2 duration-200">
+          <AlertTriangle className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0 animate-pulse" />
           <span className="truncate">{topologyWarning}</span>
         </div>
       )}
 
       {/* 底部显眼完成控制条 (触屏单手交互优化，免除双击与盲点) */}
       {drawingTool && (
-        <div className="absolute bottom-20 left-3 right-3 z-30 flex items-center justify-between gap-2.5 p-3 rounded-2xl bg-gray-950/95 backdrop-blur-xl border border-blue-500/50 shadow-2xl animate-in slide-in-from-bottom-4 duration-200">
+        <div className="absolute bottom-20 left-3 right-3 z-30 flex items-center justify-between gap-2.5 p-3 rounded-2xl bg-white/95 dark:bg-gray-950/95 backdrop-blur-xl border border-blue-500/40 dark:border-blue-500/50 shadow-2xl animate-in slide-in-from-bottom-4 duration-200">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center shrink-0">
-              <span className="text-xs font-black text-blue-400 font-mono">
+            <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-600/20 border border-blue-200 dark:border-blue-500/40 flex items-center justify-center shrink-0">
+              <span className="text-xs font-black text-blue-600 dark:text-blue-400 font-mono">
                 {drawingPointsCount}
               </span>
             </div>
             <div className="min-w-0">
-              <div className="text-xs font-bold text-gray-100 truncate">
+              <div className="text-xs font-bold text-slate-800 dark:text-gray-100 truncate">
                 {getToolDisplayName(drawingTool)}
               </div>
-              <div className="text-[10px] text-gray-400 truncate mt-0.5">
+              <div className="text-[10px] text-slate-500 dark:text-gray-400 truncate mt-0.5">
                 {activeSegment ? (
-                  <span className="text-cyan-300 font-mono font-medium">
+                  <span className="text-cyan-600 dark:text-cyan-300 font-mono font-medium">
                     当前边: {formatDistance(activeSegment.length)} | 方位角: {activeSegment.azimuth.text}
                   </span>
                 ) : canFinish ? (
@@ -209,7 +209,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
             {drawingPointsCount > 0 && onUndoPoint && (
               <button
                 onClick={onUndoPoint}
-                className="flex items-center gap-1 px-3 py-2 rounded-xl bg-gray-800 text-gray-200 active:bg-gray-700 text-xs font-semibold border border-gray-700 transition"
+                className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-200 active:bg-slate-200 dark:active:bg-gray-700 text-xs font-semibold border border-slate-200 dark:border-gray-700 transition"
               >
                 <Undo2 className="w-3.5 h-3.5" />
                 <span>撤回</span>
@@ -227,7 +227,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
             ) : (
               <button
                 onClick={onCancelDrawing}
-                className="flex items-center gap-1 px-3 py-2 rounded-xl bg-gray-800/80 text-gray-400 active:text-white text-xs font-medium transition"
+                className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 dark:bg-gray-800/80 text-slate-500 active:text-slate-800 dark:text-gray-400 dark:active:text-white text-xs font-medium transition"
               >
                 <X className="w-3.5 h-3.5" />
                 <span>取消</span>

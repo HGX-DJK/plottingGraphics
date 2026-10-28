@@ -95,7 +95,7 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
   };
 
   return (
-    <div className="absolute bottom-[66px] left-3 right-3 z-30 pointer-events-auto bg-slate-950/95 backdrop-blur-2xl border border-blue-500/50 rounded-2xl p-3 shadow-2xl animate-in slide-in-from-bottom-3 duration-200 ring-1 ring-blue-500/20">
+    <div className="absolute bottom-[66px] left-3 right-3 z-30 pointer-events-auto bg-white/95 dark:bg-slate-950/95 backdrop-blur-2xl border border-blue-400/50 dark:border-blue-500/50 rounded-2xl p-3 shadow-2xl animate-in slide-in-from-bottom-3 duration-200 ring-1 ring-black/5 dark:ring-blue-500/20 text-slate-800 dark:text-gray-100 transition-colors duration-200">
       <div className="flex items-center justify-between gap-2.5">
         {/* 左侧：要素标识与图层信息 */}
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -116,13 +116,13 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
                 className="w-2 h-2 rounded-full shrink-0"
                 style={{ backgroundColor: layer?.color || '#3b82f6' }}
               />
-              <span className="text-xs font-black text-gray-100 truncate">
+              <span className="text-xs font-black text-slate-900 dark:text-gray-100 truncate">
                 {feature.name}
               </span>
             </div>
 
             <div className="flex items-center gap-2 mt-1 truncate">
-              <span className="text-[10px] text-gray-400">
+              <span className="text-[10px] text-slate-500 dark:text-gray-400">
                 {layer?.name || '默认图层'}
               </span>
               {renderSpatialMetrics()}
@@ -135,7 +135,7 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
           {/* 居中聚焦 */}
           <button
             onClick={onFocus}
-            className="p-2 rounded-xl bg-gray-900 border border-gray-800 text-blue-400 active:bg-gray-800 transition shadow-sm"
+            className="p-2 rounded-xl bg-slate-100 dark:bg-gray-900 border border-slate-200 dark:border-gray-800 text-blue-600 dark:text-blue-400 active:bg-slate-200 dark:active:bg-gray-800 transition shadow-sm"
             title="地图聚焦"
           >
             <Crosshair className="w-4 h-4" />
@@ -154,7 +154,7 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
           {/* 快捷删除 */}
           <button
             onClick={() => setShowDeleteConfirm(true)}
-            className="p-2 rounded-xl bg-red-950/40 border border-red-900/40 text-red-400 active:bg-red-900/40 transition"
+            className="p-2 rounded-xl bg-rose-50 dark:bg-red-950/40 border border-rose-200 dark:border-red-900/40 text-rose-600 dark:text-red-400 active:bg-rose-100 dark:active:bg-red-900/40 transition"
             title="删除"
           >
             <Trash2 className="w-4 h-4" />
@@ -163,7 +163,7 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
           {/* 关闭快显卡片 */}
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white active:bg-gray-800 transition"
+            className="p-1.5 rounded-lg text-slate-400 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white active:bg-slate-100 dark:active:bg-gray-800 transition"
             title="关闭"
           >
             <X className="w-4 h-4" />

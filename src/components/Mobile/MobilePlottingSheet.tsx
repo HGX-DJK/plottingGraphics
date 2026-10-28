@@ -192,11 +192,11 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
     >
       <div className="space-y-4">
         {/* 标绘目标图层选择栏 (新建要素将严格保存至选定图层) */}
-        <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800/80 space-y-2">
+        <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/80 space-y-2 transition-colors duration-200">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-400 font-medium text-[11px]">新建要素将保存至目标图层:</span>
+            <span className="text-slate-500 dark:text-slate-400 font-medium text-[11px]">新建要素将保存至目标图层:</span>
             {layers && layers.length > 1 && (
-              <span className="text-[11px] text-blue-400 font-medium">轻触可即时切换</span>
+              <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">轻触可即时切换</span>
             )}
           </div>
 
@@ -211,11 +211,11 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs shrink-0 transition-all ${
                       isSelected
                         ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/30 ring-1 ring-blue-400'
-                        : 'bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800'
+                        : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-slate-300'
                     }`}
                   >
                     <span
-                      className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-white/20"
+                      className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-black/10 dark:ring-white/20"
                       style={{ backgroundColor: layer.color }}
                     />
                     <span className="truncate max-w-[120px]">{layer.name}</span>
@@ -227,10 +227,10 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
           ) : (
             <div className="flex items-center gap-2">
               <span
-                className="w-2.5 h-2.5 rounded-full ring-1 ring-white/20"
+                className="w-2.5 h-2.5 rounded-full ring-1 ring-black/10 dark:ring-white/20"
                 style={{ backgroundColor: activeLayerColor }}
               />
-              <span className="font-semibold text-white truncate text-xs">
+              <span className="font-semibold text-slate-900 dark:text-white truncate text-xs">
                 {activeLayerName}
               </span>
             </div>
@@ -238,13 +238,13 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
         </div>
 
         {/* GIS 分类切换栏 */}
-        <div className="flex p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs">
+        <div className="flex p-1 bg-slate-100 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 text-xs transition-colors duration-200">
           <button
             onClick={() => setActiveCategory('shapes')}
             className={`flex-1 py-1.5 rounded-lg font-medium transition ${
               activeCategory === 'shapes'
-                ? 'bg-blue-600 text-white shadow font-bold'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow font-bold'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
             基础空间几何
@@ -253,8 +253,8 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
             onClick={() => setActiveCategory('points')}
             className={`flex-1 py-1.5 rounded-lg font-medium transition ${
               activeCategory === 'points'
-                ? 'bg-blue-600 text-white shadow font-bold'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow font-bold'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
             专题调查点位
@@ -263,8 +263,8 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
             onClick={() => setActiveCategory('arrows')}
             className={`flex-1 py-1.5 rounded-lg font-medium transition ${
               activeCategory === 'arrows'
-                ? 'bg-blue-600 text-white shadow font-bold'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow font-bold'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
             规划方向与态势
@@ -283,21 +283,21 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
                   onClick={() => handlePick(item.type)}
                   className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition-all ${
                     isSelected
-                      ? 'border-blue-500 bg-blue-500/15 ring-2 ring-blue-500'
-                      : 'border-gray-800 bg-gray-950/70 active:bg-gray-800/60'
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/15 ring-2 ring-blue-500'
+                      : 'border-slate-200 dark:border-gray-800 bg-white dark:bg-gray-950/70 active:bg-slate-100 dark:active:bg-gray-800/60'
                   }`}
                 >
                   <div className="flex items-center justify-between w-full mb-2">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center border border-gray-800 bg-gray-900 text-blue-400">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center border border-slate-200 dark:border-gray-800 bg-slate-50 dark:bg-gray-900 text-blue-600 dark:text-blue-400">
                       <Icon className="w-5 h-5" />
                     </div>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-mono">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-gray-800 text-slate-600 dark:text-gray-400 font-mono">
                       {item.badge}
                     </span>
                   </div>
                   <div>
-                    <div className="text-xs font-bold text-gray-100">{item.name}</div>
-                    <div className="text-[10px] text-gray-400 mt-0.5 truncate">
+                    <div className="text-xs font-bold text-slate-900 dark:text-gray-100">{item.name}</div>
+                    <div className="text-[10px] text-slate-500 dark:text-gray-400 mt-0.5 truncate">
                       {item.desc}
                     </div>
                   </div>
@@ -315,8 +315,8 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
                   onClick={() => handlePick(item.type)}
                   className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition-all ${
                     isSelected
-                      ? 'border-amber-500 bg-amber-500/15 ring-2 ring-amber-500'
-                      : 'border-gray-800 bg-gray-950/70 active:bg-gray-800/60'
+                      ? 'border-amber-500 bg-amber-50 dark:bg-amber-500/15 ring-2 ring-amber-500'
+                      : 'border-slate-200 dark:border-gray-800 bg-white dark:bg-gray-950/70 active:bg-slate-100 dark:active:bg-gray-800/60'
                   }`}
                 >
                   <div
@@ -325,8 +325,8 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
                     <Icon className="w-5 h-5" />
                   </div>
                   <div>
-                    <div className="text-xs font-bold text-gray-100">{item.name}</div>
-                    <div className="text-[10px] text-gray-400 mt-0.5 truncate">
+                    <div className="text-xs font-bold text-slate-900 dark:text-gray-100">{item.name}</div>
+                    <div className="text-[10px] text-slate-500 dark:text-gray-400 mt-0.5 truncate">
                       {item.desc}
                     </div>
                   </div>
@@ -344,8 +344,8 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
                   onClick={() => handlePick(item.type)}
                   className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition-all ${
                     isSelected
-                      ? 'border-cyan-500 bg-cyan-500/15 ring-2 ring-cyan-500'
-                      : 'border-gray-800 bg-gray-950/70 active:bg-gray-800/60'
+                      ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-500/15 ring-2 ring-cyan-500'
+                      : 'border-slate-200 dark:border-gray-800 bg-white dark:bg-gray-950/70 active:bg-slate-100 dark:active:bg-gray-800/60'
                   }`}
                 >
                   <div
@@ -354,8 +354,8 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
                     <Icon className="w-5 h-5" />
                   </div>
                   <div>
-                    <div className="text-xs font-bold text-gray-100">{item.name}</div>
-                    <div className="text-[10px] text-gray-400 mt-0.5 truncate">
+                    <div className="text-xs font-bold text-slate-900 dark:text-gray-100">{item.name}</div>
+                    <div className="text-[10px] text-slate-500 dark:text-gray-400 mt-0.5 truncate">
                       {item.desc}
                     </div>
                   </div>

@@ -1247,15 +1247,15 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       <div className="relative w-full h-full flex-1 overflow-hidden">
         {/* 脚本加载等待遮罩 */}
         {!maptalksReady && (
-          <div className="absolute inset-0 z-40 bg-gray-950 flex flex-col items-center justify-center gap-3 text-gray-300">
+          <div className="absolute inset-0 z-40 bg-slate-100 dark:bg-gray-950 flex flex-col items-center justify-center gap-3 text-slate-700 dark:text-gray-300">
             <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
             <div className="text-xs font-medium">正在加载 MapTalks GL 移动端引擎...</div>
-            <div className="text-[10px] text-gray-500 font-mono">https://maptalks.com/api/maptalks-gl.js</div>
+            <div className="text-[10px] text-slate-400 dark:text-gray-500 font-mono">https://maptalks.com/api/maptalks-gl.js</div>
           </div>
         )}
 
         {/* MapTalks 挂载容器 */}
-        <div ref={mapContainerRef} className="w-full h-full bg-gray-950" />
+        <div ref={mapContainerRef} className="w-full h-full bg-slate-100 dark:bg-gray-950" />
       </div>
     );
   }

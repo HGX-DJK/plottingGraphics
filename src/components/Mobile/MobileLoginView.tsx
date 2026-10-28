@@ -101,68 +101,19 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
 
       {/* 主体居中登录卡片容器 */}
       <div className="max-w-sm w-full mx-auto my-auto flex flex-col justify-center gap-4 sm:gap-5 z-10 py-1">
-        {/* 1. 顶部品牌徽标与系统标题 */}
+        {/* 1. 顶部品牌与系统标题 (已移除顶部多余图标，界面更加纯粹大气) */}
         <div className="text-center flex flex-col items-center">
-          <div className="relative mb-3 group">
-            {/* 辉光底衬 */}
-            <div className="absolute -inset-2 rounded-[28px] bg-gradient-to-tr from-blue-500/30 via-cyan-400/25 to-indigo-500/30 blur-lg opacity-70 group-hover:opacity-100 transition-opacity" />
-
-            {/* 极简精致 3D 空间罗盘徽标 */}
-            <div className="relative w-16 h-16 rounded-[22px] bg-gradient-to-b from-white via-slate-50 to-blue-50/80 dark:from-slate-850 dark:via-slate-900 dark:to-blue-950 p-[1.5px] shadow-xl shadow-blue-500/10 dark:shadow-blue-950/80 ring-1 ring-slate-900/10 dark:ring-white/20 overflow-hidden flex items-center justify-center">
-              {/* 表面玻璃微反光 */}
-              <div className="absolute top-0 left-0 right-0 h-[45%] bg-gradient-to-b from-white/40 dark:from-white/15 to-transparent rounded-t-[22px] pointer-events-none" />
-
-              {/* 空间多边形与动态罗盘 SVG */}
-              <svg
-                className="relative w-10 h-10 drop-shadow-sm"
-                viewBox="0 0 64 64"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <defs>
-                  <linearGradient id="northGrad" x1="32" y1="12" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-                    <stop stopColor="#38bdf8" />
-                    <stop offset="1" stopColor="#0284c7" />
-                  </linearGradient>
-                  <linearGradient id="southGrad" x1="32" y1="32" x2="32" y2="52" gradientUnits="userSpaceOnUse">
-                    <stop stopColor="#94a3b8" />
-                    <stop offset="1" stopColor="#475569" />
-                  </linearGradient>
-                </defs>
-
-                {/* 外圈微刻度轨道 */}
-                <circle cx="32" cy="32" r="22" stroke="#0284c7" strokeWidth="1.2" strokeDasharray="3 3" strokeOpacity="0.45" />
-                <circle cx="32" cy="32" r="17" stroke="#38bdf8" strokeWidth="0.8" strokeOpacity="0.3" />
-
-                {/* 标绘空间几何菱形底纹 */}
-                <polygon points="32,16 48,32 32,48 16,32" fill="#38bdf8" fillOpacity="0.08" stroke="#0284c7" strokeWidth="0.8" strokeOpacity="0.3" />
-
-                {/* 北向指针 (高亮蓝/青) */}
-                <polygon points="32,12 37,32 32,29.5" fill="#7dd3fc" />
-                <polygon points="32,12 27,32 32,29.5" fill="url(#northGrad)" />
-
-                {/* 南向指针 (金属灰) */}
-                <polygon points="32,52 37,32 32,29.5" fill="#cbd5e1" />
-                <polygon points="32,52 27,32 32,29.5" fill="url(#southGrad)" />
-
-                {/* 中心轴承点 */}
-                <circle cx="32" cy="31" r="3" fill="#0f172a" stroke="#38bdf8" strokeWidth="1.2" />
-                <circle cx="32" cy="31" r="1.2" fill="#38bdf8" />
-              </svg>
-            </div>
-          </div>
-
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 mb-1">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 mb-2">
             <Sparkles className="w-3 h-3 text-blue-600 dark:text-cyan-400" />
             <span className="text-[10px] font-bold text-blue-700 dark:text-cyan-300 tracking-wider font-mono">
               GEOPLOT STUDIO
             </span>
           </div>
 
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
             移动外业标绘系统
           </h1>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             空间地理协同采集与现场态势推演平台
           </p>
         </div>

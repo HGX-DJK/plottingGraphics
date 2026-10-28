@@ -30,11 +30,22 @@ export const App: React.FC = () => {
     const next = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
     themeService.setTheme(next);
+    // 浅色模式下底图同步切换为清新街道高对比底图；暗色模式下同步切换为极夜科技底图
+    if (next === 'light' && basemap === 'dark') {
+      setBasemap('street');
+    } else if (next === 'dark' && basemap === 'street') {
+      setBasemap('dark');
+    }
   };
 
   const handleSelectTheme = (newTheme: ThemeMode) => {
     setTheme(newTheme);
     themeService.setTheme(newTheme);
+    if (newTheme === 'light' && basemap === 'dark') {
+      setBasemap('street');
+    } else if (newTheme === 'dark' && basemap === 'street') {
+      setBasemap('dark');
+    }
   };
 
   // 1. 用户会话管理 (免后端模拟认证)
@@ -52,7 +63,7 @@ export const App: React.FC = () => {
   const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
   const [drawingTool, setDrawingTool] = useState<PlotFeatureType | 'measure-distance' | 'measure-area' | null>(null);
   const [drawingPointsCount, setDrawingPointsCount] = useState<number>(0);
-  const [basemap, setBasemap] = useState<BasemapType>('dark');
+  const [basemap, setBasemap] = useState<BasemapType>(() => themeService.getTheme() === 'light' ? 'street' : 'dark');
   const [cursorCoords, setCursorCoords] = useState<[number, number]>(DEFAULT_MAP_CENTER);
   const [zoomLevel, setZoomLevel] = useState<number>(DEFAULT_MAP_ZOOM);
   const [coordinateFormat, setCoordinateFormat] = useState<CoordinateFormat>('DD');
@@ -339,8 +350,8 @@ export const App: React.FC = () => {
 
       {/* 标绘与操作反馈 Toast */}
       {toastMessage && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-gray-900/95 border border-emerald-500/60 shadow-2xl text-emerald-300 text-xs font-bold flex items-center gap-2 backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200 pointer-events-none">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-white/95 dark:bg-gray-900/95 border border-emerald-500/50 shadow-2xl text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-2 backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200 pointer-events-none">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
@@ -375,27 +386,27 @@ export const App: React.FC = () => {
           }}
         />
 
-        {/* 底部左侧：空间经纬度与比例尺沉浸式徽章 (专业GIS底栏布局，当未选中要素时呈现，要素快览卡片弹出时智能隐藏，彻底杜绝重叠遮挡) */}
+        {/* 底部左侧：空间经纬度与比例尺沉浸式徽章 (专业GIS底栏布局，明暗自适应) */}
         {!drawingTool && !selectedFeature && (
           <div
             onClick={handleCycleCoordinateFormat}
-            className="absolute bottom-[68px] left-3 z-10 pointer-events-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-gray-950/90 backdrop-blur-md border border-white/10 shadow-lg text-gray-300 font-mono text-[10px] active:scale-95 transition cursor-pointer select-none max-w-[calc(100%-60px)]"
+            className="absolute bottom-[68px] left-3 z-10 pointer-events-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white/90 dark:bg-gray-950/90 backdrop-blur-md border border-slate-200/90 dark:border-white/10 shadow-lg text-slate-700 dark:text-gray-300 font-mono text-[10px] active:scale-95 transition cursor-pointer select-none max-w-[calc(100%-60px)]"
             title="点击切换坐标系统 (DD / DMS / EPSG:3857)"
           >
-            <Compass className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+            <Compass className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 shrink-0" />
             <div className="flex items-center gap-1.5 truncate">
-              <span className="font-medium text-gray-200 truncate">
+              <span className="font-semibold text-slate-800 dark:text-gray-200 truncate">
                 {formatCoordinates(cursorCoords, coordinateFormat, 4)}
               </span>
-              <span className="text-gray-600 shrink-0">|</span>
-              <span className="text-blue-300 font-bold shrink-0">Z{zoomLevel.toFixed(1)}</span>
-              <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[9px] font-bold shrink-0">
+              <span className="text-slate-300 dark:text-gray-600 shrink-0">|</span>
+              <span className="text-blue-600 dark:text-blue-300 font-bold shrink-0">Z{zoomLevel.toFixed(1)}</span>
+              <span className="px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-600 dark:text-blue-400 text-[9px] font-bold shrink-0">
                 {coordinateFormat === 'DD' ? 'WGS84' : coordinateFormat === 'DMS' ? '度分秒' : '3857米'}
               </span>
             </div>
             <button
               onClick={handleCopyCoordinates}
-              className="p-1 rounded-full text-gray-400 hover:text-white hover:bg-gray-800 transition shrink-0 ml-0.5"
+              className="p-1 rounded-full text-slate-400 dark:text-gray-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800 transition shrink-0 ml-0.5"
               title="一键复制高精坐标至剪贴板"
             >
               <Copy className="w-3 h-3" />
@@ -580,22 +591,22 @@ export const App: React.FC = () => {
   );
 
   return (
-    <div className="w-screen h-screen bg-gray-950 flex flex-col items-center justify-center overflow-hidden">
+    <div className="w-screen h-screen bg-slate-200 dark:bg-gray-950 flex flex-col items-center justify-center overflow-hidden transition-colors duration-200">
       {/* 顶部微小模式切换器 (方便在电脑端开发和真机调试) */}
-      <div className="fixed top-2 right-2 z-50 hidden md:flex items-center gap-2 px-3 py-1 bg-gray-900/80 backdrop-blur-md border border-gray-800 rounded-full text-[11px] text-gray-400">
+      <div className="fixed top-2 right-2 z-50 hidden md:flex items-center gap-2 px-3 py-1 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border border-slate-300 dark:border-gray-800 rounded-full text-[11px] text-slate-700 dark:text-gray-400">
         <button
           onClick={() => setDeviceFrameMode(!deviceFrameMode)}
-          className="flex items-center gap-1 hover:text-white transition"
+          className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-white transition"
           title="切换手机真机外壳仿真模式"
         >
           {deviceFrameMode ? (
             <>
-              <Monitor className="w-3.5 h-3.5 text-blue-400" />
+              <Monitor className="w-3.5 h-3.5 text-blue-500" />
               <span>铺满移动屏</span>
             </>
           ) : (
             <>
-              <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
+              <Smartphone className="w-3.5 h-3.5 text-cyan-500" />
               <span>手机真机外框预览</span>
             </>
           )}
@@ -604,7 +615,7 @@ export const App: React.FC = () => {
 
       {deviceFrameMode ? (
         /* 📱 手机真机仿真外壳 (专为桌面端直观审查移动端交互打造) */
-        <div className="relative w-[390px] h-[844px] max-h-[96vh] rounded-[48px] border-[10px] border-gray-800 bg-gray-950 shadow-2xl shadow-blue-950/30 overflow-hidden flex flex-col ring-1 ring-white/10">
+        <div className="relative w-[390px] h-[844px] max-h-[96vh] rounded-[48px] border-[10px] border-slate-800 dark:border-gray-800 bg-slate-100 dark:bg-gray-950 shadow-2xl shadow-blue-950/30 overflow-hidden flex flex-col ring-1 ring-black/10 dark:ring-white/10">
           {/* 手机灵动岛与听筒 */}
           <div className="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-6 bg-black rounded-full z-40 flex items-center justify-center">
             <div className="w-2.5 h-2.5 rounded-full bg-gray-900 border border-gray-800 mr-2" />

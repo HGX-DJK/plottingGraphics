@@ -55,16 +55,16 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[320px] bg-slate-900 border border-slate-700/80 rounded-3xl p-5 sm:p-6 shadow-2xl ring-1 ring-white/10 flex flex-col items-center text-center animate-in zoom-in-95 duration-150 my-auto"
+        className="w-full max-w-[320px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-3xl p-5 sm:p-6 shadow-2xl ring-1 ring-black/5 dark:ring-white/10 flex flex-col items-center text-center animate-in zoom-in-95 duration-150 my-auto transition-colors duration-200"
       >
         {/* 顶部醒目图标 */}
         <div
           className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 shadow-inner shrink-0 ${
             type === 'danger'
-              ? 'bg-rose-500/15 border border-rose-500/30 text-rose-400'
+              ? 'bg-rose-500/15 border border-rose-500/30 text-rose-500 dark:text-rose-400'
               : type === 'warning'
-              ? 'bg-amber-500/15 border border-amber-500/30 text-amber-400'
-              : 'bg-blue-500/15 border border-blue-500/30 text-blue-400'
+              ? 'bg-amber-500/15 border border-amber-500/30 text-amber-500 dark:text-amber-400'
+              : 'bg-blue-500/15 border border-blue-500/30 text-blue-500 dark:text-blue-400'
           }`}
         >
           {type === 'danger' ? (
@@ -77,12 +77,12 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         </div>
 
         {/* 标题 */}
-        <h3 className="text-sm font-bold text-slate-100 mb-1.5 shrink-0">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-1.5 shrink-0">
           {title || (type === 'danger' ? '确认删除' : '操作确认')}
         </h3>
 
         {/* 提示内容 */}
-        <p className="text-xs text-slate-300 leading-relaxed mb-5 px-1 break-words">
+        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-5 px-1 break-words">
           {message}
         </p>
 
@@ -91,7 +91,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 active:bg-slate-700 text-slate-300 font-bold text-xs transition border border-slate-700/60 shadow-sm"
+            className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-750 dark:active:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition border border-slate-200 dark:border-slate-700/60 shadow-sm"
           >
             {cancelText}
           </button>

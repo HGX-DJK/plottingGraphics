@@ -59,14 +59,14 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
     >
       <div className="space-y-4 pb-4 text-xs">
         {/* 用户信息卡片 */}
-        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-950/40 to-indigo-950/40 border border-blue-900/40 flex items-center justify-between">
+        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border border-blue-200 dark:border-blue-900/40 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="text-3xl">{currentUser?.avatar || '👤'}</span>
             <div>
-              <div className="text-sm font-bold text-white flex items-center gap-1.5">
+              <div className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
                 <span>{currentUser?.displayName}</span>
               </div>
-              <div className="text-[11px] text-blue-300/80 mt-0.5">
+              <div className="text-[11px] text-blue-600 dark:text-blue-300/80 mt-0.5">
                 {currentUser?.roleName}
               </div>
             </div>
@@ -77,7 +77,7 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
               onClose();
               onLogout();
             }}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-950/40 border border-red-800/50 text-red-300 font-medium active:bg-red-900/40 transition"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-300 font-medium active:scale-95 transition"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>退出</span>
@@ -86,26 +86,26 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
 
         {/* 系统明暗主题风格切换 */}
         <div>
-          <label className="block text-gray-400 font-semibold mb-2 flex items-center justify-between">
+          <label className="block text-slate-600 dark:text-gray-400 font-semibold mb-2 flex items-center justify-between">
             <span className="flex items-center gap-1.5">
-              <SunMedium className="w-3.5 h-3.5 text-amber-400" />
+              <SunMedium className="w-3.5 h-3.5 text-amber-500" />
               <span>界面明暗外观风格</span>
             </span>
-            <span className="text-[10px] text-gray-500 font-normal">全系统实时响应</span>
+            <span className="text-[10px] text-slate-400 dark:text-gray-500 font-normal">全系统实时响应</span>
           </label>
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => onSelectTheme?.('dark')}
               className={`p-2.5 rounded-xl border flex items-center gap-2.5 transition text-left ${
                 theme === 'dark'
-                  ? 'border-blue-500 bg-blue-500/15 shadow ring-1 ring-blue-500 text-white'
-                  : 'border-gray-800 bg-gray-950 text-gray-400 hover:text-gray-200'
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/15 shadow ring-1 ring-blue-500 text-blue-700 dark:text-white'
+                  : 'border-slate-200 dark:border-gray-800 bg-slate-50 dark:bg-gray-950 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
               }`}
             >
-              <Moon className="w-4 h-4 text-indigo-400 shrink-0" />
+              <Moon className="w-4 h-4 text-indigo-500 dark:text-indigo-400 shrink-0" />
               <div className="min-w-0">
                 <div className="font-bold text-xs">极夜暗色 (Dark)</div>
-                <div className="text-[10px] text-gray-500 truncate mt-0.5">科技感夜间护眼</div>
+                <div className="text-[10px] text-slate-400 dark:text-gray-500 truncate mt-0.5">科技感夜间护眼</div>
               </div>
             </button>
 
@@ -113,14 +113,14 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
               onClick={() => onSelectTheme?.('light')}
               className={`p-2.5 rounded-xl border flex items-center gap-2.5 transition text-left ${
                 theme === 'light'
-                  ? 'border-blue-500 bg-blue-500/15 shadow ring-1 ring-blue-500 text-white'
-                  : 'border-gray-800 bg-gray-950 text-gray-400 hover:text-gray-200'
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/15 shadow ring-1 ring-blue-500 text-blue-700 dark:text-white'
+                  : 'border-slate-200 dark:border-gray-800 bg-slate-50 dark:bg-gray-950 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
               }`}
             >
-              <Sun className="w-4 h-4 text-amber-400 shrink-0" />
+              <Sun className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0" />
               <div className="min-w-0">
                 <div className="font-bold text-xs">清新浅色 (Light)</div>
-                <div className="text-[10px] text-gray-500 truncate mt-0.5">户外强光高对比</div>
+                <div className="text-[10px] text-slate-400 dark:text-gray-500 truncate mt-0.5">户外强光高对比</div>
               </div>
             </button>
           </div>
@@ -128,8 +128,8 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
 
         {/* 底图选择 */}
         <div>
-          <label className="block text-gray-400 font-semibold mb-2 flex items-center gap-1.5">
-            <Globe2 className="w-3.5 h-3.5 text-cyan-400" />
+          <label className="block text-slate-600 dark:text-gray-400 font-semibold mb-2 flex items-center gap-1.5">
+            <Globe2 className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
             <span>选择底图图源</span>
           </label>
           <div className="grid grid-cols-3 gap-2">
@@ -139,12 +139,12 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
                 onClick={() => onChangeBasemap(b.id)}
                 className={`p-2.5 rounded-xl border text-left transition ${
                   basemap === b.id
-                    ? 'border-blue-500 bg-blue-500/15 shadow ring-1 ring-blue-500'
-                    : 'border-gray-800 bg-gray-950 hover:bg-gray-850'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/15 shadow ring-1 ring-blue-500'
+                    : 'border-slate-200 dark:border-gray-800 bg-slate-50 dark:bg-gray-950 hover:bg-slate-100 dark:hover:bg-gray-900'
                 }`}
               >
-                <div className="font-bold text-gray-200">{b.label}</div>
-                <div className="text-[10px] text-gray-400 mt-0.5">{b.desc}</div>
+                <div className="font-bold text-slate-800 dark:text-gray-200">{b.label}</div>
+                <div className="text-[10px] text-slate-500 dark:text-gray-400 mt-0.5">{b.desc}</div>
               </button>
             ))}
           </div>
@@ -152,8 +152,8 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
 
         {/* 数据导入与导出 */}
         <div>
-          <label className="block text-gray-400 font-semibold mb-2 flex items-center gap-1.5">
-            <FolderInput className="w-3.5 h-3.5 text-purple-400" />
+          <label className="block text-slate-600 dark:text-gray-400 font-semibold mb-2 flex items-center gap-1.5">
+            <FolderInput className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
             <span>标绘工程数据</span>
           </label>
           <button
@@ -161,16 +161,16 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
               onClose();
               onOpenImportExport();
             }}
-            className="w-full flex items-center justify-between p-3 rounded-xl bg-gray-950 border border-gray-800 active:bg-gray-800 transition"
+            className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-gray-950 border border-slate-200 dark:border-gray-800 active:bg-slate-100 dark:active:bg-gray-900 transition"
           >
             <div className="flex items-center gap-2.5">
-              <Download className="w-4 h-4 text-purple-400" />
+              <Download className="w-4 h-4 text-purple-600 dark:text-purple-400" />
               <div className="text-left">
-                <div className="font-semibold text-gray-200">工程备份与外部导入</div>
-                <div className="text-[10px] text-gray-500">导出/导入 JSON、GeoJSON 格式</div>
+                <div className="font-semibold text-slate-800 dark:text-gray-200">工程备份与外部导入</div>
+                <div className="text-[10px] text-slate-400 dark:text-gray-500">导出/导入 JSON、GeoJSON 格式</div>
               </div>
             </div>
-            <span className="text-blue-400 font-medium">打开</span>
+            <span className="text-blue-600 dark:text-blue-400 font-medium">打开</span>
           </button>
         </div>
 
@@ -178,14 +178,14 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
         <div>
           <button
             onClick={() => setShowResetConfirm(true)}
-            className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-950 border border-gray-800 text-gray-400 active:text-amber-300 transition"
+            className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-gray-950 border border-slate-200 dark:border-gray-800 text-slate-600 dark:text-gray-400 active:bg-amber-50 dark:active:text-amber-300 transition"
           >
-            <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+            <RefreshCw className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
             <span>重置为内置演训态势演示数据</span>
           </button>
         </div>
 
-        <div className="pt-2 text-center text-[10px] text-gray-500 flex items-center justify-center gap-1">
+        <div className="pt-2 text-center text-[10px] text-slate-400 dark:text-gray-500 flex items-center justify-center gap-1">
           <ShieldCheck className="w-3 h-3 text-emerald-500" />
           <span>GeoPlot Studio Mobile App • MapTalks GL</span>
         </div>

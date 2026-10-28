@@ -247,9 +247,9 @@ export const App: React.FC = () => {
         showToast(`✓ 已精准定位当前设备: ${longitude.toFixed(4)}, ${latitude.toFixed(4)}`);
       },
       () => {
-        // 模拟/基准工区定位兜底
-        mapRef.current?.locateUser([120.1500, 30.2800]);
-        showToast('已定位至项目基准工区 [120.1500, 30.2800]');
+        // 模拟/基准工区定位兜底 (上海核心区)
+        mapRef.current?.locateUser([121.4737, 31.2304]);
+        showToast('已定位至上海项目基准工区 [121.4737, 31.2304]');
       },
       { enableHighAccuracy: true, timeout: 6000 }
     );

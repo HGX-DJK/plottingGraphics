@@ -139,8 +139,8 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       resetView: () => {
         mapInstanceRef.current?.animateTo(
           {
-            center: [120.15, 30.28],
-            zoom: 12,
+            center: [121.4737, 31.2304],
+            zoom: 12.5,
             pitch: 0,
             bearing: 0,
           },
@@ -272,16 +272,17 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
 
       const maptalks = (window as any).maptalks;
 
-      // 创建底图切片层 (采用无水印高可用地理数据源)
-      let tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
-      let subdomains: string[] = [];
+      // 创建底图切片层 (升级为高颜值、高精度现代矢量与遥感底图，告别低画质陈旧切片)
+      let tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
+      let subdomains: string[] = ['a', 'b', 'c', 'd'];
 
       if (basemap === 'satellite') {
         tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
         subdomains = [];
       } else if (basemap === 'street') {
-        tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
-        subdomains = [];
+        // 现代清新极简矢量街区 (CartoDB Voyager)
+        tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
+        subdomains = ['a', 'b', 'c', 'd'];
       }
 
       const baseTileLayer = new maptalks.TileLayer('base-tiles', {
@@ -294,10 +295,10 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       });
       baseTileLayerRef.current = baseTileLayer;
 
-      // 创建地图实例 (MapTalks GL 移动端优化)
+      // 创建地图实例 (初始坐标设定为中国上海市核心区: 121.4737, 31.2304)
       const map = new maptalks.Map(mapContainerRef.current, {
-        center: [120.15, 30.28],
-        zoom: 12,
+        center: [121.4737, 31.2304],
+        zoom: 12.5,
         minZoom: 2,
         maxZoom: 19,
         baseLayer: baseTileLayer,
@@ -366,15 +367,16 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       if (!mapInstanceRef.current || !(window as any).maptalks) return;
       const maptalks = (window as any).maptalks;
 
-      let tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
-      let subdomains: string[] = [];
+      let tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
+      let subdomains: string[] = ['a', 'b', 'c', 'd'];
 
       if (basemap === 'satellite') {
         tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
         subdomains = [];
       } else if (basemap === 'street') {
-        tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
-        subdomains = [];
+        // 现代清新极简矢量街区 (CartoDB Voyager)
+        tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
+        subdomains = ['a', 'b', 'c', 'd'];
       }
 
       const newBaseLayer = new maptalks.TileLayer('base-tiles-' + Date.now(), {

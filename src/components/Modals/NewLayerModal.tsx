@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { PlotLayer } from '../../types';
-import { X, Layers, Palette, Check } from 'lucide-react';
+import { X, Layers, Palette, Check, AlertCircle } from 'lucide-react';
 
 interface NewLayerModalProps {
   isOpen: boolean;
@@ -28,15 +28,34 @@ export const NewLayerModal: React.FC<NewLayerModalProps> = ({
   const [name, setName] = useState('');
   const [color, setColor] = useState(PRESET_COLORS[0].hex);
   const [description, setDescription] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  // 每次打开弹窗时重置表单状态
+  useEffect(() => {
+    if (isOpen) {
+      setName('');
+      setDescription('');
+      setErrorMsg('');
+      setColor(PRESET_COLORS[0].hex);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
+  const handleConfirmCreate = (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setErrorMsg('请输入图层名称');
+      return;
+    }
 
     onCreateLayer({
-      name: name.trim(),
+      name: trimmedName,
       color,
       visible: true,
       locked: false,
@@ -46,6 +65,7 @@ export const NewLayerModal: React.FC<NewLayerModalProps> = ({
 
     setName('');
     setDescription('');
+    setErrorMsg('');
     onClose();
   };
 
@@ -55,6 +75,12 @@ export const NewLayerModal: React.FC<NewLayerModalProps> = ({
     <div
       className="fixed inset-0 z-[9990] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200 pointer-events-auto"
       style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+      onClick={(e) => {
+        // 点击蒙层关闭
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
     >
       <div className="w-full max-w-md bg-white dark:bg-gray-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
         {/* 标题 */}
@@ -66,15 +92,16 @@ export const NewLayerModal: React.FC<NewLayerModalProps> = ({
             <span>新建标绘图层</span>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800 transition"
+            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800 transition cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* 表单内容 */}
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4">
+        <form onSubmit={handleConfirmCreate} className="p-5 sm:p-6 space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-gray-300 mb-1.5 ml-0.5">
               图层名称 <span className="text-red-500 dark:text-red-400">*</span>
@@ -84,10 +111,23 @@ export const NewLayerModal: React.FC<NewLayerModalProps> = ({
               required
               placeholder="例如: 城市空间规划红线 / 水系保护范围"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-2xl text-xs text-slate-900 dark:text-gray-100 placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition shadow-inner"
+              onChange={(e) => {
+                setName(e.target.value);
+                if (errorMsg) setErrorMsg('');
+              }}
+              className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-950 border rounded-2xl text-xs text-slate-900 dark:text-gray-100 placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 transition shadow-inner ${
+                errorMsg
+                  ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20'
+                  : 'border-slate-200 dark:border-gray-800 focus:border-blue-500 focus:ring-blue-500/20'
+              }`}
               autoFocus
             />
+            {errorMsg && (
+              <p className="flex items-center gap-1 text-[11px] text-red-500 mt-1 ml-1">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{errorMsg}</span>
+              </p>
+            )}
           </div>
 
           <div>
@@ -105,7 +145,7 @@ export const NewLayerModal: React.FC<NewLayerModalProps> = ({
               </span>
             </div>
 
-            {/* 现代化色彩选择网格 (大触控圆点 + 清晰中文标签，杜绝省略号截断) */}
+            {/* 现代化色彩选择网格 (大触控圆点 + 清晰中文标签) */}
             <div className="grid grid-cols-4 gap-2">
               {PRESET_COLORS.map((item) => {
                 const isSelected = color === item.hex;
@@ -114,7 +154,7 @@ export const NewLayerModal: React.FC<NewLayerModalProps> = ({
                     type="button"
                     key={item.hex}
                     onClick={() => setColor(item.hex)}
-                    className={`flex flex-col items-center justify-center py-2.5 px-1 rounded-2xl border transition active:scale-95 ${
+                    className={`flex flex-col items-center justify-center py-2.5 px-1 rounded-2xl border transition active:scale-95 cursor-pointer ${
                       isSelected
                         ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/15 shadow-md shadow-blue-500/10 ring-1 ring-blue-500/30'
                         : 'border-slate-200 dark:border-gray-800 bg-slate-50 dark:bg-gray-950/80 hover:border-slate-300 dark:hover:border-gray-700 hover:bg-slate-100 dark:hover:bg-gray-900/60'
@@ -158,13 +198,14 @@ export const NewLayerModal: React.FC<NewLayerModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-2xl text-xs text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800 transition"
+              className="px-4 py-2.5 rounded-2xl text-xs text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800 transition cursor-pointer"
             >
               取消
             </button>
             <button
-              type="submit"
-              className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white font-bold rounded-2xl text-xs shadow-lg shadow-blue-500/25 transition"
+              type="button"
+              onClick={handleConfirmCreate}
+              className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white font-bold rounded-2xl text-xs shadow-lg shadow-blue-500/25 transition cursor-pointer"
             >
               立即创建图层
             </button>

@@ -155,6 +155,9 @@ export const App: React.FC = () => {
     const updated = [...layers, newLayer];
     setLayers(updated);
     setActiveLayerId(newLayer.id);
+    setActiveTab('layers'); // 自动唤起图层管控抽屉，让用户立即看到新图层
+    setToastMessage(`✓ 已成功新建图层「${newLayer.name}」并设为当前工作图层`);
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
   const handleToggleLayerVisibility = (layerId: string) => {

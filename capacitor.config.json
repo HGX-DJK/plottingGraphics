@@ -1,6 +1,6 @@
 {
   "appId": "com.geoplot.gis",
-  "appName": "GeoPlot GIS",
+  "appName": "标绘系统",
   "webDir": "dist",
   "server": {
     "androidScheme": "https",

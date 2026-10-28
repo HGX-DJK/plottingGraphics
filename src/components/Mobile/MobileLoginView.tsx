@@ -106,12 +106,12 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 mb-2">
             <Sparkles className="w-3 h-3 text-blue-600 dark:text-cyan-400" />
             <span className="text-[10px] font-bold text-blue-700 dark:text-cyan-300 tracking-wider font-mono">
-              GEOPLOT STUDIO
+              PLOTTING SYSTEM
             </span>
           </div>
 
           <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-            移动外业标绘系统
+            标绘系统
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             空间地理协同采集与现场态势推演平台
@@ -228,7 +228,7 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
                   </>
                 ) : (
                   <>
-                    <span>进入外业标绘系统</span>
+                    <span>进入标绘系统</span>
                     <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                   </>
                 )}
@@ -240,7 +240,7 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
 
       {/* 底部版权与环境说明 */}
       <div className="text-center text-[10px] text-slate-400 dark:text-slate-500 shrink-0">
-        GeoPlot Studio Mobile • MapTalks GL
+        标绘系统 • MapTalks GL
       </div>
     </div>
   );

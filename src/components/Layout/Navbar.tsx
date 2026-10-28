@@ -58,10 +58,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-sm font-bold tracking-wide text-white">
-              GeoPlot Studio
+              标绘系统
             </h1>
             <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-500/15 text-blue-400 font-medium border border-blue-500/30">
-              MapTalks GL 态势标绘
+              MapTalks GL 空间标绘
             </span>
           </div>
           <p className="text-[10px] text-gray-400 -mt-0.5">

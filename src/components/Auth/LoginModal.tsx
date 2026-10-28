@@ -67,10 +67,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               <Command className="w-8 h-8" />
             </div>
             <h1 className="text-xl font-bold tracking-wider text-white">
-              GeoPlot Studio 态势标绘系统
+              标绘系统
             </h1>
             <p className="text-xs text-gray-400 mt-1">
-              基于 MapTalks GL 架构 • 军标标绘 • 多图层协同推演平台 (免后端纯前端版)
+              矢量标绘 • 多图层协同推演平台
             </p>
           </div>
 

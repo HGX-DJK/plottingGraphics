@@ -37,7 +37,6 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
     { id: 'dark', label: '暗夜科技', desc: 'Esri Dark 纯净深色无水印' },
     { id: 'satellite', label: '卫星遥感', desc: 'ArcGIS 高清全球正射影像' },
     { id: 'street', label: '现代街道', desc: 'Esri Street 详尽市政路网' },
-    { id: 'grid', label: '开源地图', desc: 'OpenStreetMap 全球开源底图' },
   ];
 
   return (
@@ -80,7 +79,7 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
             <Globe2 className="w-3.5 h-3.5 text-cyan-400" />
             <span>选择底图图源</span>
           </label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {basemaps.map((b) => (
               <button
                 key={b.id}

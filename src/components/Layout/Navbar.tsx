@@ -46,7 +46,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'dark', label: '暗夜科技' },
     { id: 'satellite', label: '高清遥感卫星' },
     { id: 'street', label: '现代街道' },
-    { id: 'grid', label: '开源地图' },
   ];
 
   return (

@@ -71,7 +71,7 @@ export interface PlotLayer {
   createdAt: number;
 }
 
-export type BasemapType = 'dark' | 'satellite' | 'street' | 'grid';
+export type BasemapType = 'dark' | 'satellite' | 'street';
 
 export interface MapViewState {
   center: [number, number]; // [lng, lat]

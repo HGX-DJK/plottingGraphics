@@ -27,7 +27,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
             className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm ring-2 ring-white/20"
             style={{ backgroundColor: activeLayer?.color || '#3b82f6' }}
           />
-          <div className="flex flex-col text-left max-w-[130px]">
+          <div className="flex flex-col text-left max-w-[175px]">
             <span className="text-[9px] text-gray-400 font-medium tracking-wide uppercase leading-none">
               当前图层
             </span>

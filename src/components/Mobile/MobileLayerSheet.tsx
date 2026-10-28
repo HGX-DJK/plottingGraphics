@@ -9,7 +9,6 @@ import {
   Unlock,
   Trash2,
   Sliders,
-  Check,
   PenTool,
   ChevronDown,
   ChevronRight,
@@ -61,12 +60,12 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
   onDeleteFeature,
   onLocateFeature,
 }) => {
-  // 记录每个图层树分支的折叠/展开状态（默认当前激活图层展开）
+  // 记录每个图层树分支的折叠/展开状态（默认当前工作图层展开）
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>(() => ({
     [activeLayerId]: true,
   }));
 
-  // 记录哪个图层的透明度调节面板处于打开状态
+  // 记录哪个图层的透明度调节面板处于打开状态（默认收起，保持极简视觉）
   const [sliderLayerId, setSliderLayerId] = useState<string | null>(null);
 
   const toggleExpand = (layerId: string) => {
@@ -106,7 +105,7 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
     <MobileBottomSheet
       isOpen={isOpen}
       onClose={onClose}
-      title="GIS 图层与要素管控中心"
+      title="图层管控中心"
       icon={<Layers className="w-4 h-4" />}
       headerAction={
         <button
@@ -114,7 +113,7 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
             onClose();
             onOpenNewLayerModal();
           }}
-          className="flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-full text-xs font-semibold shadow"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-full text-xs font-semibold shadow-md shadow-blue-600/30 transition-all"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>新建图层</span>
@@ -122,10 +121,17 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
       }
     >
       <div className="space-y-3 pb-4">
-        {/* 顶部专业提示 */}
-        <div className="flex items-center justify-between px-2 py-1.5 rounded-xl bg-gray-900/60 border border-gray-800/80 text-[11px] text-gray-400">
-          <span>展开图层可直接查看、定位与管理其隶属的要素</span>
-          <span className="text-blue-400 font-mono">共 {layers.length} 图层 / {features.length} 要素</span>
+        {/* 顶部专业统计胶囊栏 (单行排版，永不折行挤压) */}
+        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-900/60 border border-slate-800/80 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+            <span className="text-slate-300 font-medium text-[11px]">GIS 空间图层与要素树</span>
+          </div>
+          <div className="flex items-center gap-2 font-mono text-[11px]">
+            <span className="text-slate-400">{layers.length} 个图层</span>
+            <span className="text-slate-600">•</span>
+            <span className="text-blue-400 font-bold">{features.length} 个要素</span>
+          </div>
         </div>
 
         {layers.map((layer) => {
@@ -137,130 +143,159 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
           return (
             <div
               key={layer.id}
-              className={`rounded-2xl border transition-all ${
+              className={`rounded-2xl border transition-all overflow-hidden ${
                 isActive
-                  ? 'border-blue-500/80 bg-blue-950/20 shadow-lg ring-1 ring-blue-500/30'
-                  : 'border-gray-800 bg-gray-950/70'
+                  ? 'border-blue-500/70 bg-gradient-to-b from-blue-950/40 via-slate-900/60 to-slate-950/90 shadow-lg ring-1 ring-blue-500/30'
+                  : 'border-slate-800/90 bg-slate-950/70 hover:border-slate-700/80'
               }`}
             >
-              <div className="p-3">
-                {/* 1. 图层卡片主表头 */}
-                <div className="flex items-center justify-between gap-2">
-                  {/* 左侧：折叠箭头 + 颜色点 + 名称 + 要素计数 */}
+              <div className="p-3.5 space-y-3">
+                {/* 1. 图层主表头行 (两行复合排版，彻底解决标题与按钮挤压截断) */}
+                <div className="flex items-start justify-between gap-2.5">
+                  {/* 左侧：展开折叠 + 色标 + 标题与元数据 */}
                   <div
                     onClick={() => {
                       onSelectActiveLayer(layer.id);
                       toggleExpand(layer.id);
                     }}
-                    className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer"
+                    className="flex items-start gap-2.5 flex-1 min-w-0 cursor-pointer"
                   >
+                    {/* 折叠/展开箭头 */}
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleExpand(layer.id);
                       }}
-                      className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition shrink-0"
+                      className="mt-0.5 p-1 -ml-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/60 transition shrink-0"
                     >
                       {isExpanded ? (
                         <ChevronDown className="w-4 h-4 text-blue-400" />
                       ) : (
-                        <ChevronRight className="w-4 h-4 text-gray-500" />
+                        <ChevronRight className="w-4 h-4 text-slate-500" />
                       )}
                     </button>
 
-                    <div
-                      className="w-3.5 h-3.5 rounded-full shrink-0 shadow ring-2 ring-white/10"
-                      style={{ backgroundColor: layer.color }}
-                    />
+                    {/* 图层色标 */}
+                    <div className="mt-1 relative shrink-0">
+                      <div
+                        className="w-3.5 h-3.5 rounded-full ring-2 ring-white/15 shadow-sm"
+                        style={{ backgroundColor: layer.color }}
+                      />
+                    </div>
 
+                    {/* 图层名称与副信息 */}
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-gray-100 truncate">
-                          {layer.name}
+                      {/* 图层完整名称 */}
+                      <div className="text-xs font-bold text-slate-100 leading-snug break-words">
+                        {layer.name}
+                      </div>
+
+                      {/* 副信息行：工作层状态徽章 + 要素计数 + 显隐/锁定状态 */}
+                      <div className="flex items-center flex-wrap gap-1.5 mt-1 text-[11px]">
+                        {isActive ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/20 text-blue-300 border border-blue-500/30 font-semibold text-[10px]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                            <span>当前工作层</span>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectActiveLayer(layer.id);
+                            }}
+                            className="text-[10px] text-slate-400 hover:text-blue-400 transition"
+                          >
+                            设为工作层
+                          </button>
+                        )}
+
+                        <span className="text-slate-600">•</span>
+                        <span className="text-slate-400 font-mono text-[11px]">
+                          <strong className="text-slate-200 font-bold">{layerFeatures.length}</strong> 个要素
                         </span>
-                        {isActive && (
-                          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-blue-500 text-white font-medium shrink-0">
-                            当前工作层
+
+                        {!layer.visible && (
+                          <span className="text-amber-400/90 text-[10px] px-1.5 py-0.2 rounded bg-amber-500/10 border border-amber-500/20">
+                            已隐藏
                           </span>
                         )}
-                      </div>
-                      <div className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-2">
-                        <span>隶属要素: <strong className="text-gray-200 font-mono">{layerFeatures.length}</strong> 个</span>
-                        {!layer.visible && <span className="text-amber-400">(已隐藏)</span>}
-                        {layer.locked && <span className="text-red-400">(已锁定)</span>}
+                        {layer.locked && (
+                          <span className="text-rose-400/90 text-[10px] px-1.5 py-0.2 rounded bg-rose-500/10 border border-rose-500/20">
+                            已锁定
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  {/* 右侧：显隐、锁定、设置 */}
-                  <div className="flex items-center gap-1 shrink-0">
+                  {/* 右侧操作区：极简且触控友好 */}
+                  <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
                     <button
                       onClick={() => onToggleVisibility(layer.id)}
-                      className={`p-2 rounded-xl transition ${
+                      className={`p-1.5 rounded-xl border transition ${
                         layer.visible
-                          ? 'text-emerald-400 bg-emerald-500/10'
-                          : 'text-gray-600 bg-gray-900'
+                          ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20'
+                          : 'text-slate-500 bg-slate-900 border-slate-800 hover:text-slate-300'
                       }`}
-                      title={layer.visible ? '点击隐藏图层' : '点击显示图层'}
+                      title={layer.visible ? '隐藏图层' : '显示图层'}
                     >
                       {layer.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                     </button>
 
                     <button
-                      onClick={() => onToggleLock(layer.id)}
-                      className={`p-2 rounded-xl transition ${
-                        layer.locked
-                          ? 'text-amber-400 bg-amber-500/10'
-                          : 'text-gray-500 bg-gray-900'
-                      }`}
-                      title={layer.locked ? '图层已锁定 (点击解锁)' : '图层可编辑 (点击锁定)'}
-                    >
-                      {layer.locked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                    </button>
-
-                    <button
                       onClick={() => setSliderLayerId(isSliderOpen ? null : layer.id)}
-                      className={`p-2 rounded-xl transition ${
+                      className={`p-1.5 rounded-xl border transition ${
                         isSliderOpen
-                          ? 'text-blue-400 bg-blue-500/20'
-                          : 'text-gray-400 hover:text-white bg-gray-900'
+                          ? 'text-blue-400 bg-blue-500/20 border-blue-500/30 shadow'
+                          : 'text-slate-400 hover:text-slate-200 bg-slate-900 border-slate-800'
                       }`}
-                      title="展开图层设置与透明度"
+                      title="图层设置与透明度"
                     >
                       <Sliders className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
 
-                {/* 2. 展开的图层高级设置 (透明度滑块与删除图层) */}
+                {/* 2. 展开的图层高级设置 (透明度滑块、锁定、删除图层) */}
                 {isSliderOpen && (
-                  <div className="mt-3 pt-3 border-t border-gray-800/80 space-y-3 bg-gray-900/40 p-2.5 rounded-xl">
-                    <div>
-                      <div className="flex items-center justify-between text-xs text-gray-300 mb-1">
-                        <span className="flex items-center gap-1.5">
-                          <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
-                          <span>图层透明度调节</span>
-                        </span>
-                        <span className="font-mono text-blue-400 font-bold">
-                          {Math.round(layer.opacity * 100)}%
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={0}
-                        max={1}
-                        step={0.05}
-                        value={layer.opacity}
-                        onChange={(e) => onChangeOpacity(layer.id, parseFloat(e.target.value))}
-                        className="w-full accent-blue-500 h-2 bg-gray-800 rounded-lg cursor-pointer"
-                      />
+                  <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800/80 space-y-3 animate-in fade-in duration-150">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-300 font-medium flex items-center gap-1.5">
+                        <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
+                        <span>透明度调节</span>
+                      </span>
+                      <span className="font-mono text-blue-400 font-bold px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-[11px]">
+                        {Math.round(layer.opacity * 100)}%
+                      </span>
                     </div>
 
-                    <div className="flex items-center justify-between pt-1">
-                      <span className="text-[11px] text-gray-500">
-                        创建时间: {new Date(layer.createdAt).toLocaleDateString()}
-                      </span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={layer.opacity}
+                      onChange={(e) => onChangeOpacity(layer.id, parseFloat(e.target.value))}
+                      className="w-full accent-blue-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+                    />
+
+                    <div className="flex items-center justify-between pt-1.5 border-t border-slate-800/60 text-xs">
+                      {/* 图层锁定切换 */}
+                      <button
+                        onClick={() => onToggleLock(layer.id)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium transition ${
+                          layer.locked
+                            ? 'text-amber-400 bg-amber-500/10 border-amber-500/30'
+                            : 'text-slate-400 bg-slate-900 border-slate-800 hover:text-slate-200'
+                        }`}
+                      >
+                        {layer.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+                        <span>{layer.locked ? '图层已锁定' : '锁定图层'}</span>
+                      </button>
+
+                      {/* 删除图层 */}
                       {layers.length > 1 && (
                         <button
                           onClick={() => {
@@ -268,7 +303,7 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
                               onDeleteLayer(layer.id);
                             }
                           }}
-                          className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 px-2.5 py-1 rounded-xl bg-red-950/40 border border-red-900/40 transition"
+                          className="flex items-center gap-1 text-xs text-rose-400 hover:text-rose-300 px-2.5 py-1 rounded-lg bg-rose-950/40 border border-rose-900/40 transition"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           <span>删除图层</span>
@@ -280,131 +315,132 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
 
                 {/* 3. 核心亮点：图层包含要素树形清单 (Features Hierarchical Tree Under Layer) */}
                 {isExpanded && (
-                  <div className="mt-3 pt-2.5 border-t border-gray-800/80">
-                    <div
-                      className="pl-3 ml-2 border-l-2 space-y-2"
-                      style={{ borderColor: `${layer.color}66` }}
-                    >
-                      {/* 图层分支表头说明 */}
-                      <div className="flex items-center justify-between text-[11px] text-gray-400 pb-0.5">
-                        <span className="font-medium text-gray-300">
-                          该图层下的要素 ({layerFeatures.length})
-                        </span>
-                        {!isActive && (
-                          <button
-                            onClick={() => onSelectActiveLayer(layer.id)}
-                            className="text-blue-400 hover:text-blue-300 font-semibold"
-                          >
-                            设为当前绘制层
-                          </button>
-                        )}
+                  <div className="space-y-2 pt-1 border-t border-slate-800/70">
+                    {/* 分支表头 */}
+                    <div className="flex items-center justify-between px-1 text-[11px] text-slate-400">
+                      <div className="flex items-center gap-1.5 font-medium">
+                        <span
+                          className="w-1.5 h-3 rounded-full"
+                          style={{ backgroundColor: layer.color }}
+                        />
+                        <span className="text-slate-300">图层要素</span>
+                        <span className="font-mono text-slate-500 font-bold">({layerFeatures.length})</span>
                       </div>
-
-                      {/* 要素列表为空时的状态 */}
-                      {layerFeatures.length === 0 ? (
-                        <div className="p-3 rounded-xl bg-gray-900/40 border border-dashed border-gray-800 text-center">
-                          <div className="text-xs text-gray-400">此图层下暂无要素</div>
-                          <div className="text-[10px] text-gray-500 mt-0.5 mb-2.5">
-                            点击下方按钮立即在此图层创建新标绘
-                          </div>
-                          <button
-                            onClick={() => {
-                              onSelectActiveLayer(layer.id);
-                              onClose();
-                              onStartPlotting?.();
-                            }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 text-xs font-bold transition"
-                          >
-                            <PenTool className="w-3.5 h-3.5" />
-                            <span>在此图层新建标绘</span>
-                          </button>
-                        </div>
-                      ) : (
-                        /* 要素列表不为空时逐项列出 */
-                        <div className="space-y-1.5">
-                          {layerFeatures.map((feat) => {
-                            const Icon = getFeatureIcon(feat.type);
-                            return (
-                              <div
-                                key={feat.id}
-                                className="group flex items-center justify-between p-2 rounded-xl bg-gray-900/80 hover:bg-gray-900 border border-gray-800/90 transition-all"
-                              >
-                                {/* 点击查看属性 */}
-                                <div
-                                  onClick={() => {
-                                    onSelectFeature?.(feat.id);
-                                    onClose();
-                                  }}
-                                  className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
-                                  title="点击查看/编辑要素属性"
-                                >
-                                  <div
-                                    className="p-1.5 rounded-lg shrink-0"
-                                    style={{
-                                      backgroundColor: `${layer.color}20`,
-                                      color: layer.color,
-                                    }}
-                                  >
-                                    <Icon className="w-3.5 h-3.5" />
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <div className="text-xs font-semibold text-gray-200 truncate">
-                                      {feat.name}
-                                    </div>
-                                    <div className="text-[10px] text-gray-400 truncate mt-0.5">
-                                      {getFeatureMetric(feat)}
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* 右侧操作按钮：地图定位与删除 */}
-                                <div className="flex items-center gap-1 ml-2 shrink-0">
-                                  <button
-                                    onClick={() => {
-                                      if (onLocateFeature) {
-                                        onLocateFeature(feat.id);
-                                      } else if (onSelectFeature) {
-                                        onSelectFeature(feat.id);
-                                      }
-                                      onClose();
-                                    }}
-                                    className="p-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 active:bg-blue-500/30 text-blue-400 text-xs transition"
-                                    title="在地图中居中定位该要素"
-                                  >
-                                    <Crosshair className="w-3.5 h-3.5" />
-                                  </button>
-
-                                  <button
-                                    onClick={() => {
-                                      if (window.confirm(`确定删除要素 "${feat.name}" 吗？`)) {
-                                        onDeleteFeature?.(feat.id);
-                                      }
-                                    }}
-                                    className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 active:bg-red-500/30 text-red-400 text-xs transition"
-                                    title="删除该要素"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-
-                          {/* 列表底部快捷按钮：在此图层新建要素 */}
-                          <button
-                            onClick={() => {
-                              onSelectActiveLayer(layer.id);
-                              onClose();
-                              onStartPlotting?.();
-                            }}
-                            className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-blue-600/10 hover:bg-blue-600/20 border border-dashed border-blue-500/30 text-blue-300 font-semibold text-xs active:scale-[0.99] transition"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>在「{layer.name}」新建要素</span>
-                          </button>
-                        </div>
+                      {!isActive && (
+                        <button
+                          type="button"
+                          onClick={() => onSelectActiveLayer(layer.id)}
+                          className="text-blue-400 hover:text-blue-300 font-semibold text-[11px] transition"
+                        >
+                          设为当前绘制层
+                        </button>
                       )}
                     </div>
+
+                    {/* 要素列表为空时的状态 */}
+                    {layerFeatures.length === 0 ? (
+                      <div className="py-3.5 px-3 rounded-xl bg-slate-900/40 border border-dashed border-slate-800 text-center">
+                        <div className="text-xs text-slate-400">此图层下暂无要素</div>
+                        <button
+                          onClick={() => {
+                            onSelectActiveLayer(layer.id);
+                            onClose();
+                            onStartPlotting?.();
+                          }}
+                          className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 active:bg-blue-600/40 border border-blue-500/30 text-blue-300 text-xs font-bold transition"
+                        >
+                          <PenTool className="w-3.5 h-3.5" />
+                          <span>在此图层新建标绘</span>
+                        </button>
+                      </div>
+                    ) : (
+                      /* 要素列表逐项列出 */
+                      <div className="space-y-1.5">
+                        {layerFeatures.map((feat) => {
+                          const Icon = getFeatureIcon(feat.type);
+                          return (
+                            <div
+                              key={feat.id}
+                              className="group flex items-center justify-between p-2.5 rounded-xl bg-slate-900/70 hover:bg-slate-900 border border-slate-800/80 transition-all shadow-sm"
+                            >
+                              {/* 点击查看要素属性 */}
+                              <div
+                                onClick={() => {
+                                  onSelectFeature?.(feat.id);
+                                  onClose();
+                                }}
+                                className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer"
+                                title="点击查看/编辑要素属性"
+                              >
+                                <div
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border"
+                                  style={{
+                                    backgroundColor: `${layer.color}18`,
+                                    borderColor: `${layer.color}40`,
+                                    color: layer.color,
+                                  }}
+                                >
+                                  <Icon className="w-3.5 h-3.5" />
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-xs font-semibold text-slate-100 truncate">
+                                    {feat.name}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 font-mono truncate mt-0.5">
+                                    {getFeatureMetric(feat)}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* 右侧操作按钮：地图定位与删除 */}
+                              <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                                <button
+                                  onClick={() => {
+                                    if (onLocateFeature) {
+                                      onLocateFeature(feat.id);
+                                    } else if (onSelectFeature) {
+                                      onSelectFeature(feat.id);
+                                    }
+                                    onClose();
+                                  }}
+                                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-500/15 hover:bg-blue-500/25 active:bg-blue-500/35 border border-blue-500/30 text-blue-400 text-xs font-medium transition"
+                                  title="在地图中居中定位该要素"
+                                >
+                                  <Crosshair className="w-3 h-3" />
+                                  <span>定位</span>
+                                </button>
+
+                                <button
+                                  onClick={() => {
+                                    if (window.confirm(`确定删除要素 "${feat.name}" 吗？`)) {
+                                      onDeleteFeature?.(feat.id);
+                                    }
+                                  }}
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-950/30 transition"
+                                  title="删除该要素"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* 列表底部快捷按钮：在此图层新建要素 (文字简洁，绝不撑破溢出) */}
+                        <button
+                          onClick={() => {
+                            onSelectActiveLayer(layer.id);
+                            onClose();
+                            onStartPlotting?.();
+                          }}
+                          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-blue-600/10 hover:bg-blue-600/20 active:bg-blue-600/30 border border-dashed border-blue-500/30 text-blue-300 font-semibold text-xs active:scale-[0.99] transition"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>在此图层新建标绘</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -192,11 +192,11 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
     >
       <div className="space-y-4">
         {/* 标绘目标图层选择栏 (新建要素将严格保存至选定图层) */}
-        <div className="p-3 rounded-2xl bg-gray-950 border border-gray-800 space-y-2">
+        <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800/80 space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-400 font-medium">新建要素目标归属图层:</span>
+            <span className="text-slate-400 font-medium text-[11px]">新建要素将保存至目标图层:</span>
             {layers && layers.length > 1 && (
-              <span className="text-[11px] text-blue-400 font-medium">点击图层快速切换</span>
+              <span className="text-[11px] text-blue-400 font-medium">轻触可即时切换</span>
             )}
           </div>
 
@@ -211,7 +211,7 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs shrink-0 transition-all ${
                       isSelected
                         ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/30 ring-1 ring-blue-400'
-                        : 'bg-gray-900 hover:bg-gray-850 text-gray-300 border border-gray-800'
+                        : 'bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800'
                     }`}
                   >
                     <span
@@ -238,33 +238,33 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
         </div>
 
         {/* GIS 分类切换栏 */}
-        <div className="flex p-1 bg-gray-950 rounded-xl border border-gray-800 text-xs">
+        <div className="flex p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs">
           <button
             onClick={() => setActiveCategory('shapes')}
-            className={`flex-1 py-2 rounded-lg font-medium transition ${
+            className={`flex-1 py-1.5 rounded-lg font-medium transition ${
               activeCategory === 'shapes'
-                ? 'bg-blue-600 text-white shadow'
-                : 'text-gray-400 hover:text-gray-200'
+                ? 'bg-blue-600 text-white shadow font-bold'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             基础空间几何
           </button>
           <button
             onClick={() => setActiveCategory('points')}
-            className={`flex-1 py-2 rounded-lg font-medium transition ${
+            className={`flex-1 py-1.5 rounded-lg font-medium transition ${
               activeCategory === 'points'
-                ? 'bg-blue-600 text-white shadow'
-                : 'text-gray-400 hover:text-gray-200'
+                ? 'bg-blue-600 text-white shadow font-bold'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             专题调查点位
           </button>
           <button
             onClick={() => setActiveCategory('arrows')}
-            className={`flex-1 py-2 rounded-lg font-medium transition ${
+            className={`flex-1 py-1.5 rounded-lg font-medium transition ${
               activeCategory === 'arrows'
-                ? 'bg-blue-600 text-white shadow'
-                : 'text-gray-400 hover:text-gray-200'
+                ? 'bg-blue-600 text-white shadow font-bold'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             规划方向与态势

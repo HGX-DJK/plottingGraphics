@@ -99,7 +99,7 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
     onClose();
   };
 
-  // 渲染单个要素卡片
+  // 渲染单个要素卡片 (现代扁平微质感)
   const renderFeatureCard = (feat: PlotFeature, parentLayer?: PlotLayer) => {
     const layer = parentLayer || layers.find((l) => l.id === feat.layerId);
     const Icon = getIcon(feat.type);
@@ -110,38 +110,38 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
       <div
         key={feat.id}
         onClick={() => handleCardClick(feat.id)}
-        className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 cursor-pointer ${
+        className={`p-2.5 rounded-xl border transition-all flex items-center justify-between gap-2.5 cursor-pointer ${
           isSelected
             ? 'border-blue-500 bg-blue-950/40 ring-1 ring-blue-500/50 shadow-md'
-            : 'border-gray-800 bg-gray-950/70 hover:bg-gray-900 active:bg-gray-850'
+            : 'border-slate-800/80 bg-slate-900/70 hover:bg-slate-900 active:bg-slate-850'
         }`}
       >
-        <div className="flex items-center gap-3 min-w-0 flex-1">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border"
+            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border"
             style={{
-              backgroundColor: `${layer?.color || '#3b82f6'}20`,
-              borderColor: `${layer?.color || '#3b82f6'}40`,
+              backgroundColor: `${layer?.color || '#3b82f6'}18`,
+              borderColor: `${layer?.color || '#3b82f6'}35`,
               color: layer?.color || '#3b82f6',
             }}
           >
-            <Icon className="w-4 h-4" />
+            <Icon className="w-3.5 h-3.5" />
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="text-xs font-bold text-gray-100 truncate">
+            <div className="text-xs font-semibold text-slate-100 truncate">
               {feat.name}
             </div>
-            <div className="flex items-center gap-2 mt-0.5">
+            <div className="flex items-center gap-2 mt-0.5 text-[10px]">
               <span
-                className="w-2 h-2 rounded-full shrink-0"
+                className="w-1.5 h-1.5 rounded-full shrink-0"
                 style={{ backgroundColor: layer?.color || '#666' }}
               />
-              <span className="text-[10px] text-gray-400 truncate">
-                {layer?.name || '未知图层'}
+              <span className="text-slate-400 truncate max-w-[100px]">
+                {layer?.name || '默认图层'}
               </span>
               {metric && (
-                <span className="text-[10px] text-blue-400 font-mono truncate">
+                <span className="text-blue-400 font-mono truncate">
                   • {metric}
                 </span>
               )}
@@ -149,18 +149,33 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
           </div>
         </div>
 
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (window.confirm(`确定删除要素 "${feat.name}" 吗？`)) {
-              onDeleteFeature(feat.id);
-            }
-          }}
-          className="p-2 text-gray-500 hover:text-red-400 active:bg-red-950/30 rounded-lg transition"
-          title="删除要素"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectFeature(feat.id);
+              onClose();
+            }}
+            className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-500/15 hover:bg-blue-500/25 active:bg-blue-500/35 border border-blue-500/30 text-blue-400 text-[11px] font-medium transition"
+            title="在地图中定位该要素"
+          >
+            <Crosshair className="w-3 h-3" />
+            <span>定位</span>
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (window.confirm(`确定删除要素 "${feat.name}" 吗？`)) {
+                onDeleteFeature(feat.id);
+              }
+            }}
+            className="p-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-950/30 transition"
+            title="删除要素"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     );
   };
@@ -179,10 +194,10 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
                 onClose();
                 onOpenClearFeatures();
               }}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-red-950/40 border border-red-500/30 text-red-300 active:bg-red-900/50 text-[11px] font-bold transition"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-950/40 border border-rose-500/30 text-rose-300 active:bg-rose-900/50 text-[11px] font-bold transition"
               title="清空地图要素"
             >
-              <Trash2 className="w-3.5 h-3.5 text-red-400" />
+              <Trash2 className="w-3.5 h-3.5 text-rose-400" />
               <span>清空</span>
             </button>
           )}
@@ -191,7 +206,7 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
               onClose();
               onOpenPlotting?.();
             }}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-blue-600 active:bg-blue-500 text-white text-[11px] font-bold shadow-md shadow-blue-600/30 transition"
+            className="flex items-center gap-1 px-3 py-1 rounded-full bg-blue-600 active:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/30 transition"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>新增</span>
@@ -201,22 +216,22 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
     >
       <div className="space-y-3 pb-4">
         {/* 顶部统计与视图切换 */}
-        <div className="flex items-center justify-between p-2.5 rounded-2xl bg-gradient-to-r from-blue-950/40 to-indigo-950/40 border border-blue-900/40">
+        <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
           <div className="flex items-center gap-2 pl-1">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs font-semibold text-gray-200">
+            <span className="text-xs font-semibold text-slate-200">
               共收录 {features.length} 个标绘要素
             </span>
           </div>
 
           {/* 切换展示方式：按图层分组 vs 平铺 */}
-          <div className="flex items-center bg-gray-950/80 p-0.5 rounded-xl border border-gray-800 text-[11px]">
+          <div className="flex items-center bg-slate-950/80 p-0.5 rounded-lg border border-slate-800 text-[11px]">
             <button
               onClick={() => setViewMode('grouped')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition ${
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition ${
                 viewMode === 'grouped'
                   ? 'bg-blue-600 text-white font-bold shadow'
-                  : 'text-gray-400 hover:text-gray-200'
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
               title="按图层树级联归属分组展示"
             >
@@ -225,10 +240,10 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
             </button>
             <button
               onClick={() => setViewMode('flat')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition ${
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition ${
                 viewMode === 'flat'
                   ? 'bg-blue-600 text-white font-bold shadow'
-                  : 'text-gray-400 hover:text-gray-200'
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
               title="平铺列表展示"
             >
@@ -240,13 +255,13 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
 
         {/* 搜索框 */}
         <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索要素名称 / 战术备注..."
-            className="w-full pl-9 pr-3 py-2 bg-gray-950 border border-gray-800 rounded-xl text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500"
+            placeholder="搜索要素名称 / 空间备注..."
+            className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition"
           />
         </div>
 
@@ -257,7 +272,7 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
             className={`px-3 py-1 rounded-full text-xs shrink-0 transition ${
               layerFilter === 'all'
                 ? 'bg-blue-600 text-white font-medium shadow'
-                : 'bg-gray-950 text-gray-400 border border-gray-800'
+                : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-slate-200'
             }`}
           >
             全部 ({features.length})
@@ -269,7 +284,7 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
               className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs shrink-0 transition ${
                 layerFilter === l.id
                   ? 'bg-blue-600 text-white font-medium shadow'
-                  : 'bg-gray-950 text-gray-400 border border-gray-800'
+                  : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-slate-200'
               }`}
             >
               <span
@@ -283,13 +298,13 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
 
         {/* 要素内容区域 */}
         {filtered.length === 0 ? (
-          <div className="py-8 text-center bg-gray-950/40 rounded-2xl border border-dashed border-gray-800 p-4">
-            <div className="w-12 h-12 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mx-auto mb-2">
-              <PenTool className="w-6 h-6" />
+          <div className="py-8 text-center bg-slate-950/40 rounded-2xl border border-dashed border-slate-800 p-4">
+            <div className="w-10 h-10 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mx-auto mb-2">
+              <PenTool className="w-5 h-5" />
             </div>
-            <div className="text-gray-200 font-medium text-xs">暂无匹配的标绘要素</div>
-            <div className="text-[11px] text-gray-400 mt-1 mb-3.5">
-              随时可以在地图上落点绘制点、线、面及空间注记
+            <div className="text-slate-200 font-medium text-xs">暂无匹配的标绘要素</div>
+            <div className="text-[11px] text-slate-400 mt-1 mb-3">
+              在地图上落点绘制点、线、面及空间注记
             </div>
             <button
               onClick={() => {
@@ -314,15 +329,15 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
                 return (
                   <div
                     key={layer.id}
-                    className="rounded-2xl border border-gray-800/90 bg-gray-950/60 overflow-hidden"
+                    className="rounded-2xl border border-slate-800/80 bg-slate-950/60 overflow-hidden"
                   >
-                    {/* 分组表头 (所属图层标识) */}
+                    {/* 分组表头 */}
                     <div
                       onClick={() => toggleGroup(layer.id)}
-                      className="p-3 bg-gray-900/60 flex items-center justify-between cursor-pointer hover:bg-gray-900 transition"
+                      className="p-3 bg-slate-900/60 flex items-center justify-between cursor-pointer hover:bg-slate-900 transition"
                     >
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <span className="text-gray-400">
+                        <span className="text-slate-400">
                           {isCollapsed ? (
                             <ChevronRight className="w-4 h-4" />
                           ) : (
@@ -330,14 +345,14 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
                           )}
                         </span>
                         <span
-                          className="w-3 h-3 rounded-full shrink-0 shadow"
+                          className="w-3 h-3 rounded-full shrink-0 shadow-sm"
                           style={{ backgroundColor: layer.color }}
                         />
-                        <span className="text-xs font-bold text-gray-200 truncate">
+                        <span className="text-xs font-bold text-slate-200 truncate">
                           {layer.name}
                         </span>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-800 text-gray-300 font-mono font-medium shrink-0">
-                          {groupFeatures.length} 个要素
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono font-medium shrink-0">
+                          {groupFeatures.length}
                         </span>
                       </div>
 
@@ -357,9 +372,9 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
 
                     {/* 该图层所属的要素卡片列表 */}
                     {!isCollapsed && (
-                      <div className="p-2 space-y-2">
+                      <div className="p-2 space-y-1.5">
                         {groupFeatures.length === 0 ? (
-                          <div className="py-3 text-center text-[11px] text-gray-500">
+                          <div className="py-3 text-center text-[11px] text-slate-500">
                             此图层暂无标绘要素
                           </div>
                         ) : (
@@ -373,7 +388,7 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
           </div>
         ) : (
           /* 平铺列表展示 */
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {filtered.map((feat) => renderFeatureCard(feat))}
           </div>
         )}

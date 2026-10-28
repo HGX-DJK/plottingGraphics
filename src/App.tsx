@@ -1,0 +1,373 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { User, PlotLayer, PlotFeature, PlotFeatureType, BasemapType } from './types';
+import { authService } from './services/authService';
+import { storageService, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM } from './services/storageService';
+import { MaptalksContainer, MaptalksContainerRef } from './components/Map/MaptalksContainer';
+import { MobileHeader } from './components/Mobile/MobileHeader';
+import { MobileTabBar, MobileTab } from './components/Mobile/MobileTabBar';
+import { MobilePlottingSheet } from './components/Mobile/MobilePlottingSheet';
+import { MobileLayerSheet } from './components/Mobile/MobileLayerSheet';
+import { MobileFeatureListSheet } from './components/Mobile/MobileFeatureListSheet';
+import { MobilePropertySheet } from './components/Mobile/MobilePropertySheet';
+import { MobileMoreSheet } from './components/Mobile/MobileMoreSheet';
+import { MobileDrawingControls } from './components/Mobile/MobileDrawingControls';
+import { MobileLoginView } from './components/Mobile/MobileLoginView';
+import { NewLayerModal } from './components/Modals/NewLayerModal';
+import { ImportExportModal } from './components/Modals/ImportExportModal';
+import { Smartphone, Monitor } from 'lucide-react';
+
+export const App: React.FC = () => {
+  const mapRef = useRef<MaptalksContainerRef>(null);
+
+  // 1. 用户会话管理 (免后端模拟认证)
+  const [currentUser, setCurrentUser] = useState<User | null>(() => authService.getCurrentUser());
+
+  // 2. 标绘图层与要素数据状态
+  const [layers, setLayers] = useState<PlotLayer[]>(() => storageService.loadLayers());
+  const [features, setFeatures] = useState<PlotFeature[]>(() => storageService.loadFeatures());
+  const [activeLayerId, setActiveLayerId] = useState<string>(() =>
+    storageService.getActiveLayerId(layers)
+  );
+
+  // 3. 移动端 Tab 与交互状态
+  const [activeTab, setActiveTab] = useState<MobileTab>(null);
+  const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
+  const [drawingTool, setDrawingTool] = useState<PlotFeatureType | 'measure-distance' | 'measure-area' | null>(null);
+  const [drawingPointsCount, setDrawingPointsCount] = useState<number>(0);
+  const [basemap, setBasemap] = useState<BasemapType>('dark');
+  const [cursorCoords, setCursorCoords] = useState<[number, number]>(DEFAULT_MAP_CENTER);
+  const [zoomLevel, setZoomLevel] = useState<number>(DEFAULT_MAP_ZOOM);
+
+  // 4. 模态弹窗状态
+  const [isNewLayerModalOpen, setIsNewLayerModalOpen] = useState(false);
+  const [isImportExportModalOpen, setIsImportExportModalOpen] = useState(false);
+
+  // 5. 电脑端调试时可选开启「真机外框预览」
+  const [deviceFrameMode, setDeviceFrameMode] = useState<boolean>(false);
+
+  // 本地 LocalStorage 持久化同步
+  useEffect(() => {
+    storageService.saveLayers(layers);
+  }, [layers]);
+
+  useEffect(() => {
+    storageService.saveFeatures(features);
+  }, [features]);
+
+  useEffect(() => {
+    if (activeLayerId) {
+      storageService.setActiveLayerId(activeLayerId);
+    }
+  }, [activeLayerId]);
+
+  // 用户操作
+  const handleLoginSuccess = (user: User) => {
+    setCurrentUser(user);
+  };
+
+  const handleLogout = () => {
+    authService.logout();
+    setCurrentUser(null);
+    setActiveTab(null);
+  };
+
+  // 图层操作
+  const handleCreateLayer = (newLayerData: Omit<PlotLayer, 'id' | 'createdAt'>) => {
+    const newLayer: PlotLayer = {
+      ...newLayerData,
+      id: `layer-${Date.now()}`,
+      createdAt: Date.now(),
+    };
+    const updated = [...layers, newLayer];
+    setLayers(updated);
+    setActiveLayerId(newLayer.id);
+  };
+
+  const handleToggleLayerVisibility = (layerId: string) => {
+    setLayers((prev) =>
+      prev.map((l) => (l.id === layerId ? { ...l, visible: !l.visible } : l))
+    );
+  };
+
+  const handleToggleLayerLock = (layerId: string) => {
+    setLayers((prev) =>
+      prev.map((l) => (l.id === layerId ? { ...l, locked: !l.locked } : l))
+    );
+  };
+
+  const handleChangeLayerOpacity = (layerId: string, opacity: number) => {
+    setLayers((prev) =>
+      prev.map((l) => (l.id === layerId ? { ...l, opacity } : l))
+    );
+  };
+
+  const handleDeleteLayer = (layerId: string) => {
+    if (layers.length <= 1) {
+      alert('至少需要保留一个图层！');
+      return;
+    }
+    const updated = layers.filter((l) => l.id !== layerId);
+    setLayers(updated);
+    setFeatures((prev) => prev.filter((f) => f.layerId !== layerId));
+    if (activeLayerId === layerId) {
+      setActiveLayerId(updated[0].id);
+    }
+  };
+
+  // 要素操作
+  const handleCreateFeature = (featureData: Omit<PlotFeature, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const newFeature: PlotFeature = {
+      ...featureData,
+      id: `feat-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    setFeatures((prev) => [...prev, newFeature]);
+    setSelectedFeatureId(newFeature.id);
+    setDrawingTool(null);
+  };
+
+  const handleUpdateFeature = (updated: PlotFeature) => {
+    setFeatures((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
+  };
+
+  const handleDeleteFeature = (featureId: string) => {
+    setFeatures((prev) => prev.filter((f) => f.id !== featureId));
+    if (selectedFeatureId === featureId) {
+      setSelectedFeatureId(null);
+    }
+  };
+
+  // 导入与重置
+  const handleImportData = (importedLayers: PlotLayer[], importedFeatures: PlotFeature[]) => {
+    setLayers(importedLayers);
+    setFeatures(importedFeatures);
+    if (importedLayers.length > 0) {
+      setActiveLayerId(importedLayers[0].id);
+    }
+    setSelectedFeatureId(null);
+  };
+
+  const handleResetDemo = () => {
+    const { layers: demoLayers, features: demoFeatures } = storageService.resetToDefault();
+    setLayers(demoLayers);
+    setFeatures(demoFeatures);
+    setActiveLayerId(demoLayers[0].id);
+    setSelectedFeatureId(null);
+  };
+
+  // 测距模式切换
+  const handleToggleMeasure = () => {
+    if (drawingTool === 'measure-distance') {
+      setDrawingTool(null);
+    } else {
+      setDrawingTool('measure-distance');
+      setSelectedFeatureId(null);
+      setActiveTab(null);
+    }
+  };
+
+  const activeLayer = layers.find((l) => l.id === activeLayerId) || layers[0];
+  const selectedFeature = features.find((f) => f.id === selectedFeatureId) || null;
+
+  // 未登录时展示移动端全屏登录
+  if (!currentUser) {
+    return <MobileLoginView onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // 移动端主界面容器渲染
+  const renderMobileAppContent = () => (
+    <div className="relative w-full h-full flex flex-col bg-gray-950 overflow-hidden select-none">
+      {/* 1. 移动端顶部状态与标题栏 */}
+      <MobileHeader
+        currentUser={currentUser}
+        activeLayer={activeLayer}
+        basemap={basemap}
+        cursorCoords={cursorCoords}
+        zoomLevel={zoomLevel}
+        onOpenLayers={() => setActiveTab('layers')}
+        onOpenMore={() => setActiveTab('more')}
+      />
+
+      {/* 2. MapTalks GL 触控地图画布 */}
+      <div className="flex-1 w-full h-full relative overflow-hidden">
+        <MaptalksContainer
+          ref={mapRef}
+          layers={layers}
+          features={features}
+          activeLayerId={activeLayerId}
+          selectedFeatureId={selectedFeatureId}
+          drawingTool={drawingTool}
+          basemap={basemap}
+          onSelectFeature={(id) => {
+            setSelectedFeatureId(id);
+            if (id) {
+              setActiveTab('properties');
+            }
+          }}
+          onCreateFeature={handleCreateFeature}
+          onCancelDrawing={() => setDrawingTool(null)}
+          onCoordinatesChange={(coords, zoom) => {
+            setCursorCoords(coords);
+            setZoomLevel(zoom);
+          }}
+          onDrawingPointsChange={setDrawingPointsCount}
+        />
+
+        {/* 3. 移动端悬浮标绘指导与右侧触控按钮 */}
+        <MobileDrawingControls
+          drawingTool={drawingTool}
+          drawingPointsCount={drawingPointsCount}
+          onCancelDrawing={() => setDrawingTool(null)}
+          onUndoPoint={() => mapRef.current?.undoPoint()}
+          onFinishDrawing={() => mapRef.current?.finishCurrentDrawing()}
+          onZoomIn={() => mapRef.current?.zoomIn()}
+          onZoomOut={() => mapRef.current?.zoomOut()}
+          onResetView={() => mapRef.current?.resetView()}
+          onToggleMeasure={handleToggleMeasure}
+        />
+      </div>
+
+      {/* 4. 移动端底部导航工具栏 (TabBar) */}
+      <MobileTabBar
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        layersCount={layers.length}
+        featuresCount={features.length}
+        hasSelectedFeature={!!selectedFeatureId}
+        isDrawing={!!drawingTool}
+      />
+
+      {/* 5. 底部滑出抽屉组件群 */}
+      {/* 图层管理抽屉 */}
+      <MobileLayerSheet
+        isOpen={activeTab === 'layers'}
+        onClose={() => setActiveTab(null)}
+        layers={layers}
+        features={features}
+        activeLayerId={activeLayerId}
+        onSelectActiveLayer={(id) => {
+          setActiveLayerId(id);
+        }}
+        onToggleVisibility={handleToggleLayerVisibility}
+        onToggleLock={handleToggleLayerLock}
+        onChangeOpacity={handleChangeLayerOpacity}
+        onDeleteLayer={handleDeleteLayer}
+        onOpenNewLayerModal={() => setIsNewLayerModalOpen(true)}
+      />
+
+      {/* 标绘工具箱抽屉 */}
+      <MobilePlottingSheet
+        isOpen={activeTab === 'plot'}
+        onClose={() => setActiveTab(null)}
+        currentDrawingTool={drawingTool as PlotFeatureType}
+        onSelectTool={(tool) => {
+          setDrawingTool(tool);
+          setSelectedFeatureId(null);
+        }}
+        activeLayerName={activeLayer?.name || '默认工作图层'}
+        activeLayerColor={activeLayer?.color || '#3b82f6'}
+      />
+
+      {/* 要素清单抽屉 */}
+      <MobileFeatureListSheet
+        isOpen={activeTab === 'features'}
+        onClose={() => setActiveTab(null)}
+        features={features}
+        layers={layers}
+        selectedFeatureId={selectedFeatureId}
+        onSelectFeature={(id) => {
+          setSelectedFeatureId(id);
+          setActiveTab('properties');
+        }}
+        onDeleteFeature={handleDeleteFeature}
+      />
+
+      {/* 选中的要素属性配置抽屉 */}
+      <MobilePropertySheet
+        isOpen={activeTab === 'properties'}
+        onClose={() => {
+          setActiveTab(null);
+          setSelectedFeatureId(null);
+        }}
+        feature={selectedFeature}
+        layers={layers}
+        onUpdateFeature={handleUpdateFeature}
+        onDeleteFeature={handleDeleteFeature}
+      />
+
+      {/* 更多与设置抽屉 */}
+      <MobileMoreSheet
+        isOpen={activeTab === 'more'}
+        onClose={() => setActiveTab(null)}
+        currentUser={currentUser}
+        basemap={basemap}
+        onChangeBasemap={setBasemap}
+        onOpenImportExport={() => setIsImportExportModalOpen(true)}
+        onResetDemo={handleResetDemo}
+        onLogout={handleLogout}
+      />
+
+      {/* 新建图层弹窗 */}
+      <NewLayerModal
+        isOpen={isNewLayerModalOpen}
+        onClose={() => setIsNewLayerModalOpen(false)}
+        onCreateLayer={handleCreateLayer}
+      />
+
+      {/* 工程导入导出弹窗 */}
+      <ImportExportModal
+        isOpen={isImportExportModalOpen}
+        onClose={() => setIsImportExportModalOpen(false)}
+        layers={layers}
+        features={features}
+        onImportData={handleImportData}
+        onResetDemo={handleResetDemo}
+      />
+    </div>
+  );
+
+  return (
+    <div className="w-screen h-screen bg-gray-950 flex flex-col items-center justify-center overflow-hidden">
+      {/* 顶部微小模式切换器 (方便在电脑端开发和真机调试) */}
+      <div className="fixed top-2 right-2 z-50 hidden md:flex items-center gap-2 px-3 py-1 bg-gray-900/80 backdrop-blur-md border border-gray-800 rounded-full text-[11px] text-gray-400">
+        <button
+          onClick={() => setDeviceFrameMode(!deviceFrameMode)}
+          className="flex items-center gap-1 hover:text-white transition"
+          title="切换手机真机外壳仿真模式"
+        >
+          {deviceFrameMode ? (
+            <>
+              <Monitor className="w-3.5 h-3.5 text-blue-400" />
+              <span>铺满移动屏</span>
+            </>
+          ) : (
+            <>
+              <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
+              <span>手机真机外框预览</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {deviceFrameMode ? (
+        /* 📱 手机真机仿真外壳 (专为桌面端直观审查移动端交互打造) */
+        <div className="relative w-[390px] h-[844px] max-h-[96vh] rounded-[48px] border-[10px] border-gray-800 bg-gray-950 shadow-2xl shadow-blue-950/30 overflow-hidden flex flex-col ring-1 ring-white/10">
+          {/* 手机灵动岛与听筒 */}
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-6 bg-black rounded-full z-40 flex items-center justify-center">
+            <div className="w-2.5 h-2.5 rounded-full bg-gray-900 border border-gray-800 mr-2" />
+            <div className="w-2 h-2 rounded-full bg-blue-900/60" />
+          </div>
+          {renderMobileAppContent()}
+          {/* 底部小黑条 Home Indicator */}
+          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-32 h-1 bg-gray-600 rounded-full z-40" />
+        </div>
+      ) : (
+        /* 📲 原生 100% 全屏移动端模式 (移动端浏览器或 WebView 下完美全屏贴合) */
+        renderMobileAppContent()
+      )}
+    </div>
+  );
+};
+
+export default App;

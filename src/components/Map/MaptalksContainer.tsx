@@ -97,6 +97,12 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
     const drawingToolRef = useRef(drawingTool);
     drawingToolRef.current = drawingTool;
 
+    const activeLayerIdRef = useRef(activeLayerId);
+    activeLayerIdRef.current = activeLayerId;
+
+    const layersRef = useRef(layers);
+    layersRef.current = layers;
+
     const enableSnappingRef = useRef(enableSnapping);
     enableSnappingRef.current = enableSnapping;
 
@@ -926,7 +932,10 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       if (!drawingTool || pts.length === 0) return;
       previewLayerRef.current?.clear();
 
-      const activeLayer = layers.find((l) => l.id === activeLayerId) || layers[0];
+      const currentActiveId = activeLayerIdRef.current;
+      const currentLayers = layersRef.current;
+      const activeLayer = currentLayers.find((l) => l.id === currentActiveId) || currentLayers[0];
+      const targetLayerId = activeLayer?.id || currentActiveId;
       const themeColor = activeLayer?.color || '#3b82f6';
 
       const defaultNames: Record<string, string> = {
@@ -982,7 +991,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       const newFeature: Omit<PlotFeature, 'id' | 'createdAt' | 'updatedAt'> = {
         name: `${defaultNames[drawingTool] || '标绘要素'}_${Date.now().toString().slice(-4)}`,
         type: drawingTool as PlotFeatureType,
-        layerId: activeLayerId,
+        layerId: targetLayerId,
         coordinates: pts,
         properties: {
           strokeColor: themeColor,

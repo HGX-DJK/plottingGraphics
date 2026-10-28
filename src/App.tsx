@@ -169,6 +169,8 @@ export const App: React.FC = () => {
       prev.map((l) => (l.id === featureData.layerId && !l.visible ? { ...l, visible: true } : l))
     );
 
+    const targetLayer = layers.find((l) => l.id === featureData.layerId);
+
     const newFeature: PlotFeature = {
       ...featureData,
       id: `feat-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
@@ -178,7 +180,7 @@ export const App: React.FC = () => {
     setFeatures((prev) => [...prev, newFeature]);
     setSelectedFeatureId(newFeature.id);
     setDrawingTool(null);
-    showToast(`✓ 已成功创建要素 "${newFeature.name}"`);
+    showToast(`✓ 已在「${targetLayer?.name || '指定图层'}」中创建要素 "${newFeature.name}"`);
   };
 
   const handleUpdateFeature = (updated: PlotFeature) => {
@@ -422,7 +424,7 @@ export const App: React.FC = () => {
       />
 
       {/* 5. 底部滑出抽屉组件群 */}
-      {/* 图层管理抽屉 */}
+      {/* 图层管理抽屉 (GIS 图层与要素树) */}
       <MobileLayerSheet
         isOpen={activeTab === 'layers'}
         onClose={() => setActiveTab(null)}
@@ -438,6 +440,19 @@ export const App: React.FC = () => {
         onDeleteLayer={handleDeleteLayer}
         onOpenNewLayerModal={() => setIsNewLayerModalOpen(true)}
         onStartPlotting={() => setActiveTab('plot')}
+        onSelectFeature={(id) => {
+          setSelectedFeatureId(id);
+          setActiveTab('properties');
+        }}
+        onLocateFeature={(id) => {
+          setSelectedFeatureId(id);
+          setActiveTab(null);
+          const feat = features.find((f) => f.id === id);
+          if (feat) {
+            showToast(`📍 已在地图中居中聚焦要素: ${feat.name}`);
+          }
+        }}
+        onDeleteFeature={handleDeleteFeature}
       />
 
       {/* 标绘工具箱抽屉 */}
@@ -451,6 +466,13 @@ export const App: React.FC = () => {
         }}
         activeLayerName={activeLayer?.name || '默认工作图层'}
         activeLayerColor={activeLayer?.color || '#3b82f6'}
+        layers={layers}
+        activeLayerId={activeLayerId}
+        onSelectActiveLayer={(id) => {
+          setActiveLayerId(id);
+          const l = layers.find((item) => item.id === id);
+          if (l) showToast(`已切换当前工作图层至「${l.name}」`);
+        }}
       />
 
       {/* 要素清单抽屉 */}
@@ -467,6 +489,9 @@ export const App: React.FC = () => {
         onDeleteFeature={handleDeleteFeature}
         onOpenPlotting={() => setActiveTab('plot')}
         onOpenClearFeatures={() => setIsClearModalOpen(true)}
+        onSelectActiveLayer={(id) => {
+          setActiveLayerId(id);
+        }}
       />
 
       {/* 选中的要素属性配置抽屉 */}

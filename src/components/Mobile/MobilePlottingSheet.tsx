@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PlotFeatureType } from '../../types';
+import { PlotFeatureType, PlotLayer } from '../../types';
 import {
   Compass,
   Navigation,
@@ -17,6 +17,7 @@ import {
   Circle,
   Pencil,
   PenTool,
+  Check,
 } from 'lucide-react';
 import { MobileBottomSheet } from './MobileBottomSheet';
 
@@ -27,6 +28,9 @@ interface MobilePlottingSheetProps {
   onSelectTool: (tool: PlotFeatureType) => void;
   activeLayerName: string;
   activeLayerColor: string;
+  layers?: PlotLayer[];
+  activeLayerId?: string;
+  onSelectActiveLayer?: (layerId: string) => void;
 }
 
 export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
@@ -36,6 +40,9 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
   onSelectTool,
   activeLayerName,
   activeLayerColor,
+  layers,
+  activeLayerId,
+  onSelectActiveLayer,
 }) => {
   // 默认定位到 GISer 最核心的基础矢量分类
   const [activeCategory, setActiveCategory] = useState<'shapes' | 'points' | 'arrows'>('shapes');
@@ -184,18 +191,50 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
       icon={<PenTool className="w-4 h-4" />}
     >
       <div className="space-y-4">
-        {/* 当前图层提示 */}
-        <div className="flex items-center justify-between p-2.5 rounded-xl bg-gray-950 border border-gray-800 text-xs">
-          <span className="text-gray-400">新建要素将保存至图层:</span>
-          <div className="flex items-center gap-1.5">
-            <span
-              className="w-2.5 h-2.5 rounded-full"
-              style={{ backgroundColor: activeLayerColor }}
-            />
-            <span className="font-semibold text-white truncate max-w-[140px]">
-              {activeLayerName}
-            </span>
+        {/* 标绘目标图层选择栏 (新建要素将严格保存至选定图层) */}
+        <div className="p-3 rounded-2xl bg-gray-950 border border-gray-800 space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-400 font-medium">新建要素目标归属图层:</span>
+            {layers && layers.length > 1 && (
+              <span className="text-[11px] text-blue-400 font-medium">点击图层快速切换</span>
+            )}
           </div>
+
+          {layers && layers.length > 0 && onSelectActiveLayer ? (
+            <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+              {layers.map((layer) => {
+                const isSelected = layer.id === activeLayerId;
+                return (
+                  <button
+                    key={layer.id}
+                    onClick={() => onSelectActiveLayer(layer.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs shrink-0 transition-all ${
+                      isSelected
+                        ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/30 ring-1 ring-blue-400'
+                        : 'bg-gray-900 hover:bg-gray-850 text-gray-300 border border-gray-800'
+                    }`}
+                  >
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-white/20"
+                      style={{ backgroundColor: layer.color }}
+                    />
+                    <span className="truncate max-w-[120px]">{layer.name}</span>
+                    {isSelected && <Check className="w-3 h-3 text-white ml-0.5" />}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span
+                className="w-2.5 h-2.5 rounded-full ring-1 ring-white/20"
+                style={{ backgroundColor: activeLayerColor }}
+              />
+              <span className="font-semibold text-white truncate text-xs">
+                {activeLayerName}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* GIS 分类切换栏 */}

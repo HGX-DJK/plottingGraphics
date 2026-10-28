@@ -202,22 +202,38 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
             />
           </div>
 
-          <div>
-            <label className="block text-gray-400 font-medium mb-1 flex items-center gap-1">
-              <Layers className="w-3.5 h-3.5 text-gray-500" />
-              <span>归属图层</span>
-            </label>
+          <div className="p-2.5 rounded-xl bg-gray-950 border border-gray-800 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <label className="text-gray-400 font-medium flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-blue-400" />
+                <span>所属工作图层</span>
+              </label>
+              {layers.find((l) => l.id === feature.layerId) && (
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full ring-1 ring-white/20"
+                    style={{ backgroundColor: layers.find((l) => l.id === feature.layerId)?.color }}
+                  />
+                  <span className="text-gray-300 font-semibold truncate max-w-[120px]">
+                    {layers.find((l) => l.id === feature.layerId)?.name}
+                  </span>
+                </div>
+              )}
+            </div>
             <select
               value={feature.layerId}
               onChange={(e) => handleLayerChange(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-950 border border-gray-800 rounded-xl text-gray-200 focus:outline-none focus:border-blue-500"
+              className="w-full px-3 py-2 bg-gray-900 border border-gray-700/80 rounded-xl text-gray-200 text-xs focus:outline-none focus:border-blue-500"
             >
               {layers.map((l) => (
                 <option key={l.id} value={l.id}>
-                  {l.name}
+                  {l.name} {l.id === feature.layerId ? '(当前归属图层)' : ''}
                 </option>
               ))}
             </select>
+            <div className="text-[10px] text-gray-500">
+              更改归属图层后，要素将移动至目标图层树，受其显隐、锁定与透明度管控。
+            </div>
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-name: Build and Deploy Mobile App
+name: Build and Package Mobile App
 
 on:
   push:
@@ -11,14 +11,13 @@ on:
       - master
   workflow_dispatch:
 
-# 允许部署到 GitHub Pages 的权限
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
 concurrency:
-  group: 'pages'
+  group: 'ci-${{ github.ref }}'
   cancel-in-progress: true
 
 jobs:
@@ -54,26 +53,33 @@ jobs:
           path: dist/
           retention-days: 7
 
-      - name: Setup Pages
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-        uses: actions/configure-pages@v5
-
-      - name: Upload Pages artifact
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist/
-
   deploy:
     name: Deploy to GitHub Pages
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     needs: build
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    continue-on-error: true # 若仓库尚未在 Settings 中开启 Pages，不阻塞主构建状态
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: plotting-mobile-dist
+          path: dist/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

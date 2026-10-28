@@ -53,20 +53,20 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
   };
 
   return (
-    <div className="relative w-full h-full max-h-screen bg-gray-950 flex flex-col items-center justify-between safe-top safe-bottom px-5 py-3 sm:py-6 overflow-hidden select-none">
+    <div className="relative w-full h-full max-h-screen bg-gray-950 flex flex-col items-center justify-between safe-top safe-bottom px-5 py-6 sm:py-8 overflow-hidden select-none">
       {/* 顶部背景微光氛围装饰 */}
-      <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[380px] h-[380px] bg-gradient-to-b from-blue-600/20 via-indigo-600/10 to-transparent rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-60 h-60 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[420px] h-[420px] bg-gradient-to-b from-blue-600/20 via-indigo-600/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-72 h-72 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none" />
 
-      {/* 主体自适应容器 (确保整页在各类手机视口内紧凑适配，彻底杜绝滚动条) */}
-      <div className="max-w-sm w-full mx-auto flex-1 flex flex-col justify-between z-10 py-1">
-        {/* 1. 顶部品牌徽标与系统标题 (精简去重，移除冗余宣传标语) */}
-        <div className="text-center flex flex-col items-center pt-2 sm:pt-4">
-          <div className="relative mb-3">
+      {/* 主体居中容器 (按黄金比例呼吸留白，彻底解决顶部贴边与内部拥挤) */}
+      <div className="max-w-sm w-full mx-auto flex-1 flex flex-col justify-center gap-5 sm:gap-7 z-10 py-2">
+        {/* 1. 顶部品牌徽标与系统标题 (适度下沉，不再紧贴顶部边缘) */}
+        <div className="text-center flex flex-col items-center">
+          <div className="relative mb-3.5">
             <div className="absolute inset-0 rounded-3xl bg-blue-500/25 blur-md animate-pulse" />
-            <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-3xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 p-[1.5px] shadow-2xl shadow-blue-500/30">
+            <div className="relative w-16 h-16 rounded-3xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 p-[1.5px] shadow-2xl shadow-blue-500/30">
               <div className="w-full h-full bg-gray-950 rounded-[22px] flex items-center justify-center">
-                <Compass className="w-7 h-7 sm:w-8 sm:h-8 text-cyan-400 stroke-[2.2]" />
+                <Compass className="w-8 h-8 text-cyan-400 stroke-[2.2]" />
               </div>
             </div>
             <span className="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-full bg-emerald-500 border-2 border-gray-950 text-[9px] font-black text-gray-950 shadow">
@@ -74,9 +74,9 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
             </span>
           </div>
 
-          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/25 mb-1.5">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/25 mb-2">
             <Sparkles className="w-3 h-3 text-cyan-400" />
-            <span className="text-[10px] font-bold text-cyan-300 tracking-wide font-mono">
+            <span className="text-[10.5px] font-bold text-cyan-300 tracking-wide font-mono">
               GEOPLOT STUDIO MOBILE
             </span>
           </div>
@@ -86,20 +86,20 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
           </h1>
         </div>
 
-        {/* 2. 现代磨砂玻璃登录表单卡片 (已按要求移除内部多余核验标题栏，紧凑整洁) */}
-        <div className="my-auto w-full py-2">
-          <div className="bg-gray-900/75 backdrop-blur-2xl border border-white/10 rounded-3xl p-5 sm:p-6 shadow-2xl ring-1 ring-white/5 space-y-3.5">
-            <form onSubmit={handleCustomLogin} className="space-y-3.5">
+        {/* 2. 现代磨砂玻璃登录表单卡片 (留白充足、触控间距舒适，无拥挤感) */}
+        <div className="w-full">
+          <div className="bg-gray-900/75 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl ring-1 ring-white/5 space-y-4 sm:space-y-5">
+            <form onSubmit={handleCustomLogin} className="space-y-4">
               {errorMsg && (
-                <div className="p-2.5 bg-red-950/60 border border-red-500/40 rounded-2xl text-xs text-red-200 flex items-center gap-2 animate-in fade-in duration-200">
+                <div className="p-3 bg-red-950/60 border border-red-500/40 rounded-2xl text-xs text-red-200 flex items-center gap-2 animate-in fade-in duration-200">
                   <XCircle className="w-4 h-4 text-red-400 shrink-0" />
                   <span className="truncate">{errorMsg}</span>
                 </div>
               )}
 
               {/* 用户名输入框 */}
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-gray-300 ml-1">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-gray-300 ml-1">
                   工程工号 / 用户名
                 </label>
                 <div className="relative group">
@@ -109,7 +109,7 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="如 admin / surveyor 或自定义姓名"
-                    className="w-full pl-10 pr-3.5 py-2.5 sm:py-3 bg-gray-950/80 border border-gray-800 rounded-2xl text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition shadow-inner font-mono"
+                    className="w-full pl-10 pr-3.5 py-3 bg-gray-950/80 border border-gray-800 rounded-2xl text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition shadow-inner font-mono"
                     autoCapitalize="none"
                     autoCorrect="off"
                   />
@@ -117,9 +117,9 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
               </div>
 
               {/* 密码输入框 */}
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between ml-1">
-                  <label className="text-[11px] font-semibold text-gray-300">
+                  <label className="text-xs font-semibold text-gray-300">
                     访问密钥 / 密码
                   </label>
                   <span className="text-[10px] text-gray-400 font-mono">离线凭证任意</span>
@@ -131,7 +131,7 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="请输入密码凭据"
-                    className="w-full pl-10 pr-10 py-2.5 sm:py-3 bg-gray-950/80 border border-gray-800 rounded-2xl text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition shadow-inner font-mono"
+                    className="w-full pl-10 pr-10 py-3 bg-gray-950/80 border border-gray-800 rounded-2xl text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition shadow-inner font-mono"
                   />
                   <button
                     type="button"
@@ -145,7 +145,7 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
               </div>
 
               {/* 辅助操作栏与账号快捷轻标签 */}
-              <div className="flex items-center justify-between pt-0.5 text-[11px]">
+              <div className="flex items-center justify-between pt-1 text-[11px]">
                 <label className="flex items-center gap-1.5 text-gray-400 cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -160,7 +160,7 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
                   <button
                     type="button"
                     onClick={() => fillCredential('admin')}
-                    className="px-2 py-0.5 rounded-lg bg-gray-800/80 hover:bg-gray-750 text-gray-300 hover:text-white transition text-[10px] font-mono border border-gray-700/60"
+                    className="px-2.5 py-1 rounded-xl bg-gray-800/80 hover:bg-gray-750 text-gray-300 hover:text-white transition text-[10.5px] font-mono border border-gray-700/60"
                     title="填入系统主管管理员工号"
                   >
                     填入主管
@@ -168,7 +168,7 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
                   <button
                     type="button"
                     onClick={() => fillCredential('surveyor')}
-                    className="px-2 py-0.5 rounded-lg bg-gray-800/80 hover:bg-gray-750 text-gray-300 hover:text-white transition text-[10px] font-mono border border-gray-700/60"
+                    className="px-2.5 py-1 rounded-xl bg-gray-800/80 hover:bg-gray-750 text-gray-300 hover:text-white transition text-[10.5px] font-mono border border-gray-700/60"
                     title="填入外业调查员工号"
                   >
                     填入外业员
@@ -180,7 +180,7 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 sm:py-3.5 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 active:scale-[0.98] text-white font-bold rounded-2xl text-xs shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition duration-200 mt-2 cursor-pointer disabled:opacity-60"
+                className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 active:scale-[0.98] text-white font-bold rounded-2xl text-xs shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition duration-200 mt-2 cursor-pointer disabled:opacity-60"
               >
                 {loading ? (
                   <>
@@ -199,7 +199,7 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
         </div>
 
         {/* 3. 底部空间引擎与状态信息 */}
-        <div className="text-center pb-2 flex flex-col items-center gap-1">
+        <div className="text-center flex flex-col items-center gap-1">
           <div className="flex items-center gap-2 text-[10px] text-gray-400 font-mono">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span>离线工程沙箱就绪</span>

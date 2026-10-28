@@ -1,0 +1,14 @@
+{
+  "appId": "com.geoplot.gis",
+  "appName": "GeoPlot GIS",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  }
+}

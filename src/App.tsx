@@ -156,12 +156,22 @@ export const App: React.FC = () => {
     setSelectedFeatureId(null);
   };
 
-  // 测距模式切换
-  const handleToggleMeasure = () => {
+  // 空间量算模式切换 (测距与测面)
+  const handleToggleMeasureDistance = () => {
     if (drawingTool === 'measure-distance') {
       setDrawingTool(null);
     } else {
       setDrawingTool('measure-distance');
+      setSelectedFeatureId(null);
+      setActiveTab(null);
+    }
+  };
+
+  const handleToggleMeasureArea = () => {
+    if (drawingTool === 'measure-area') {
+      setDrawingTool(null);
+    } else {
+      setDrawingTool('measure-area');
       setSelectedFeatureId(null);
       setActiveTab(null);
     }
@@ -224,7 +234,8 @@ export const App: React.FC = () => {
           onZoomIn={() => mapRef.current?.zoomIn()}
           onZoomOut={() => mapRef.current?.zoomOut()}
           onResetView={() => mapRef.current?.resetView()}
-          onToggleMeasure={handleToggleMeasure}
+          onToggleMeasureDistance={handleToggleMeasureDistance}
+          onToggleMeasureArea={handleToggleMeasureArea}
         />
       </div>
 

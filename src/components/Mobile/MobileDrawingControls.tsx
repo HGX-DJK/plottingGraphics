@@ -5,6 +5,7 @@ import {
   Minus,
   Crosshair,
   Ruler,
+  Maximize2,
   Undo2,
   Check,
   X,
@@ -19,7 +20,8 @@ interface MobileDrawingControlsProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onResetView: () => void;
-  onToggleMeasure: () => void;
+  onToggleMeasureDistance: () => void;
+  onToggleMeasureArea: () => void;
 }
 
 export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
@@ -31,25 +33,32 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
   onZoomIn,
   onZoomOut,
   onResetView,
-  onToggleMeasure,
+  onToggleMeasureDistance,
+  onToggleMeasureArea,
 }) => {
   const getToolDisplayName = (tool: string) => {
     const names: Record<string, string> = {
-      'straight-arrow': '进攻直箭头',
-      'attack-arrow': '突击进攻箭头',
-      'pincer-arrow': '钳击双箭头',
-      'gathering-place': '战役集结地域',
-      'sector': '预警扇形',
-      'polyline': '机动路线 (折线)',
-      'polygon': '控制地域 (多边形)',
-      'rectangle': '搜索网格 (矩形)',
-      'circle': '警戒半径 (圆形)',
-      'marker': '战术标记点',
-      'text': '文字注记',
-      'freehand': '态势手绘线',
-      'measure-distance': '球面测距',
+      'straight-arrow': '规划导向直箭头',
+      'attack-arrow': '空间发展推进轴',
+      'pincer-arrow': '双向分流与汇聚标绘',
+      'gathering-place': '重点管控集结区',
+      'sector': '监测覆盖扇区',
+      'polyline': '路线走向 / 勘界折线',
+      'polygon': '规划控制地块面',
+      'rectangle': '标准搜索网格 (BBox)',
+      'circle': '缓冲区安全半径圈',
+      'marker': '空间位置标定点',
+      'text': '空间地物文字注记',
+      'freehand': '外业踏勘手绘轨迹',
+      'point-survey': '控制测量核查点',
+      'point-station': '生态环境监测站',
+      'point-facility': '市政基础设施点',
+      'point-hazard': '地灾风险隐患点',
+      'point-medical': '应急医疗避难点',
+      'measure-distance': '空间折线测距',
+      'measure-area': '空间多边形测面',
     };
-    if (tool.startsWith('post-')) return '战术点标号';
+    if (tool.startsWith('post-')) return '专题地物标号';
     return names[tool] || tool;
   };
 
@@ -60,7 +69,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
     if (tool === 'attack-arrow' || tool === 'pincer-arrow' || tool === 'gathering-place') {
       return `已点标 ${count}/3 点`;
     }
-    if (tool === 'polyline' || tool === 'polygon' || tool === 'freehand') {
+    if (tool === 'polyline' || tool === 'polygon' || tool === 'freehand' || tool === 'measure-distance' || tool === 'measure-area') {
       return `已添加 ${count} 个顶点 (双击或点完成)`;
     }
     return '轻触地图落点';
@@ -69,19 +78,19 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
   const canFinish =
     drawingTool === 'polyline' || drawingTool === 'freehand'
       ? drawingPointsCount >= 2
-      : drawingTool === 'polygon'
+      : drawingTool === 'polygon' || drawingTool === 'measure-area'
       ? drawingPointsCount >= 3
       : false;
 
   return (
     <>
-      {/* 顶部标绘状态指示条 (仅在标绘模式时显示) */}
+      {/* 顶部标绘状态指示条 (仅在标绘或量算交互模式时显示) */}
       {drawingTool && (
-        <div className="absolute top-14 left-3 right-3 z-30 flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-gray-900/95 backdrop-blur-md border border-amber-500/50 shadow-2xl animate-in slide-in-from-top-4 duration-200">
+        <div className="absolute top-14 left-3 right-3 z-30 flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-gray-900/95 backdrop-blur-md border border-blue-500/50 shadow-2xl animate-in slide-in-from-top-4 duration-200">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping shrink-0" />
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-ping shrink-0" />
             <div className="min-w-0">
-              <div className="text-xs font-bold text-amber-300 truncate">
+              <div className="text-xs font-bold text-blue-300 truncate">
                 {getToolDisplayName(drawingTool)}
               </div>
               <div className="text-[10px] text-gray-300 truncate">
@@ -113,8 +122,8 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
 
             <button
               onClick={onCancelDrawing}
-              className="p-1 rounded-xl bg-gray-800 text-gray-400 hover:text-white transition"
-              title="取消标绘"
+              className="p-1.5 rounded-xl bg-gray-800 text-gray-400 hover:text-white transition"
+              title="退出标绘"
             >
               <X className="w-4 h-4" />
             </button>
@@ -122,26 +131,39 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
         </div>
       )}
 
-      {/* 右侧悬浮移动端地图控制按钮组 */}
+      {/* 右侧悬浮移动端 GIS 交互工具组 */}
       <div className="absolute right-3.5 bottom-20 z-20 flex flex-col gap-2">
-        {/* 测距快捷开关 */}
+        {/* 空间测距 */}
         <button
-          onClick={onToggleMeasure}
+          onClick={onToggleMeasureDistance}
           className={`w-11 h-11 rounded-2xl border shadow-xl flex items-center justify-center transition ${
             drawingTool === 'measure-distance'
               ? 'bg-amber-500 border-amber-400 text-gray-950 ring-2 ring-amber-500/40'
               : 'bg-gray-900/90 border-gray-800 text-gray-300 active:bg-gray-800 backdrop-blur-md'
           }`}
-          title="球面测距"
+          title="折线测距 (Distance)"
         >
           <Ruler className="w-5 h-5" />
+        </button>
+
+        {/* 空间测面 */}
+        <button
+          onClick={onToggleMeasureArea}
+          className={`w-11 h-11 rounded-2xl border shadow-xl flex items-center justify-center transition ${
+            drawingTool === 'measure-area'
+              ? 'bg-emerald-500 border-emerald-400 text-gray-950 ring-2 ring-emerald-500/40'
+              : 'bg-gray-900/90 border-gray-800 text-gray-300 active:bg-gray-800 backdrop-blur-md'
+          }`}
+          title="多边形测面 (Area)"
+        >
+          <Maximize2 className="w-5 h-5 text-emerald-400" />
         </button>
 
         {/* 复位到中心 */}
         <button
           onClick={onResetView}
           className="w-11 h-11 rounded-2xl bg-gray-900/90 border border-gray-800 text-gray-300 active:bg-gray-800 backdrop-blur-md shadow-xl flex items-center justify-center transition"
-          title="复位中心视角"
+          title="复位中心视角 (Zoom to Extent)"
         >
           <Crosshair className="w-5 h-5 text-blue-400" />
         </button>

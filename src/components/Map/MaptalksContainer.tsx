@@ -14,7 +14,13 @@ import {
   calculateSector,
 } from '../../utils/plotAlgorithms';
 import { createTacticalIcon } from '../../utils/markerIcons';
-import { calculateSphericalDistance, formatDistance } from '../../utils/geoUtils';
+import {
+  calculateSphericalDistance,
+  formatDistance,
+  calculateSphericalPolygonArea,
+  calculateLineLength,
+  formatArea,
+} from '../../utils/geoUtils';
 import { Loader2 } from 'lucide-react';
 
 export interface MaptalksContainerRef {
@@ -339,8 +345,8 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       const strokeWidth = isSelected ? properties.strokeWidth + 2 : properties.strokeWidth;
       const dash = properties.strokeDasharray === 'dash' ? [8, 6] : null;
 
-      // 战术点标号
-      if (type.startsWith('post-')) {
+      // 专题地物点与调查标号
+      if (type.startsWith('post-') || type.startsWith('point-')) {
         const iconUrl = createTacticalIcon(type, properties.strokeColor, properties.text);
         return new maptalks.Marker(coordinates[0], {
           id: feat.id,
@@ -573,15 +579,15 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
 
       map.setCursor('crosshair');
 
-      // 测距模式
-      if (drawingTool === 'measure-distance') {
+      // 空间量算模式 (测距与测面)
+      if (drawingTool === 'measure-distance' || drawingTool === 'measure-area') {
         const handleMeasureClick = (e: any) => {
           const coord: [number, number] = [e.coordinate.x, e.coordinate.y];
           const newPts = [...measurePointsRef.current, coord];
           setMeasurePoints(newPts);
 
           measureLayer.clear();
-          if (newPts.length >= 2) {
+          if (drawingTool === 'measure-distance' && newPts.length >= 2) {
             let totalDist = 0;
             for (let i = 0; i < newPts.length - 1; i++) {
               totalDist += calculateSphericalDistance(newPts[i], newPts[i + 1]);
@@ -596,15 +602,39 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
             });
             const endMarker = new maptalks.Marker(coord, {
               symbol: {
-                textName: `距: ${formatDistance(totalDist)}`,
+                textName: `总长: ${formatDistance(totalDist)}`,
                 textSize: 12,
                 textFill: '#fbbf24',
                 textHaloFill: '#111827',
                 textHaloRadius: 3,
                 textDy: -15,
+                textWeight: 'bold',
               },
             });
             measureLayer.addGeometry([line, endMarker]);
+          } else if (drawingTool === 'measure-area' && newPts.length >= 3) {
+            const area = calculateSphericalPolygonArea(newPts);
+            const poly = new maptalks.Polygon([newPts], {
+              symbol: {
+                lineColor: '#10b981',
+                lineWidth: 2.5,
+                lineDasharray: [5, 5],
+                polygonFill: '#10b981',
+                polygonOpacity: 0.3,
+              },
+            });
+            const centerMarker = new maptalks.Marker(coord, {
+              symbol: {
+                textName: `面积: ${formatArea(area)}`,
+                textSize: 12,
+                textFill: '#34d399',
+                textHaloFill: '#111827',
+                textHaloRadius: 3,
+                textDy: -15,
+                textWeight: 'bold',
+              },
+            });
+            measureLayer.addGeometry([poly, centerMarker]);
           }
         };
 
@@ -621,7 +651,12 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         setDrawingPoints(currentPts);
 
         // 单点要素
-        if (drawingTool.startsWith('post-') || drawingTool === 'marker' || drawingTool === 'text') {
+        if (
+          drawingTool.startsWith('post-') ||
+          drawingTool.startsWith('point-') ||
+          drawingTool === 'marker' ||
+          drawingTool === 'text'
+        ) {
           finishDrawing(currentPts);
           return;
         }
@@ -688,24 +723,54 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       const themeColor = activeLayer?.color || '#3b82f6';
 
       const defaultNames: Record<string, string> = {
-        'straight-arrow': '进攻指向指示',
-        'attack-arrow': '主力突击突穿箭头',
-        'pincer-arrow': '钳形合围进攻箭头',
-        'gathering-place': '战役集结地域',
-        'sector': '预警探测扇形区',
-        'polyline': '机动行军路线',
-        'polygon': '战术控制地域',
-        'rectangle': '网格搜索区',
-        'circle': '核心警戒防区',
-        'marker': '战术观察标定点',
-        'text': '态势重点注记',
-        'post-command': '基本指挥所',
-        'post-radar': '雷达探测站',
-        'post-danger': '威胁障碍区',
-        'post-rescue': '野战医疗站',
-        'post-airport': '战备机场',
-        'post-depot': '战备物资库',
+        'straight-arrow': '规划方向直箭头',
+        'attack-arrow': '空间发展推进轴',
+        'pincer-arrow': '双向分流与汇聚标绘',
+        'gathering-place': '重点管控集结地域',
+        'sector': '探测覆盖扇形区',
+        'polyline': '道路廊道/勘界折线',
+        'polygon': '规划控制地块面',
+        'rectangle': '标准搜索网格(BBox)',
+        'circle': '缓冲区安全半径圈',
+        'marker': '空间地理标定点',
+        'text': '空间地物文字注记',
+        'freehand': '实地踏勘手绘轨迹',
+        'point-survey': '外业控制测量点',
+        'point-station': '生态环境监测站',
+        'point-facility': '市政基础设施点',
+        'point-hazard': '灾害风险隐患点',
+        'point-medical': '应急医疗避难点',
+        'post-command': '综合指挥调度中心',
+        'post-radar': '雷达探测基准站',
+        'post-danger': '重点危险源警示',
+        'post-rescue': '应急物资救助站',
+        'post-airport': '交通枢纽起降场',
+        'post-depot': '物资储备调配库',
       };
+
+      let calcArea: number | undefined = undefined;
+      let calcLength: number | undefined = undefined;
+
+      if (drawingTool === 'polygon' && pts.length >= 3) {
+        calcArea = calculateSphericalPolygonArea(pts);
+        calcLength = calculateLineLength([...pts, pts[0]]);
+      } else if (drawingTool === 'rectangle' && pts.length >= 2) {
+        const [p1, p2] = pts;
+        const rectCoords: [number, number][] = [
+          [p1[0], p1[1]],
+          [p2[0], p1[1]],
+          [p2[0], p2[1]],
+          [p1[0], p2[1]],
+        ];
+        calcArea = calculateSphericalPolygonArea(rectCoords);
+        calcLength = calculateLineLength([...rectCoords, rectCoords[0]]);
+      } else if (drawingTool === 'circle') {
+        const r = pts.length >= 2 ? calculateSphericalDistance(pts[0], pts[1]) : 1200;
+        calcArea = Math.PI * r * r;
+        calcLength = 2 * Math.PI * r;
+      } else if (drawingTool === 'polyline' || drawingTool === 'freehand') {
+        calcLength = calculateLineLength(pts);
+      }
 
       const newFeature: Omit<PlotFeature, 'id' | 'createdAt' | 'updatedAt'> = {
         name: `${defaultNames[drawingTool] || '标绘要素'}_${Date.now().toString().slice(-4)}`,
@@ -731,6 +796,8 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
             drawingTool === 'circle' && pts.length >= 2
               ? Math.round(calculateSphericalDistance(pts[0], pts[1]))
               : 1200,
+          calculatedArea: calcArea,
+          calculatedLength: calcLength,
         },
       };
 

@@ -60,13 +60,13 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
         </div>
 
         <h1 className="text-xl font-black text-white tracking-wider">
-          态势标绘移动端 App
+          GeoPlot GIS 移动标绘系统
         </h1>
         <p className="text-xs text-blue-400/80 mt-1 font-medium">
-          GeoPlot Mobile • MapTalks GL 态势标绘
+          通用空间数据采集 • 矢量标绘 • 多图层协同 (MapTalks GL)
         </p>
         <span className="text-[10px] text-gray-500 mt-0.5">
-          纯前端免后端 • 战术军标 • 多图层移动端管控
+          标准 GIS 矢量要素 • 属性表与量算 • 纯前端免后端
         </span>
       </div>
 

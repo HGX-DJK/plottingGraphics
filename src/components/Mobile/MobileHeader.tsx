@@ -43,12 +43,12 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
         <div className="flex flex-col items-center">
           <div className="flex items-center gap-1.5 text-xs font-bold text-white tracking-wider">
             <Shield className="w-3.5 h-3.5 text-blue-400" />
-            <span>态势标绘 App</span>
+            <span>GeoPlot GIS 标绘</span>
           </div>
           <div className="text-[10px] text-gray-400 font-mono flex items-center gap-1">
             <span>Z{zoomLevel.toFixed(1)}</span>
             <span className="text-gray-600">•</span>
-            <span>{cursorCoords[0].toFixed(2)}°, {cursorCoords[1].toFixed(2)}°</span>
+            <span>{cursorCoords[0].toFixed(3)}°, {cursorCoords[1].toFixed(3)}°</span>
           </div>
         </div>
 

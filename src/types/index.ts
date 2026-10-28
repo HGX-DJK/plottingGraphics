@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'analyst' | 'operator';
+export type UserRole = 'admin' | 'surveyor' | 'analyst';
 
 export interface User {
   id: string;
@@ -10,27 +10,26 @@ export interface User {
 }
 
 export type PlotFeatureType =
-  // 基础标绘
-  | 'marker'            // 战术标号点
-  | 'text'              // 文字注记
-  | 'polyline'          // 折线/路线
-  | 'polygon'           // 多边形/防区
-  | 'rectangle'         // 矩形搜索区
-  | 'circle'            // 圆形警戒区
-  | 'freehand'          // 自由折线手绘
-  // 战术态势标绘
-  | 'straight-arrow'    // 直箭头 / 进攻方向
-  | 'attack-arrow'      // 突击箭头 / 粗进攻箭头
-  | 'pincer-arrow'      // 钳击双箭头
-  | 'gathering-place'   // 集结地域
-  | 'sector'            // 警戒扇形
-  // 战术图标标号
-  | 'post-command'      // 指挥部
-  | 'post-radar'        // 雷达站
-  | 'post-danger'       // 威胁/危险源
-  | 'post-rescue'       // 医疗救援点
-  | 'post-airport'      // 战术机场
-  | 'post-depot';       // 物资仓库
+  // 1. 基础空间几何矢量 (GIS 核心)
+  | 'marker'            // 通用地理位置点
+  | 'text'              // 空间文字注记
+  | 'polyline'          // 折线 / 路径 / 边界线
+  | 'polygon'           // 多边形 / 用地面 / 调查区
+  | 'rectangle'         // 矩形 / 范围框 (BBox)
+  | 'circle'            // 圆形 / 缓冲区 (Buffer)
+  | 'freehand'          // 自由手绘轨迹线
+  // 2. 专题地物与调查点标 (GIS 外业采集)
+  | 'point-survey'      // 外业调查核查点
+  | 'point-station'     // 环境/气象/地灾监测站
+  | 'point-facility'    // 公共服务与基础设施
+  | 'point-hazard'      // 风险隐患/灾害警示点
+  | 'point-medical'     // 医疗卫生/应急避难点
+  // 3. 态势与方向标绘 (工程推进/流向/影响范围)
+  | 'straight-arrow'    // 单向指示箭头
+  | 'attack-arrow'      // 发展轴线 / 规划推进箭头
+  | 'pincer-arrow'      // 双向汇聚 / 分流箭头
+  | 'gathering-place'   // 核心集结 / 重点管控闭合区
+  | 'sector';           // 扇形探测 / 影响范围区
 
 export interface PlotFeatureProperties {
   strokeColor: string;
@@ -42,8 +41,12 @@ export interface PlotFeatureProperties {
   textColor?: string;
   textSize?: number;
   radius?: number;          // meters for circle
-  iconSymbol?: string;
   notes?: string;
+  // 空间几何指标 (由算法自动计算生成)
+  calculatedArea?: number;      // 面积 (平方米)
+  calculatedLength?: number;    // 长度/周长 (米)
+  // GIS 自定义扩展业务属性 (键值对)
+  customAttributes?: Record<string, string>;
 }
 
 export interface PlotFeature {
@@ -51,7 +54,7 @@ export interface PlotFeature {
   name: string;
   type: PlotFeatureType;
   layerId: string;
-  coordinates: [number, number][]; // [lng, lat][] (MapTalks 经度、纬度标准顺序)
+  coordinates: [number, number][]; // [lng, lat][] (MapTalks 标准经度、纬度)
   properties: PlotFeatureProperties;
   createdAt: number;
   updatedAt: number;

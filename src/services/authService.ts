@@ -6,26 +6,26 @@ export const PRESET_USERS: User[] = [
   {
     id: 'user-admin',
     username: 'admin',
-    displayName: '陈指挥长 (特级指挥官)',
+    displayName: '李工 (GIS系统主管)',
     role: 'admin',
-    roleName: '超级管理员 / 作战总指挥',
-    avatar: '🛡️',
+    roleName: '超级管理员 / 资深GIS工程师',
+    avatar: '🗺️',
+  },
+  {
+    id: 'user-surveyor',
+    username: 'surveyor',
+    displayName: '张工 (外业调查员)',
+    role: 'surveyor',
+    roleName: '实地测绘与空间调查员',
+    avatar: '📐',
   },
   {
     id: 'user-analyst',
     username: 'analyst',
-    displayName: '林参谋 (态势分析官)',
+    displayName: '陈工 (数据分析师)',
     role: 'analyst',
-    roleName: '高级态势分析师',
+    roleName: '空间地理数据分析师',
     avatar: '📊',
-  },
-  {
-    id: 'user-operator',
-    username: 'operator',
-    displayName: '王值班 (标绘操务员)',
-    role: 'operator',
-    roleName: '前沿标绘值班员',
-    avatar: '🎯',
   },
 ];
 
@@ -56,9 +56,9 @@ export const authService = {
           const newUser: User = {
             id: `user-${Date.now()}`,
             username: username.trim(),
-            displayName: `${username.trim()} (作战员)`,
-            role: 'operator',
-            roleName: '标绘操作员',
+            displayName: `${username.trim()} (外业工程师)`,
+            role: 'surveyor',
+            roleName: '外业标绘调查员',
             avatar: '👤',
           };
           localStorage.setItem(STORAGE_KEY_AUTH, JSON.stringify(newUser));
@@ -67,7 +67,7 @@ export const authService = {
         }
 
         resolve({ success: false, message: '请输入有效的用户名' });
-      }, 300);
+      }, 250);
     });
   },
 

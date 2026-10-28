@@ -11,6 +11,7 @@ import { MobileFeatureListSheet } from './components/Mobile/MobileFeatureListShe
 import { MobilePropertySheet } from './components/Mobile/MobilePropertySheet';
 import { MobileMoreSheet } from './components/Mobile/MobileMoreSheet';
 import { MobileDrawingControls } from './components/Mobile/MobileDrawingControls';
+import { MobileFeatureQuickCard } from './components/Mobile/MobileFeatureQuickCard';
 import { MobileLoginView } from './components/Mobile/MobileLoginView';
 import { NewLayerModal } from './components/Modals/NewLayerModal';
 import { ImportExportModal } from './components/Modals/ImportExportModal';
@@ -191,6 +192,28 @@ export const App: React.FC = () => {
     }
   };
 
+  // 设备 GPS 实时定位
+  const handleLocateGPS = () => {
+    if (!navigator.geolocation) {
+      showToast('当前设备环境不支持 GPS 定位');
+      return;
+    }
+    showToast('正在获取 GPS 空间设备坐标...');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { longitude, latitude } = pos.coords;
+        mapRef.current?.locateUser([longitude, latitude]);
+        showToast(`✓ 已精准定位当前设备: ${longitude.toFixed(4)}, ${latitude.toFixed(4)}`);
+      },
+      () => {
+        // 模拟/基准工区定位兜底
+        mapRef.current?.locateUser([120.1500, 30.2800]);
+        showToast('已定位至项目基准工区 [120.1500, 30.2800]');
+      },
+      { enableHighAccuracy: true, timeout: 6000 }
+    );
+  };
+
   const activeLayer = layers.find((l) => l.id === activeLayerId) || layers[0];
   const selectedFeature = features.find((f) => f.id === selectedFeatureId) || null;
 
@@ -230,9 +253,6 @@ export const App: React.FC = () => {
           basemap={basemap}
           onSelectFeature={(id) => {
             setSelectedFeatureId(id);
-            if (id) {
-              setActiveTab('properties');
-            }
           }}
           onCreateFeature={handleCreateFeature}
           onCancelDrawing={() => setDrawingTool(null)}
@@ -265,7 +285,20 @@ export const App: React.FC = () => {
           onResetView={() => mapRef.current?.resetView()}
           onToggleMeasureDistance={handleToggleMeasureDistance}
           onToggleMeasureArea={handleToggleMeasureArea}
+          onLocateGPS={handleLocateGPS}
         />
+
+        {/* 要素快览悬浮卡片 (轻量化交互，触碰要素时不粗暴遮挡主地图) */}
+        {selectedFeature && !drawingTool && activeTab !== 'properties' && (
+          <MobileFeatureQuickCard
+            feature={selectedFeature}
+            layer={layers.find((l) => l.id === selectedFeature.layerId)}
+            onFocus={() => mapRef.current?.focusFeature?.(selectedFeature.id)}
+            onOpenProperties={() => setActiveTab('properties')}
+            onDelete={() => handleDeleteFeature(selectedFeature.id)}
+            onClose={() => setSelectedFeatureId(null)}
+          />
+        )}
       </div>
 
       {/* 4. 移动端底部导航工具栏 (TabBar) */}

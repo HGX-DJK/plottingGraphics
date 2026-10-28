@@ -29,6 +29,8 @@ export interface MaptalksContainerRef {
   resetView: () => void;
   undoPoint: () => void;
   finishCurrentDrawing: () => void;
+  locateUser: (coord: [number, number]) => void;
+  focusFeature: (featId: string) => void;
 }
 
 interface MaptalksContainerProps {
@@ -124,6 +126,82 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
           finishDrawing(pts);
         }
       },
+      locateUser: (coord: [number, number]) => {
+        const map = mapInstanceRef.current;
+        const maptalks = (window as any).maptalks;
+        if (!map || !maptalks) return;
+
+        map.animateTo(
+          {
+            center: coord,
+            zoom: 16,
+          },
+          { duration: 800 }
+        );
+
+        let gpsLayer = map.getLayer('system-gps');
+        if (!gpsLayer) {
+          gpsLayer = new maptalks.VectorLayer('system-gps', [], { zIndex: 1000 }).addTo(map);
+        }
+        gpsLayer.clear();
+
+        const pulseMarker = new maptalks.Marker(coord, {
+          symbol: [
+            {
+              markerType: 'ellipse',
+              markerWidth: 32,
+              markerHeight: 32,
+              markerFill: '#3b82f6',
+              markerFillOpacity: 0.25,
+              markerLineColor: '#60a5fa',
+              markerLineWidth: 1.5,
+            },
+            {
+              markerType: 'ellipse',
+              markerWidth: 16,
+              markerHeight: 16,
+              markerFill: '#2563eb',
+              markerLineColor: '#ffffff',
+              markerLineWidth: 3,
+            },
+            {
+              textName: '当前设备 GPS 位置',
+              textSize: 11,
+              textFill: '#60a5fa',
+              textHaloFill: '#0b1120',
+              textHaloRadius: 2.5,
+              textDy: 24,
+              textWeight: 'bold',
+            },
+          ],
+        });
+        gpsLayer.addGeometry(pulseMarker);
+      },
+      focusFeature: (featId: string) => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
+        const feat = features.find((f) => f.id === featId);
+        if (!feat || !feat.coordinates || feat.coordinates.length === 0) return;
+
+        let centerLng = 0;
+        let centerLat = 0;
+        feat.coordinates.forEach((c) => {
+          centerLng += c[0];
+          centerLat += c[1];
+        });
+        const targetCenter: [number, number] = [
+          centerLng / feat.coordinates.length,
+          centerLat / feat.coordinates.length,
+        ];
+
+        map.animateTo(
+          {
+            center: targetCenter,
+            zoom: Math.max(map.getZoom(), 15),
+          },
+          { duration: 500 }
+        );
+      },
     }));
 
     // 1. 检测 window.maptalks 注入状态
@@ -182,6 +260,9 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
           position: 'bottom-left',
           maxWidth: 90,
         },
+        doubleClickZoom: false, // 禁用双击放大，防止移动端连续点触落点时误触发缩放
+        touchZoom: true,
+        touchRotate: true,
       });
 
       // 绘制过程临时预览图层
@@ -335,10 +416,19 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
 
       const feat = features.find((f) => f.id === selectedFeatureId);
       if (feat && feat.coordinates && feat.coordinates.length > 0) {
-        const targetCoord = feat.coordinates[0];
+        let centerLng = 0;
+        let centerLat = 0;
+        feat.coordinates.forEach((c) => {
+          centerLng += c[0];
+          centerLat += c[1];
+        });
+        const targetCenter: [number, number] = [
+          centerLng / feat.coordinates.length,
+          centerLat / feat.coordinates.length,
+        ];
         map.animateTo(
           {
-            center: targetCoord,
+            center: targetCenter,
           },
           {
             duration: 400,

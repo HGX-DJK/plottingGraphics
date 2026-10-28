@@ -9,6 +9,7 @@ import {
   Undo2,
   Check,
   X,
+  Navigation,
 } from 'lucide-react';
 
 interface MobileDrawingControlsProps {
@@ -22,6 +23,7 @@ interface MobileDrawingControlsProps {
   onResetView: () => void;
   onToggleMeasureDistance: () => void;
   onToggleMeasureArea: () => void;
+  onLocateGPS?: () => void;
 }
 
 export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
@@ -35,6 +37,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
   onResetView,
   onToggleMeasureDistance,
   onToggleMeasureArea,
+  onLocateGPS,
 }) => {
   const getToolDisplayName = (tool: string) => {
     const names: Record<string, string> = {
@@ -217,7 +220,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
           </button>
         </div>
 
-        {/* 2. 地图视图控制模块 (全景复位 + 缩放控制) */}
+        {/* 2. 地图视图控制模块 (全景复位 + GPS定位 + 缩放控制) */}
         <div className="flex flex-col bg-gray-950/85 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
           <button
             onClick={onResetView}
@@ -226,6 +229,16 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
           >
             <Crosshair className="w-4 h-4" />
           </button>
+
+          {onLocateGPS && (
+            <button
+              onClick={onLocateGPS}
+              className="w-10 h-10 flex items-center justify-center text-emerald-400 active:bg-gray-800/80 border-b border-white/10 transition"
+              title="GPS 实时设备定位"
+            >
+              <Navigation className="w-4 h-4" />
+            </button>
+          )}
 
           <button
             onClick={onZoomIn}

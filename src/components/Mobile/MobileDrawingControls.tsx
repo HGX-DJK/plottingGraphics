@@ -131,8 +131,65 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
         </div>
       )}
 
+      {/* 底部显眼完成控制条 (触屏单手交互优化，免除双击与盲点) */}
+      {drawingTool && (
+        <div className="absolute bottom-20 left-3 right-3 z-30 flex items-center justify-between gap-2.5 p-3 rounded-2xl bg-gray-950/95 backdrop-blur-xl border border-blue-500/50 shadow-2xl animate-in slide-in-from-bottom-4 duration-200">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center shrink-0">
+              <span className="text-xs font-black text-blue-400 font-mono">
+                {drawingPointsCount}
+              </span>
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-gray-100 truncate">
+                {getToolDisplayName(drawingTool)}
+              </div>
+              <div className="text-[10px] text-gray-400 truncate mt-0.5">
+                {canFinish
+                  ? '已满足闭合条件，点击右侧完成保存'
+                  : getRequiredPointsText(drawingTool, drawingPointsCount)}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            {drawingPointsCount > 0 && onUndoPoint && (
+              <button
+                onClick={onUndoPoint}
+                className="flex items-center gap-1 px-3 py-2 rounded-xl bg-gray-800 text-gray-200 active:bg-gray-700 text-xs font-semibold border border-gray-700 transition"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+                <span>撤回</span>
+              </button>
+            )}
+
+            {canFinish ? (
+              <button
+                onClick={onFinishDrawing}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 active:from-emerald-700 active:to-green-700 text-white text-xs font-black shadow-lg shadow-emerald-600/30 animate-pulse transition"
+              >
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>完成保存</span>
+              </button>
+            ) : (
+              <button
+                onClick={onCancelDrawing}
+                className="flex items-center gap-1 px-3 py-2 rounded-xl bg-gray-800/80 text-gray-400 active:text-white text-xs font-medium transition"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>取消</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 右侧悬浮移动端 GIS 交互工具组 */}
-      <div className="absolute right-3.5 bottom-20 z-20 flex flex-col gap-2">
+      <div
+        className={`absolute right-3.5 z-20 flex flex-col gap-2 transition-all duration-200 ${
+          drawingTool ? 'bottom-36' : 'bottom-20'
+        }`}
+      >
         {/* 空间测距 */}
         <button
           onClick={onToggleMeasureDistance}

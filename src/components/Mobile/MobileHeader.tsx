@@ -1,6 +1,6 @@
 import React from 'react';
 import { User, PlotLayer, BasemapType } from '../../types';
-import { Layers, Globe2, Shield, Compass } from 'lucide-react';
+import { Layers, Globe2, Shield, Compass, PenTool } from 'lucide-react';
 
 interface MobileHeaderProps {
   currentUser: User | null;
@@ -10,6 +10,7 @@ interface MobileHeaderProps {
   zoomLevel: number;
   onOpenLayers: () => void;
   onOpenMore: () => void;
+  onOpenPlotting?: () => void;
 }
 
 export const MobileHeader: React.FC<MobileHeaderProps> = ({
@@ -20,14 +21,15 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
   zoomLevel,
   onOpenLayers,
   onOpenMore,
+  onOpenPlotting,
 }) => {
   return (
     <header className="absolute top-0 left-0 right-0 z-30 bg-gray-950/85 backdrop-blur-md border-b border-gray-800/80 safe-top select-none transition-all">
-      <div className="h-12 px-3.5 flex items-center justify-between">
+      <div className="h-12 px-3 flex items-center justify-between">
         {/* 左侧：当前工作图层快捷药丸按钮 */}
         <button
           onClick={onOpenLayers}
-          className="flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-gray-900 border border-gray-800 active:bg-gray-800 transition shadow-sm max-w-[150px]"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-gray-900 border border-gray-800 active:bg-gray-800 transition shadow-sm max-w-[140px]"
         >
           <span
             className="w-2.5 h-2.5 rounded-full shrink-0 shadow"
@@ -41,9 +43,9 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
 
         {/* 中间：坐标与缩放状态 */}
         <div className="flex flex-col items-center">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-white tracking-wider">
+          <div className="flex items-center gap-1 text-xs font-bold text-white tracking-wider">
             <Shield className="w-3.5 h-3.5 text-blue-400" />
-            <span>GeoPlot GIS 标绘</span>
+            <span>GeoPlot GIS</span>
           </div>
           <div className="text-[10px] text-gray-400 font-mono flex items-center gap-1">
             <span>Z{zoomLevel.toFixed(1)}</span>
@@ -52,14 +54,25 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
           </div>
         </div>
 
-        {/* 右侧：用户与更多 */}
+        {/* 右侧：快捷新建标绘 & 用户 */}
         <div className="flex items-center gap-1.5">
+          {onOpenPlotting && (
+            <button
+              onClick={onOpenPlotting}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-blue-600/30 border border-blue-500/50 text-blue-300 font-bold active:bg-blue-600/50 transition shadow-sm text-xs"
+              title="快捷新建标绘要素"
+            >
+              <PenTool className="w-3 h-3 text-blue-400" />
+              <span>标绘</span>
+            </button>
+          )}
+
           <button
             onClick={onOpenMore}
             className="flex items-center gap-1.5 p-1.5 rounded-full bg-gray-900 border border-gray-800 text-gray-300 active:bg-gray-800 transition"
           >
             <span className="text-sm leading-none">{currentUser?.avatar || '👤'}</span>
-            <span className="text-[11px] font-medium text-gray-200 pr-1 hidden xs:inline">
+            <span className="text-[11px] font-medium text-gray-200 pr-1 hidden sm:inline">
               {currentUser?.displayName.split(' ')[0] || '指挥官'}
             </span>
           </button>

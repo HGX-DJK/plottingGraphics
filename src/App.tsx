@@ -44,6 +44,14 @@ export const App: React.FC = () => {
 
   // 5. 电脑端调试时可选开启「真机外框预览」
   const [deviceFrameMode, setDeviceFrameMode] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((prev) => (prev === msg ? null : prev));
+    }, 2800);
+  };
 
   // 本地 LocalStorage 持久化同步
   useEffect(() => {
@@ -116,6 +124,11 @@ export const App: React.FC = () => {
 
   // 要素操作
   const handleCreateFeature = (featureData: Omit<PlotFeature, 'id' | 'createdAt' | 'updatedAt'>) => {
+    // 确保所属图层处于可见状态，避免要素落库后因图层隐藏而看不到
+    setLayers((prev) =>
+      prev.map((l) => (l.id === featureData.layerId && !l.visible ? { ...l, visible: true } : l))
+    );
+
     const newFeature: PlotFeature = {
       ...featureData,
       id: `feat-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
@@ -125,6 +138,7 @@ export const App: React.FC = () => {
     setFeatures((prev) => [...prev, newFeature]);
     setSelectedFeatureId(newFeature.id);
     setDrawingTool(null);
+    showToast(`✓ 已成功创建要素 "${newFeature.name}"`);
   };
 
   const handleUpdateFeature = (updated: PlotFeature) => {
@@ -197,7 +211,16 @@ export const App: React.FC = () => {
         zoomLevel={zoomLevel}
         onOpenLayers={() => setActiveTab('layers')}
         onOpenMore={() => setActiveTab('more')}
+        onOpenPlotting={() => setActiveTab('plot')}
       />
+
+      {/* 标绘与操作反馈 Toast */}
+      {toastMessage && (
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-gray-900/95 border border-emerald-500/60 shadow-2xl text-emerald-300 text-xs font-bold flex items-center gap-2 backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200 pointer-events-none">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
 
       {/* 2. MapTalks GL 触控地图画布 */}
       <div className="flex-1 w-full h-full relative overflow-hidden">
@@ -265,6 +288,7 @@ export const App: React.FC = () => {
         onChangeOpacity={handleChangeLayerOpacity}
         onDeleteLayer={handleDeleteLayer}
         onOpenNewLayerModal={() => setIsNewLayerModalOpen(true)}
+        onStartPlotting={() => setActiveTab('plot')}
       />
 
       {/* 标绘工具箱抽屉 */}
@@ -292,6 +316,7 @@ export const App: React.FC = () => {
           setActiveTab('properties');
         }}
         onDeleteFeature={handleDeleteFeature}
+        onOpenPlotting={() => setActiveTab('plot')}
       />
 
       {/* 选中的要素属性配置抽屉 */}

@@ -10,6 +10,7 @@ import {
   Trash2,
   Sliders,
   Check,
+  PenTool,
 } from 'lucide-react';
 import { MobileBottomSheet } from './MobileBottomSheet';
 
@@ -25,6 +26,7 @@ interface MobileLayerSheetProps {
   onChangeOpacity: (layerId: string, opacity: number) => void;
   onDeleteLayer: (layerId: string) => void;
   onOpenNewLayerModal: () => void;
+  onStartPlotting?: () => void;
 }
 
 export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
@@ -39,6 +41,7 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
   onChangeOpacity,
   onDeleteLayer,
   onOpenNewLayerModal,
+  onStartPlotting,
 }) => {
   const [expandedLayerId, setExpandedLayerId] = useState<string | null>(null);
 
@@ -169,10 +172,18 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
                       />
                     </div>
 
-                    <div className="flex items-center justify-between pt-1">
-                      <span className="text-[10px] text-gray-500">
-                        {layer.description || '无图层备注'}
-                      </span>
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        onClick={() => {
+                          onSelectActiveLayer(layer.id);
+                          onClose();
+                          onStartPlotting?.();
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-blue-600/20 border border-blue-500/40 text-blue-300 font-bold text-xs active:bg-blue-600/30 transition"
+                      >
+                        <PenTool className="w-3.5 h-3.5" />
+                        <span>在此图层新建标绘</span>
+                      </button>
 
                       {layers.length > 1 && (
                         <button
@@ -181,7 +192,7 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
                               onDeleteLayer(layer.id);
                             }
                           }}
-                          className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded bg-red-950/30 transition"
+                          className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 px-2.5 py-1.5 rounded-xl bg-red-950/40 border border-red-900/40 transition"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           <span>删除</span>

@@ -78,6 +78,9 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
     const drawingPointsRef = useRef<[number, number][]>([]);
     drawingPointsRef.current = drawingPoints;
 
+    const drawingToolRef = useRef(drawingTool);
+    drawingToolRef.current = drawingTool;
+
     // 测距暂存点
     const [measurePoints, setMeasurePoints] = useState<[number, number][]>([]);
     const measurePointsRef = useRef<[number, number][]>([]);
@@ -110,13 +113,15 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       undoPoint: () => {
         if (drawingPointsRef.current.length > 0) {
           const newPts = drawingPointsRef.current.slice(0, -1);
+          drawingPointsRef.current = newPts;
           setDrawingPoints(newPts);
           renderPreview(newPts);
         }
       },
       finishCurrentDrawing: () => {
-        if (drawingPointsRef.current.length >= 2) {
-          finishDrawing(drawingPointsRef.current);
+        const pts = drawingPointsRef.current;
+        if (pts.length >= 2) {
+          finishDrawing(pts);
         }
       },
     }));
@@ -304,6 +309,8 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
 
           if (geom) {
             geom.on('click tap', (e: any) => {
+              // 标绘交互模式下，要素不拦截点击，直接交由底图捕获标绘顶点！
+              if (drawingToolRef.current) return;
               if (e.domEvent) e.domEvent.stopPropagation();
               if (!layer.locked) {
                 onSelectFeature(feat.id);
@@ -657,10 +664,25 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       // 标绘交互点击
       const handleClick = (e: any) => {
         const coord: [number, number] = [e.coordinate.x, e.coordinate.y];
-        const currentPts = [...drawingPointsRef.current, coord];
-        setDrawingPoints(currentPts);
+        const existingPts = drawingPointsRef.current;
 
-        // 单点要素
+        // 多边形采集：当已有3个及以上顶点，若再次点击靠近起点，自动闭合完成！
+        if (drawingTool === 'polygon' && existingPts.length >= 3) {
+          const distToFirst = calculateSphericalDistance(coord, existingPts[0]);
+          const zoom = map.getZoom();
+          const threshold = Math.max(30, 20000 / Math.pow(2, zoom - 10));
+          if (distToFirst <= threshold) {
+            finishDrawing(existingPts);
+            return;
+          }
+        }
+
+        const currentPts = [...existingPts, coord];
+        drawingPointsRef.current = currentPts;
+        setDrawingPoints(currentPts);
+        renderPreview(currentPts);
+
+        // 单点要素 -> 立即完成
         if (
           drawingTool.startsWith('post-') ||
           drawingTool.startsWith('point-') ||
@@ -671,7 +693,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
           return;
         }
 
-        // 两点要素
+        // 两点要素 -> 达到2点立即完成
         if (
           (drawingTool === 'straight-arrow' ||
             drawingTool === 'circle' ||
@@ -683,7 +705,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
           return;
         }
 
-        // 三点要素
+        // 三点要素 -> 达到3点立即完成
         if (
           (drawingTool === 'attack-arrow' ||
             drawingTool === 'pincer-arrow' ||
@@ -819,53 +841,105 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
     // 渲染半透明预览
     const renderPreview = (pts: [number, number][]) => {
       const previewLayer = previewLayerRef.current;
-      if (!previewLayer || !(window as any).maptalks) return;
+      if (!previewLayer || !(window as any).maptalks || !drawingTool) return;
       const maptalks = (window as any).maptalks;
 
       previewLayer.clear();
+      if (pts.length === 0) return;
+
       const symbol = {
         lineColor: '#f59e0b',
-        lineWidth: 2,
-        lineDasharray: [5, 5],
+        lineWidth: 2.5,
+        lineDasharray: [6, 4],
         polygonFill: '#f59e0b',
-        polygonOpacity: 0.25,
+        polygonOpacity: 0.28,
       };
 
+      // 1. 在每个已采集的控制顶点处绘制醒目的序号标定圆点，解决移动端落点无感知问题
+      pts.forEach((pt, idx) => {
+        const isFirst = idx === 0;
+        const isLast = idx === pts.length - 1;
+        const vertexMarker = new maptalks.Marker(pt, {
+          symbol: [
+            {
+              markerType: 'ellipse',
+              markerWidth: isFirst ? 18 : 14,
+              markerHeight: isFirst ? 18 : 14,
+              markerFill: isFirst ? '#10b981' : isLast ? '#3b82f6' : '#f59e0b',
+              markerLineColor: '#ffffff',
+              markerLineWidth: 2,
+              markerFillOpacity: 0.95,
+            },
+            {
+              textName: isFirst ? '起点' : `#${idx + 1}`,
+              textSize: 10,
+              textFill: '#ffffff',
+              textHaloFill: '#0b1120',
+              textHaloRadius: 2.5,
+              textDy: -15,
+              textWeight: 'bold',
+            },
+          ],
+        });
+        previewLayer.addGeometry(vertexMarker);
+      });
+
+      // 2. 几何图元半透明引导预览
       if (drawingTool === 'straight-arrow') {
-        const arrowCoords = calculateStraightArrow(pts);
-        if (arrowCoords.length >= 3) {
-          previewLayer.addGeometry(new maptalks.Polygon([arrowCoords], { symbol }));
+        if (pts.length >= 2) {
+          const arrowCoords = calculateStraightArrow(pts);
+          if (arrowCoords.length >= 3) {
+            previewLayer.addGeometry(new maptalks.Polygon([arrowCoords], { symbol }));
+          }
         }
       } else if (drawingTool === 'attack-arrow') {
-        const arrowCoords = calculateAttackArrow(pts);
-        if (arrowCoords.length >= 3) {
-          previewLayer.addGeometry(new maptalks.Polygon([arrowCoords], { symbol }));
+        if (pts.length >= 2) {
+          const arrowCoords = calculateAttackArrow(pts);
+          if (arrowCoords.length >= 3) {
+            previewLayer.addGeometry(new maptalks.Polygon([arrowCoords], { symbol }));
+          } else {
+            previewLayer.addGeometry(new maptalks.LineString(pts, { symbol: { lineColor: '#f59e0b', lineWidth: 2, lineDasharray: [5, 5] } }));
+          }
         }
       } else if (drawingTool === 'pincer-arrow') {
-        const pincerCoords = calculatePincerArrow(pts);
-        if (pincerCoords.length >= 3) {
-          previewLayer.addGeometry(new maptalks.Polygon([pincerCoords], { symbol }));
+        if (pts.length >= 2) {
+          const pincerCoords = calculatePincerArrow(pts);
+          if (pincerCoords.length >= 3) {
+            previewLayer.addGeometry(new maptalks.Polygon([pincerCoords], { symbol }));
+          } else {
+            previewLayer.addGeometry(new maptalks.LineString(pts, { symbol: { lineColor: '#f59e0b', lineWidth: 2, lineDasharray: [5, 5] } }));
+          }
         }
       } else if (drawingTool === 'gathering-place') {
-        const gatherCoords = calculateGatheringPlace(pts);
-        if (gatherCoords.length >= 3) {
-          previewLayer.addGeometry(new maptalks.Polygon([gatherCoords], { symbol }));
+        if (pts.length >= 2) {
+          const gatherCoords = calculateGatheringPlace(pts);
+          if (gatherCoords.length >= 3) {
+            previewLayer.addGeometry(new maptalks.Polygon([gatherCoords], { symbol }));
+          } else {
+            previewLayer.addGeometry(new maptalks.LineString(pts, { symbol: { lineColor: '#f59e0b', lineWidth: 2, lineDasharray: [5, 5] } }));
+          }
         }
       } else if (drawingTool === 'sector') {
-        const sectorCoords = calculateSector(pts[0], pts[1], 90);
-        if (sectorCoords.length >= 3) {
-          previewLayer.addGeometry(new maptalks.Polygon([sectorCoords], { symbol }));
+        if (pts.length >= 2) {
+          const sectorCoords = calculateSector(pts[0], pts[1], 90);
+          if (sectorCoords.length >= 3) {
+            previewLayer.addGeometry(new maptalks.Polygon([sectorCoords], { symbol }));
+          }
         }
       } else if (drawingTool === 'polyline' || drawingTool === 'freehand') {
-        previewLayer.addGeometry(new maptalks.LineString(pts, { symbol }));
+        if (pts.length >= 2) {
+          previewLayer.addGeometry(new maptalks.LineString(pts, { symbol }));
+        }
       } else if (drawingTool === 'polygon') {
         if (pts.length >= 3) {
           previewLayer.addGeometry(new maptalks.Polygon([pts], { symbol }));
+        } else if (pts.length === 2) {
+          previewLayer.addGeometry(new maptalks.LineString(pts, { symbol: { lineColor: '#f59e0b', lineWidth: 2, lineDasharray: [5, 5] } }));
         }
       } else if (drawingTool === 'rectangle') {
         if (pts.length >= 2) {
           const [p1, p2] = pts;
-          const rectCoords = [
+          const rectCoords: [number, number][] = [
             [p1[0], p1[1]],
             [p2[0], p1[1]],
             [p2[0], p2[1]],
@@ -874,8 +948,10 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
           previewLayer.addGeometry(new maptalks.Polygon([rectCoords], { symbol }));
         }
       } else if (drawingTool === 'circle') {
-        const r = calculateSphericalDistance(pts[0], pts[1]);
-        previewLayer.addGeometry(new maptalks.Circle(pts[0], r, { symbol }));
+        if (pts.length >= 2) {
+          const r = calculateSphericalDistance(pts[0], pts[1]);
+          previewLayer.addGeometry(new maptalks.Circle(pts[0], r, { symbol }));
+        }
       }
     };
 

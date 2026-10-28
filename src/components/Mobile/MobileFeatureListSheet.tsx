@@ -12,6 +12,8 @@ import {
   Activity,
   Hexagon,
   Sparkles,
+  Plus,
+  PenTool,
 } from 'lucide-react';
 import { MobileBottomSheet } from './MobileBottomSheet';
 
@@ -23,6 +25,7 @@ interface MobileFeatureListSheetProps {
   selectedFeatureId: string | null;
   onSelectFeature: (featureId: string) => void;
   onDeleteFeature: (featureId: string) => void;
+  onOpenPlotting?: () => void;
 }
 
 export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
@@ -33,6 +36,7 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
   selectedFeatureId,
   onSelectFeature,
   onDeleteFeature,
+  onOpenPlotting,
 }) => {
   const [search, setSearch] = useState('');
   const [layerFilter, setLayerFilter] = useState('all');
@@ -65,8 +69,40 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
       onClose={onClose}
       title="标绘要素清单"
       icon={<ListFilter className="w-4 h-4" />}
+      headerAction={
+        <button
+          onClick={() => {
+            onClose();
+            onOpenPlotting?.();
+          }}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-blue-600 active:bg-blue-500 text-white text-[11px] font-bold shadow-md shadow-blue-600/30 transition"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>新增标绘</span>
+        </button>
+      }
     >
       <div className="space-y-3 pb-4">
+        {/* 顶部统计与新增提示卡片 */}
+        <div className="flex items-center justify-between p-2.5 rounded-2xl bg-gradient-to-r from-blue-950/40 to-indigo-950/40 border border-blue-900/40">
+          <div className="flex items-center gap-2 pl-1">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-xs font-semibold text-gray-200">
+              当前收录 {features.length} 个标绘要素
+            </span>
+          </div>
+          <button
+            onClick={() => {
+              onClose();
+              onOpenPlotting?.();
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 active:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/25 transition"
+          >
+            <PenTool className="w-3.5 h-3.5" />
+            <span>+ 绘制新要素</span>
+          </button>
+        </div>
+
         {/* 搜索框 */}
         <div className="relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -113,9 +149,24 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
         {/* 要素卡片列表 */}
         <div className="space-y-2">
           {filtered.length === 0 ? (
-            <div className="py-12 flex flex-col items-center justify-center text-gray-500 text-xs">
-              <Crosshair className="w-8 h-8 opacity-30 mb-2" />
-              <span>暂无符合条件的要素</span>
+            <div className="py-8 text-center bg-gray-950/40 rounded-2xl border border-dashed border-gray-800 p-4">
+              <div className="w-12 h-12 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mx-auto mb-2">
+                <PenTool className="w-6 h-6" />
+              </div>
+              <div className="text-gray-200 font-medium text-xs">暂无匹配的标绘要素</div>
+              <div className="text-[11px] text-gray-400 mt-1 mb-3.5">
+                随时可以在地图上落点绘制点、线、面及空间注记
+              </div>
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenPlotting?.();
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 active:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-600/30 transition"
+              >
+                <Plus className="w-4 h-4" />
+                <span>立即标绘新要素</span>
+              </button>
             </div>
           ) : (
             filtered.map((feat) => {

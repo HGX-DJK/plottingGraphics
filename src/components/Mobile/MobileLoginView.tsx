@@ -1,13 +1,19 @@
 import React, { useState } from 'react';
 import { User } from '../../types';
-import { authService, PRESET_USERS } from '../../services/authService';
+import { authService } from '../../services/authService';
 import {
-  Shield,
   User as UserIcon,
   Lock,
   ArrowRight,
-  Fingerprint,
-  Zap,
+  Eye,
+  EyeOff,
+  Compass,
+  MapPin,
+  Layers,
+  Sparkles,
+  Loader2,
+  ShieldCheck,
+  XCircle,
 } from 'lucide-react';
 
 interface MobileLoginViewProps {
@@ -19,13 +25,15 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
 }) => {
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('admin123');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleCustomLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim()) {
-      setErrorMsg('请输入用户名');
+      setErrorMsg('请输入有效的工程账号或姓名');
       return;
     }
 
@@ -37,123 +45,201 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
     if (res.success && res.user) {
       onLoginSuccess(res.user);
     } else {
-      setErrorMsg(res.message || '登录失败');
+      setErrorMsg(res.message || '账号或凭证有误，请核验后重试');
     }
   };
 
-  const handleQuickLogin = (presetUser: User) => {
-    const user = authService.quickLogin(presetUser.id);
-    onLoginSuccess(user);
+  const fillCredential = (name: string) => {
+    setUsername(name);
+    setPassword('admin123');
+    setErrorMsg('');
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-gray-950 flex flex-col justify-between safe-top safe-bottom p-6 overflow-y-auto">
-      {/* 顶部标题与战术徽标 */}
-      <div className="pt-8 text-center flex flex-col items-center">
-        <div className="relative mb-4">
-          <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 flex items-center justify-center shadow-xl shadow-blue-500/30">
-            <Shield className="w-9 h-9 text-white" />
+    <div className="relative w-full h-full min-h-screen bg-gray-950 flex flex-col items-center justify-between safe-top safe-bottom p-5 sm:p-7 overflow-y-auto overflow-x-hidden select-none">
+      {/* 顶部背景微光与光环氛围装饰 */}
+      <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[440px] h-[440px] bg-gradient-to-b from-blue-600/20 via-indigo-600/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-72 h-72 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none" />
+
+      {/* 主体自适应容器 */}
+      <div className="max-w-sm w-full mx-auto flex-1 flex flex-col justify-between z-10 py-3 sm:py-6">
+        {/* 1. 顶部品牌与战术 GIS 标识 */}
+        <div className="text-center flex flex-col items-center">
+          {/* 动态脉冲雷达徽章 */}
+          <div className="relative mb-3.5">
+            <div className="absolute inset-0 rounded-3xl bg-blue-500/25 blur-md animate-pulse" />
+            <div className="relative w-16 h-16 rounded-3xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 p-[1.5px] shadow-2xl shadow-blue-500/30">
+              <div className="w-full h-full bg-gray-950 rounded-[22px] flex items-center justify-center">
+                <Compass className="w-8 h-8 text-cyan-400 stroke-[2.2]" />
+              </div>
+            </div>
+            <span className="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-full bg-emerald-500 border-2 border-gray-950 text-[9px] font-black text-gray-950 shadow">
+              GL
+            </span>
           </div>
-          <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-gray-950 flex items-center justify-center text-[10px]">
-            ⚡
-          </span>
+
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/25 mb-1.5">
+            <Sparkles className="w-3 h-3 text-cyan-400" />
+            <span className="text-[10px] font-bold text-cyan-300 tracking-wide font-mono">
+              GEOPLOT STUDIO MOBILE
+            </span>
+          </div>
+
+          <h1 className="text-xl sm:text-2xl font-black text-white tracking-wide">
+            移动外业标绘系统
+          </h1>
+          <p className="text-xs text-gray-400 mt-1 max-w-xs font-medium leading-relaxed">
+            通用矢量标绘 • 空间拓扑量算 • 纯前端离线沙箱
+          </p>
+
+          {/* 核心技术特性微章 */}
+          <div className="flex items-center gap-2 mt-3 text-[10px] font-medium text-gray-400">
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-900 border border-gray-800">
+              <MapPin className="w-3 h-3 text-blue-400" /> 高精标绘
+            </span>
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-900 border border-gray-800">
+              <Layers className="w-3 h-3 text-indigo-400" /> 拓扑吸附
+            </span>
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-900 border border-gray-800">
+              <ShieldCheck className="w-3 h-3 text-emerald-400" /> 离线安全
+            </span>
+          </div>
         </div>
 
-        <h1 className="text-xl font-black text-white tracking-wider">
-          GeoPlot GIS 移动标绘系统
-        </h1>
-        <p className="text-xs text-blue-400/80 mt-1 font-medium">
-          通用空间数据采集 • 矢量标绘 • 多图层协同 (MapTalks GL)
-        </p>
-        <span className="text-[10px] text-gray-500 mt-0.5">
-          标准 GIS 矢量要素 • 属性表与量算 • 纯前端免后端
-        </span>
-      </div>
+        {/* 2. 现代磨砂玻璃登录表单卡片 */}
+        <div className="my-5 w-full">
+          <div className="bg-gray-900/75 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl ring-1 ring-white/5 space-y-4">
+            <div className="flex items-center justify-between pb-1">
+              <div>
+                <h2 className="text-sm font-bold text-gray-100">工程师身份核验</h2>
+                <p className="text-[11px] text-gray-400 mt-0.5">请输入工程项目账号以开启标绘会话</p>
+              </div>
+              <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                <Lock className="w-3.5 h-3.5 text-blue-400" />
+              </div>
+            </div>
 
-      {/* 核心登录表单与快捷通道 */}
-      <div className="my-6 max-w-sm mx-auto w-full space-y-5">
-        {/* 预设账号快速直登 */}
-        <div>
-          <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Zap className="w-3.5 h-3.5 text-amber-400" />
-            <span>一键快捷授权登录</span>
-          </div>
+            <form onSubmit={handleCustomLogin} className="space-y-3.5">
+              {errorMsg && (
+                <div className="p-3 bg-red-950/60 border border-red-500/40 rounded-2xl text-xs text-red-200 flex items-center gap-2 animate-in fade-in duration-200">
+                  <XCircle className="w-4 h-4 text-red-400 shrink-0" />
+                  <span className="truncate">{errorMsg}</span>
+                </div>
+              )}
 
-          <div className="grid grid-cols-3 gap-2">
-            {PRESET_USERS.map((u) => (
+              {/* 用户名输入框 */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-gray-300 ml-1">
+                  工程工号 / 用户名
+                </label>
+                <div className="relative group">
+                  <UserIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-blue-400 transition" />
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="如 admin / surveyor 或自定义姓名"
+                    className="w-full pl-10 pr-3.5 py-3 bg-gray-950/80 border border-gray-800 rounded-2xl text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition shadow-inner font-mono"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                  />
+                </div>
+              </div>
+
+              {/* 密码输入框 */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between ml-1">
+                  <label className="text-[11px] font-semibold text-gray-300">
+                    访问密钥 / 密码
+                  </label>
+                  <span className="text-[10px] text-gray-400 font-mono">离线凭证任意</span>
+                </div>
+                <div className="relative group">
+                  <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-blue-400 transition" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="请输入密码凭据"
+                    className="w-full pl-10 pr-10 py-3 bg-gray-950/80 border border-gray-800 rounded-2xl text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition shadow-inner font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition p-0.5"
+                    title={showPassword ? '隐藏密码' : '显示密码'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* 辅助操作栏与账号快捷轻标签 */}
+              <div className="flex items-center justify-between pt-0.5 text-[11px]">
+                <label className="flex items-center gap-1.5 text-gray-400 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded bg-gray-950 border-gray-800 text-blue-600 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                  />
+                  <span>记住工号</span>
+                </label>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => fillCredential('admin')}
+                    className="px-2 py-0.5 rounded-lg bg-gray-800/80 hover:bg-gray-750 text-gray-300 hover:text-white transition text-[10px] font-mono border border-gray-700/60"
+                    title="填入系统主管管理员工号"
+                  >
+                    填入主管
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fillCredential('surveyor')}
+                    className="px-2 py-0.5 rounded-lg bg-gray-800/80 hover:bg-gray-750 text-gray-300 hover:text-white transition text-[10px] font-mono border border-gray-700/60"
+                    title="填入外业调查员工号"
+                  >
+                    填入外业员
+                  </button>
+                </div>
+              </div>
+
+              {/* 登录操作主按钮 */}
               <button
-                key={u.id}
-                type="button"
-                onClick={() => handleQuickLogin(u)}
-                className="p-3 rounded-2xl border border-gray-800 bg-gray-900/90 active:bg-blue-950/40 active:border-blue-500 text-center transition flex flex-col items-center"
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 active:scale-[0.98] text-white font-bold rounded-2xl text-xs shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition duration-200 mt-2 cursor-pointer disabled:opacity-60"
               >
-                <span className="text-2xl mb-1">{u.avatar}</span>
-                <span className="text-xs font-bold text-gray-200 truncate w-full">
-                  {u.displayName.split(' ')[0]}
-                </span>
-                <span className="text-[9px] text-gray-500 mt-0.5 truncate w-full">
-                  {u.roleName.split('/')[0]}
-                </span>
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-cyan-200" />
+                    <span>正在校验工程权限...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>进入外业标绘系统</span>
+                    <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+                  </>
+                )}
               </button>
-            ))}
+            </form>
           </div>
         </div>
 
-        <div className="relative flex items-center justify-center my-4">
-          <div className="border-t border-gray-800 w-full" />
-          <span className="bg-gray-950 px-3 text-[10px] text-gray-500 uppercase tracking-wider">
-            或账号密码登录
-          </span>
+        {/* 3. 底部空间引擎与状态信息 */}
+        <div className="text-center pb-1 flex flex-col items-center gap-1">
+          <div className="flex items-center gap-2 text-[10px] text-gray-400 font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>离线工程沙箱就绪</span>
+            <span>•</span>
+            <span>MapTalks GL Native</span>
+          </div>
+          <div className="text-[9px] text-gray-400">
+            GeoPlot Studio Mobile • GIS 空间标绘与外业采集终端
+          </div>
         </div>
-
-        {/* 输入框 */}
-        <form onSubmit={handleCustomLogin} className="space-y-3">
-          {errorMsg && (
-            <div className="p-2.5 bg-red-950/50 border border-red-800 rounded-xl text-xs text-red-300">
-              {errorMsg}
-            </div>
-          )}
-
-          <div>
-            <div className="relative">
-              <UserIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="用户名 (如 admin / analyst)"
-                className="w-full pl-10 pr-3 py-3 bg-gray-900 border border-gray-800 rounded-2xl text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition"
-              />
-            </div>
-          </div>
-
-          <div>
-            <div className="relative">
-              <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="访问凭证 / 密码"
-                className="w-full pl-10 pr-3 py-3 bg-gray-900 border border-gray-800 rounded-2xl text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition"
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 active:from-blue-500 active:to-indigo-500 text-white font-bold rounded-2xl text-xs shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition"
-          >
-            <span>{loading ? '正在验证身份...' : '进入移动标绘系统'}</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </form>
-      </div>
-
-      {/* 底部微认证说明 */}
-      <div className="text-center pb-2 text-[10px] text-gray-500">
-        <span>已启用免后端本地离线安全沙箱 • v1.0.0 Mobile</span>
       </div>
     </div>
   );

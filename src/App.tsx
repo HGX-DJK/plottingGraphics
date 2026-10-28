@@ -237,9 +237,47 @@ export const App: React.FC = () => {
   const activeLayer = layers.find((l) => l.id === activeLayerId) || layers[0];
   const selectedFeature = features.find((f) => f.id === selectedFeatureId) || null;
 
-  // 未登录时展示移动端全屏登录
+  // 未登录时展示移动端登录 (支持真机外框仿真与全屏自适应)
   if (!currentUser) {
-    return <MobileLoginView onLoginSuccess={handleLoginSuccess} />;
+    if (deviceFrameMode) {
+      return (
+        <div className="w-screen h-screen bg-gray-950 flex flex-col items-center justify-center overflow-hidden">
+          <div className="fixed top-2 right-2 z-50 hidden md:flex items-center gap-2 px-3 py-1 bg-gray-900/80 backdrop-blur-md border border-gray-800 rounded-full text-[11px] text-gray-400">
+            <button
+              onClick={() => setDeviceFrameMode(false)}
+              className="flex items-center gap-1 hover:text-white transition"
+              title="切换为全屏铺满模式"
+            >
+              <Monitor className="w-3.5 h-3.5 text-blue-400" />
+              <span>铺满移动屏</span>
+            </button>
+          </div>
+          <div className="relative w-[390px] h-[844px] max-h-[96vh] rounded-[48px] border-[10px] border-gray-800 bg-gray-950 shadow-2xl shadow-blue-950/30 overflow-hidden flex flex-col ring-1 ring-white/10">
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-6 bg-black rounded-full z-40 flex items-center justify-center">
+              <div className="w-2.5 h-2.5 rounded-full bg-gray-900 border border-gray-800 mr-2" />
+              <div className="w-2 h-2 rounded-full bg-blue-900/60" />
+            </div>
+            <MobileLoginView onLoginSuccess={handleLoginSuccess} />
+            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-32 h-1 bg-gray-600 rounded-full z-40" />
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="w-screen h-screen bg-gray-950 flex flex-col items-center justify-center overflow-hidden relative">
+        <div className="fixed top-2 right-2 z-50 hidden md:flex items-center gap-2 px-3 py-1 bg-gray-900/80 backdrop-blur-md border border-gray-800 rounded-full text-[11px] text-gray-400">
+          <button
+            onClick={() => setDeviceFrameMode(true)}
+            className="flex items-center gap-1 hover:text-white transition"
+            title="切换为手机真机外框预览"
+          >
+            <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
+            <span>手机真机外框预览</span>
+          </button>
+        </div>
+        <MobileLoginView onLoginSuccess={handleLoginSuccess} />
+      </div>
+    );
   }
 
   // 移动端主界面容器渲染

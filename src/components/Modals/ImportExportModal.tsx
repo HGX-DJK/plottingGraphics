@@ -8,6 +8,7 @@ import {
   FileCode,
   Check,
   AlertCircle,
+  Copy,
 } from 'lucide-react';
 import {
   exportPlottingProject,
@@ -34,6 +35,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -45,6 +47,20 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   const handleExportGeoJSON = () => {
     const geojsonStr = exportToGeoJSON(features);
     downloadFile(`GeoPlot_Features_${Date.now()}.geojson`, geojsonStr);
+  };
+
+  const handleCopyGeoJSON = () => {
+    const geojsonStr = exportToGeoJSON(features);
+    navigator.clipboard?.writeText(geojsonStr);
+    setCopyFeedback('✓ 已成功复制标准 GeoJSON 文本至剪贴板！');
+    setTimeout(() => setCopyFeedback(null), 2500);
+  };
+
+  const handleCopyProjectJSON = () => {
+    const jsonStr = exportPlottingProject(layers, features);
+    navigator.clipboard?.writeText(jsonStr);
+    setCopyFeedback('✓ 已成功复制工程数据 JSON 至剪贴板！');
+    setTimeout(() => setCopyFeedback(null), 2500);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -157,25 +173,51 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
             </div>
           )}
 
+          {copyFeedback && (
+            <div className="p-3 bg-blue-950/40 border border-blue-500/50 rounded-xl text-blue-300 text-xs flex items-center gap-2 animate-in fade-in duration-150">
+              <Check className="w-4 h-4 text-cyan-400 shrink-0" />
+              <span>{copyFeedback}</span>
+            </div>
+          )}
+
           {/* 导出区域 */}
           <div className="space-y-2">
             <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-              标绘数据导出
+              标绘数据导出与共享
             </span>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={handleExportProjectJSON}
-                className="flex items-center justify-center gap-2 p-3 bg-gray-950 hover:bg-gray-850 border border-gray-800 hover:border-blue-500/50 rounded-xl text-xs text-gray-200 transition"
-              >
-                <Download className="w-4 h-4 text-blue-400" />
-                <span>工程备份 (JSON)</span>
-              </button>
+            <div className="grid grid-cols-2 gap-2.5">
               <button
                 onClick={handleExportGeoJSON}
                 className="flex items-center justify-center gap-2 p-3 bg-gray-950 hover:bg-gray-850 border border-gray-800 hover:border-emerald-500/50 rounded-xl text-xs text-gray-200 transition"
+                title="下载标准 GeoJSON 文件"
               >
                 <Download className="w-4 h-4 text-emerald-400" />
-                <span>地理矢量 (GeoJSON)</span>
+                <span>下载 GeoJSON</span>
+              </button>
+              <button
+                onClick={handleCopyGeoJSON}
+                className="flex items-center justify-center gap-2 p-3 bg-emerald-950/30 hover:bg-emerald-900/40 border border-emerald-500/40 rounded-xl text-xs font-semibold text-emerald-300 transition"
+                title="一键复制 GeoJSON 文本至剪贴板"
+              >
+                <Copy className="w-4 h-4 text-emerald-400" />
+                <span>一键复制 GeoJSON</span>
+              </button>
+
+              <button
+                onClick={handleExportProjectJSON}
+                className="flex items-center justify-center gap-2 p-2.5 bg-gray-950 hover:bg-gray-850 border border-gray-800 hover:border-blue-500/50 rounded-xl text-xs text-gray-300 transition"
+                title="下载 GeoPlot 工程备份文件"
+              >
+                <Download className="w-3.5 h-3.5 text-blue-400" />
+                <span>下载工程 (JSON)</span>
+              </button>
+              <button
+                onClick={handleCopyProjectJSON}
+                className="flex items-center justify-center gap-2 p-2.5 bg-gray-950 hover:bg-gray-850 border border-gray-800 hover:border-blue-500/50 rounded-xl text-xs text-gray-300 transition"
+                title="一键复制工程备份 JSON 文本"
+              >
+                <Copy className="w-3.5 h-3.5 text-blue-400" />
+                <span>复制工程 JSON</span>
               </button>
             </div>
           </div>

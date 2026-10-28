@@ -16,7 +16,7 @@ import {
   Pencil,
   Sparkles,
 } from 'lucide-react';
-import { formatDistance } from '../../utils/geoUtils';
+import { formatDistance, calculateAzimuth } from '../../utils/geoUtils';
 
 interface MobileFeatureQuickCardProps {
   feature: PlotFeature | null;
@@ -51,29 +51,40 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
 
   const Icon = getFeatureIcon(feature.type);
 
-  // 格式化空间指标展示
+  // 格式化空间指标展示 (专业 GIS 面积、周长与方位角)
   const renderSpatialMetrics = () => {
     if (feature.properties.calculatedArea) {
       const area = feature.properties.calculatedArea;
       const areaStr = area >= 10000 ? `${(area / 1000000).toFixed(3)} km²` : `${Math.round(area).toLocaleString()} m²`;
       const muStr = `${(area * 0.0015).toFixed(2)} 亩`;
+      const perimStr = feature.properties.calculatedLength
+        ? ` | 周长 ${formatDistance(feature.properties.calculatedLength)}`
+        : '';
       return (
         <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-mono font-bold">
-          {areaStr} ({muStr})
+          {areaStr} ({muStr}){perimStr}
         </span>
       );
     }
     if (feature.properties.calculatedLength) {
+      let azText = '';
+      if (feature.coordinates && feature.coordinates.length >= 2) {
+        const az = calculateAzimuth(
+          feature.coordinates[0],
+          feature.coordinates[feature.coordinates.length - 1]
+        );
+        azText = ` | 方位: ${az.text}`;
+      }
       return (
         <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 font-mono font-bold">
-          长度 {formatDistance(feature.properties.calculatedLength)}
+          长度 {formatDistance(feature.properties.calculatedLength)}{azText}
         </span>
       );
     }
     if (feature.coordinates && feature.coordinates[0]) {
       return (
         <span className="text-[10px] px-2 py-0.5 rounded-md bg-blue-500/15 border border-blue-500/30 text-blue-300 font-mono">
-          {feature.coordinates[0][0].toFixed(3)}°, {feature.coordinates[0][1].toFixed(3)}°
+          {feature.coordinates[0][0].toFixed(4)}°E, {feature.coordinates[0][1].toFixed(4)}°N
         </span>
       );
     }

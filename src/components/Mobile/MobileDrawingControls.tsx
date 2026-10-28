@@ -10,17 +10,26 @@ import {
   Check,
   X,
   Navigation,
+  Magnet,
+  Compass,
+  AlertTriangle,
 } from 'lucide-react';
+import { formatDistance } from '../../utils/geoUtils';
 
 interface MobileDrawingControlsProps {
   drawingTool: PlotFeatureType | 'measure-distance' | 'measure-area' | null;
   drawingPointsCount: number;
+  enableSnapping?: boolean;
+  topologyWarning?: string | null;
+  activeSegment?: { length: number; azimuth: { degrees: number; text: string } } | null;
   onCancelDrawing: () => void;
   onUndoPoint?: () => void;
   onFinishDrawing?: () => void;
+  onToggleSnapping?: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onResetView: () => void;
+  onResetNorth?: () => void;
   onToggleMeasureDistance: () => void;
   onToggleMeasureArea: () => void;
   onLocateGPS?: () => void;
@@ -29,12 +38,17 @@ interface MobileDrawingControlsProps {
 export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
   drawingTool,
   drawingPointsCount,
+  enableSnapping = true,
+  topologyWarning,
+  activeSegment,
   onCancelDrawing,
   onUndoPoint,
   onFinishDrawing,
+  onToggleSnapping,
   onZoomIn,
   onZoomOut,
   onResetView,
+  onResetNorth,
   onToggleMeasureDistance,
   onToggleMeasureArea,
   onLocateGPS,
@@ -103,6 +117,21 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
+            {onToggleSnapping && (
+              <button
+                onClick={onToggleSnapping}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold transition ${
+                  enableSnapping
+                    ? 'bg-cyan-600/30 text-cyan-300 border border-cyan-500/50'
+                    : 'bg-gray-800/80 text-gray-400 border border-gray-700/60'
+                }`}
+                title="智能顶点磁吸吸附"
+              >
+                <Magnet className={`w-3.5 h-3.5 ${enableSnapping ? 'text-cyan-400' : 'text-gray-500'}`} />
+                <span>吸附{enableSnapping ? '开' : '关'}</span>
+              </button>
+            )}
+
             {drawingPointsCount > 0 && onUndoPoint && (
               <button
                 onClick={onUndoPoint}
@@ -134,6 +163,14 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
         </div>
       )}
 
+      {/* 拓扑规范警示提示条 */}
+      {drawingTool && topologyWarning && (
+        <div className="absolute top-28 left-3 right-3 z-30 flex items-center gap-2 p-2.5 rounded-xl bg-red-950/95 border border-red-500/60 text-red-200 text-xs font-semibold backdrop-blur-md shadow-2xl animate-in slide-in-from-top-2 duration-200">
+          <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 animate-pulse" />
+          <span className="truncate">{topologyWarning}</span>
+        </div>
+      )}
+
       {/* 底部显眼完成控制条 (触屏单手交互优化，免除双击与盲点) */}
       {drawingTool && (
         <div className="absolute bottom-20 left-3 right-3 z-30 flex items-center justify-between gap-2.5 p-3 rounded-2xl bg-gray-950/95 backdrop-blur-xl border border-blue-500/50 shadow-2xl animate-in slide-in-from-bottom-4 duration-200">
@@ -148,9 +185,15 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
                 {getToolDisplayName(drawingTool)}
               </div>
               <div className="text-[10px] text-gray-400 truncate mt-0.5">
-                {canFinish
-                  ? '已满足闭合条件，点击右侧完成保存'
-                  : getRequiredPointsText(drawingTool, drawingPointsCount)}
+                {activeSegment ? (
+                  <span className="text-cyan-300 font-mono font-medium">
+                    当前边: {formatDistance(activeSegment.length)} | 方位角: {activeSegment.azimuth.text}
+                  </span>
+                ) : canFinish ? (
+                  '已满足闭合条件，点击右侧完成保存'
+                ) : (
+                  getRequiredPointsText(drawingTool, drawingPointsCount)
+                )}
               </div>
             </div>
           </div>
@@ -220,8 +263,18 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
           </button>
         </div>
 
-        {/* 2. 地图视图控制模块 (全景复位 + GPS定位 + 缩放控制) */}
+        {/* 2. 地图视图控制模块 (正北复位 + 全景复位 + GPS定位 + 缩放控制) */}
         <div className="flex flex-col bg-gray-950/85 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+          {onResetNorth && (
+            <button
+              onClick={onResetNorth}
+              className="w-10 h-10 flex items-center justify-center text-cyan-400 active:bg-gray-800/80 border-b border-white/10 transition"
+              title="复位正北与俯仰倾角 (Reset True North)"
+            >
+              <Compass className="w-4 h-4" />
+            </button>
+          )}
+
           <button
             onClick={onResetView}
             className="w-10 h-10 flex items-center justify-center text-blue-400 active:bg-gray-800/80 border-b border-white/10 transition"

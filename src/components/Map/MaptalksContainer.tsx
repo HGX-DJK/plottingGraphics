@@ -20,6 +20,9 @@ import {
   calculateSphericalPolygonArea,
   calculateLineLength,
   formatArea,
+  calculateAzimuth,
+  findSnapTarget,
+  checkPolygonSelfIntersection,
 } from '../../utils/geoUtils';
 import { Loader2 } from 'lucide-react';
 
@@ -27,6 +30,7 @@ export interface MaptalksContainerRef {
   zoomIn: () => void;
   zoomOut: () => void;
   resetView: () => void;
+  resetNorth: () => void;
   undoPoint: () => void;
   finishCurrentDrawing: () => void;
   locateUser: (coord: [number, number]) => void;
@@ -40,11 +44,15 @@ interface MaptalksContainerProps {
   selectedFeatureId: string | null;
   drawingTool: PlotFeatureType | 'measure-distance' | 'measure-area' | null;
   basemap: BasemapType;
+  enableSnapping?: boolean;
   onSelectFeature: (featureId: string | null) => void;
   onCreateFeature: (feature: Omit<PlotFeature, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onCancelDrawing: () => void;
   onCoordinatesChange?: (coords: [number, number], zoom: number) => void;
   onDrawingPointsChange?: (count: number) => void;
+  onTopologyWarning?: (msg: string | null) => void;
+  onActiveSegmentChange?: (segment: { length: number; azimuth: { degrees: number; text: string } } | null) => void;
+  onSnapFeedback?: (snapped: boolean) => void;
 }
 
 export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContainerProps>(
@@ -56,11 +64,15 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       selectedFeatureId,
       drawingTool,
       basemap,
+      enableSnapping = true,
       onSelectFeature,
       onCreateFeature,
       onCancelDrawing,
       onCoordinatesChange,
       onDrawingPointsChange,
+      onTopologyWarning,
+      onActiveSegmentChange,
+      onSnapFeedback,
     },
     ref
   ) => {
@@ -82,6 +94,21 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
 
     const drawingToolRef = useRef(drawingTool);
     drawingToolRef.current = drawingTool;
+
+    const enableSnappingRef = useRef(enableSnapping);
+    enableSnappingRef.current = enableSnapping;
+
+    const getCandidateVertices = (): [number, number][] => {
+      const visibleLayerIds = new Set(layers.filter((l) => l.visible).map((l) => l.id));
+      const candidates: [number, number][] = [];
+      features.forEach((feat) => {
+        if (visibleLayerIds.has(feat.layerId) && feat.coordinates) {
+          feat.coordinates.forEach((c) => candidates.push(c));
+        }
+      });
+      drawingPointsRef.current.forEach((c) => candidates.push(c));
+      return candidates;
+    };
 
     // 测距暂存点
     const [measurePoints, setMeasurePoints] = useState<[number, number][]>([]);
@@ -110,6 +137,15 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
             bearing: 0,
           },
           { duration: 500 }
+        );
+      },
+      resetNorth: () => {
+        mapInstanceRef.current?.animateTo(
+          {
+            bearing: 0,
+            pitch: 0,
+          },
+          { duration: 400 }
         );
       },
       undoPoint: () => {
@@ -675,6 +711,8 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         setDrawingPoints([]);
         setMeasurePoints([]);
         map.setCursor('default');
+        onTopologyWarning?.(null);
+        onActiveSegmentChange?.(null);
         return;
       }
 
@@ -747,8 +785,22 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
 
       // 标绘交互点击
       const handleClick = (e: any) => {
-        const coord: [number, number] = [e.coordinate.x, e.coordinate.y];
+        let coord: [number, number] = [e.coordinate.x, e.coordinate.y];
         const existingPts = drawingPointsRef.current;
+        let wasSnapped = false;
+
+        // 智能磁吸吸附 (Smart Vertex Snapping)
+        if (enableSnappingRef.current) {
+          const res = typeof map.getResolution === 'function' ? map.getResolution() : 10;
+          const thresholdMeters = Math.max(10, res * 22);
+          const candidates = getCandidateVertices();
+          const snap = findSnapTarget(coord, candidates, thresholdMeters);
+          if (snap.snapped) {
+            coord = snap.snappedCoord;
+            wasSnapped = true;
+            onSnapFeedback?.(true);
+          }
+        }
 
         // 多边形采集：当已有3个及以上顶点，若再次点击靠近起点，自动闭合完成！
         if (drawingTool === 'polygon' && existingPts.length >= 3) {
@@ -764,7 +816,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         const currentPts = [...existingPts, coord];
         drawingPointsRef.current = currentPts;
         setDrawingPoints(currentPts);
-        renderPreview(currentPts);
+        renderPreview(currentPts, wasSnapped ? coord : undefined);
 
         // 单点要素 -> 立即完成
         if (
@@ -801,14 +853,33 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         }
       };
 
-      // 移动端拖动/指针移动时更新半透明预览
+      // 移动端拖动/指针移动时更新半透明预览与动态方位角
       const handleMouseMove = (e: any) => {
-        const mouseCoord: [number, number] = [e.coordinate.x, e.coordinate.y];
+        let mouseCoord: [number, number] = [e.coordinate.x, e.coordinate.y];
+        let wasSnapped = false;
+
+        if (enableSnappingRef.current) {
+          const res = typeof map.getResolution === 'function' ? map.getResolution() : 10;
+          const thresholdMeters = Math.max(10, res * 22);
+          const candidates = getCandidateVertices();
+          const snap = findSnapTarget(mouseCoord, candidates, thresholdMeters);
+          if (snap.snapped) {
+            mouseCoord = snap.snappedCoord;
+            wasSnapped = true;
+          }
+        }
+
         const pts = drawingPointsRef.current;
         if (pts.length === 0) return;
 
         const previewPts = [...pts, mouseCoord];
-        renderPreview(previewPts);
+        renderPreview(previewPts, wasSnapped ? mouseCoord : undefined);
+
+        // 实时报告当前边段长度与真北方位角
+        const lastPt = pts[pts.length - 1];
+        const segDist = calculateSphericalDistance(lastPt, mouseCoord);
+        const az = calculateAzimuth(lastPt, mouseCoord);
+        onActiveSegmentChange?.({ length: segDist, azimuth: az });
       };
 
       // 双击完成
@@ -827,6 +898,8 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         map.off('click', handleClick);
         map.off('mousemove', handleMouseMove);
         map.off('dblclick', handleDblClick);
+        onTopologyWarning?.(null);
+        onActiveSegmentChange?.(null);
       };
     }, [drawingTool]);
 
@@ -919,11 +992,13 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
 
       onCreateFeature(newFeature);
       setDrawingPoints([]);
+      onTopologyWarning?.(null);
+      onActiveSegmentChange?.(null);
       onCancelDrawing();
     };
 
     // 渲染半透明预览
-    const renderPreview = (pts: [number, number][]) => {
+    const renderPreview = (pts: [number, number][], snappedCoord?: [number, number]) => {
       const previewLayer = previewLayerRef.current;
       if (!previewLayer || !(window as any).maptalks || !drawingTool) return;
       const maptalks = (window as any).maptalks;
@@ -931,12 +1006,26 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       previewLayer.clear();
       if (pts.length === 0) return;
 
+      // 拓扑自相交校验 (多边形简单几何拓扑完整性)
+      let hasTopoError = false;
+      if (drawingTool === 'polygon' && pts.length >= 4) {
+        const topo = checkPolygonSelfIntersection(pts);
+        if (topo.hasIntersection) {
+          hasTopoError = true;
+          onTopologyWarning?.(topo.message || '⚠️ 存在边线自相交 (不符合GIS拓扑规范)');
+        } else {
+          onTopologyWarning?.(null);
+        }
+      } else {
+        onTopologyWarning?.(null);
+      }
+
       const symbol = {
-        lineColor: '#f59e0b',
-        lineWidth: 2.5,
-        lineDasharray: [6, 4],
-        polygonFill: '#f59e0b',
-        polygonOpacity: 0.28,
+        lineColor: hasTopoError ? '#ef4444' : '#f59e0b',
+        lineWidth: hasTopoError ? 3 : 2.5,
+        lineDasharray: hasTopoError ? [4, 4] : [6, 4],
+        polygonFill: hasTopoError ? '#ef4444' : '#f59e0b',
+        polygonOpacity: hasTopoError ? 0.35 : 0.28,
       };
 
       // 1. 在每个已采集的控制顶点处绘制醒目的序号标定圆点，解决移动端落点无感知问题
@@ -967,6 +1056,56 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         });
         previewLayer.addGeometry(vertexMarker);
       });
+
+      // 2. 磁吸吸附光圈标定反馈 (CAD / GIS 级磁吸吸附)
+      if (snappedCoord) {
+        const snapMarker = new maptalks.Marker(snappedCoord, {
+          symbol: [
+            {
+              markerType: 'ellipse',
+              markerWidth: 26,
+              markerHeight: 26,
+              markerFill: '#06b6d4',
+              markerFillOpacity: 0.35,
+              markerLineColor: '#22d3ee',
+              markerLineWidth: 2.5,
+            },
+            {
+              textName: '🧲 顶点吸附',
+              textSize: 10,
+              textFill: '#22d3ee',
+              textHaloFill: '#082f49',
+              textHaloRadius: 2.5,
+              textDy: -22,
+              textWeight: 'bold',
+            },
+          ],
+        });
+        previewLayer.addGeometry(snapMarker);
+      }
+
+      // 3. 线段方位角与实时长度动态注记 (CAD / GIS 级工程注记)
+      if (pts.length >= 2) {
+        const pPrev = pts[pts.length - 2];
+        const pCurr = pts[pts.length - 1];
+        const segDist = calculateSphericalDistance(pPrev, pCurr);
+        const az = calculateAzimuth(pPrev, pCurr);
+        const midCoord: [number, number] = [
+          (pPrev[0] + pCurr[0]) / 2,
+          (pPrev[1] + pCurr[1]) / 2,
+        ];
+        const segLabelMarker = new maptalks.Marker(midCoord, {
+          symbol: {
+            textName: `${formatDistance(segDist)} | ${az.degrees}°`,
+            textSize: 10,
+            textFill: hasTopoError ? '#fca5a5' : '#fef08a',
+            textHaloFill: '#1c1917',
+            textHaloRadius: 2.5,
+            textWeight: 'bold',
+          },
+        });
+        previewLayer.addGeometry(segLabelMarker);
+      }
 
       // 2. 几何图元半透明引导预览
       if (drawingTool === 'straight-arrow') {

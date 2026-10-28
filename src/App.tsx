@@ -15,7 +15,8 @@ import { MobileFeatureQuickCard } from './components/Mobile/MobileFeatureQuickCa
 import { MobileLoginView } from './components/Mobile/MobileLoginView';
 import { NewLayerModal } from './components/Modals/NewLayerModal';
 import { ImportExportModal } from './components/Modals/ImportExportModal';
-import { Smartphone, Monitor, Compass } from 'lucide-react';
+import { Smartphone, Monitor, Compass, Copy } from 'lucide-react';
+import { CoordinateFormat, formatCoordinates } from './utils/geoUtils';
 
 export const App: React.FC = () => {
   const mapRef = useRef<MaptalksContainerRef>(null);
@@ -38,6 +39,25 @@ export const App: React.FC = () => {
   const [basemap, setBasemap] = useState<BasemapType>('dark');
   const [cursorCoords, setCursorCoords] = useState<[number, number]>(DEFAULT_MAP_CENTER);
   const [zoomLevel, setZoomLevel] = useState<number>(DEFAULT_MAP_ZOOM);
+  const [coordinateFormat, setCoordinateFormat] = useState<CoordinateFormat>('DD');
+  const [enableSnapping, setEnableSnapping] = useState<boolean>(true);
+  const [topologyWarning, setTopologyWarning] = useState<string | null>(null);
+  const [activeSegment, setActiveSegment] = useState<{ length: number; azimuth: { degrees: number; text: string } } | null>(null);
+
+  const handleCycleCoordinateFormat = () => {
+    setCoordinateFormat((prev) => {
+      if (prev === 'DD') return 'DMS';
+      if (prev === 'DMS') return 'MERCATOR';
+      return 'DD';
+    });
+  };
+
+  const handleCopyCoordinates = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const text = formatCoordinates(cursorCoords, coordinateFormat);
+    navigator.clipboard?.writeText(text);
+    showToast(`✓ 已复制当前坐标: ${text}`);
+  };
 
   // 4. 模态弹窗状态
   const [isNewLayerModalOpen, setIsNewLayerModalOpen] = useState(false);
@@ -251,6 +271,7 @@ export const App: React.FC = () => {
           selectedFeatureId={selectedFeatureId}
           drawingTool={drawingTool}
           basemap={basemap}
+          enableSnapping={enableSnapping}
           onSelectFeature={(id) => {
             setSelectedFeatureId(id);
           }}
@@ -261,28 +282,52 @@ export const App: React.FC = () => {
             setZoomLevel(zoom);
           }}
           onDrawingPointsChange={setDrawingPointsCount}
+          onTopologyWarning={setTopologyWarning}
+          onActiveSegmentChange={setActiveSegment}
+          onSnapFeedback={() => showToast('🧲 已吸附至相邻要素顶点')}
         />
 
-        {/* 底部左侧：空间经纬度与比例尺沉浸式微章 (专业GIS底栏布局) */}
-        <div className="absolute bottom-20 left-3.5 z-10 pointer-events-none flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-gray-950/80 backdrop-blur-md border border-white/10 shadow text-gray-300 font-mono text-[10px]">
+        {/* 底部左侧：空间经纬度与比例尺沉浸式徽章 (专业GIS底栏布局，可切换格式与一键复制) */}
+        <div
+          onClick={handleCycleCoordinateFormat}
+          className="absolute bottom-20 left-3.5 z-10 pointer-events-auto flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-gray-950/85 backdrop-blur-md border border-white/10 shadow text-gray-300 font-mono text-[10px] active:scale-95 transition cursor-pointer select-none"
+          title="点击切换坐标系统 (DD / DMS / EPSG:3857)"
+        >
           <Compass className="w-3.5 h-3.5 text-blue-400 shrink-0" />
           <div className="flex items-center gap-1.5">
-            <span>{cursorCoords[0].toFixed(4)}°E, {cursorCoords[1].toFixed(4)}°N</span>
+            <span className="font-medium text-gray-200">
+              {formatCoordinates(cursorCoords, coordinateFormat)}
+            </span>
             <span className="text-gray-600">|</span>
             <span className="text-blue-300 font-bold">Z{zoomLevel.toFixed(1)}</span>
+            <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[9px] font-bold">
+              {coordinateFormat === 'DD' ? 'WGS84' : coordinateFormat === 'DMS' ? '度分秒' : '3857米'}
+            </span>
           </div>
+          <button
+            onClick={handleCopyCoordinates}
+            className="p-1 rounded-full text-gray-400 hover:text-white hover:bg-gray-800 transition shrink-0"
+            title="一键复制当前坐标"
+          >
+            <Copy className="w-3 h-3" />
+          </button>
         </div>
 
         {/* 3. 移动端悬浮标绘指导与右侧触控按钮 */}
         <MobileDrawingControls
           drawingTool={drawingTool}
           drawingPointsCount={drawingPointsCount}
+          enableSnapping={enableSnapping}
+          topologyWarning={topologyWarning}
+          activeSegment={activeSegment}
           onCancelDrawing={() => setDrawingTool(null)}
           onUndoPoint={() => mapRef.current?.undoPoint()}
           onFinishDrawing={() => mapRef.current?.finishCurrentDrawing()}
+          onToggleSnapping={() => setEnableSnapping(!enableSnapping)}
           onZoomIn={() => mapRef.current?.zoomIn()}
           onZoomOut={() => mapRef.current?.zoomOut()}
           onResetView={() => mapRef.current?.resetView()}
+          onResetNorth={() => mapRef.current?.resetNorth()}
           onToggleMeasureDistance={handleToggleMeasureDistance}
           onToggleMeasureArea={handleToggleMeasureArea}
           onLocateGPS={handleLocateGPS}

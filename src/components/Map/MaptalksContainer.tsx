@@ -367,22 +367,26 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
 
       // 普通点标记
       if (type === 'marker') {
+        const iconUrl = createTacticalIcon('marker', strokeColor, feat.name);
         return new maptalks.Marker(coordinates[0], {
           id: feat.id,
-          symbol: {
-            markerType: 'pin',
-            markerFill: strokeColor,
-            markerLineColor: '#ffffff',
-            markerLineWidth: 1.5,
-            markerWidth: isSelected ? 32 : 26,
-            markerHeight: isSelected ? 40 : 34,
-            textName: feat.name,
-            textSize: 12,
-            textFill: '#ffffff',
-            textHaloFill: '#000000',
-            textHaloRadius: 2,
-            textDy: 18,
-          },
+          symbol: [
+            {
+              markerFile: iconUrl,
+              markerWidth: isSelected ? 40 : 32,
+              markerHeight: isSelected ? 40 : 32,
+              markerDx: 0,
+              markerDy: -6,
+            },
+            {
+              textName: feat.name,
+              textSize: 12,
+              textFill: isSelected ? '#fbbf24' : '#ffffff',
+              textHaloFill: '#000000',
+              textHaloRadius: 2,
+              textDy: 20,
+            },
+          ],
         });
       }
 

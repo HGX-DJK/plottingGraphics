@@ -1,5 +1,6 @@
 import React from 'react';
 import { PlotFeatureType } from '../../types';
+import type { MeasureResult } from '../Map/MaptalksContainer';
 import {
   Plus,
   Minus,
@@ -14,6 +15,7 @@ import {
   Compass,
   AlertTriangle,
   Trash2,
+  Eraser,
 } from 'lucide-react';
 import { formatDistance } from '../../utils/geoUtils';
 
@@ -24,9 +26,12 @@ interface MobileDrawingControlsProps {
   enableSnapping?: boolean;
   topologyWarning?: string | null;
   activeSegment?: { length: number; azimuth: { degrees: number; text: string } } | null;
+  measureResult?: MeasureResult | null;
   onCancelDrawing: () => void;
   onUndoPoint?: () => void;
   onFinishDrawing?: () => void;
+  onUndoMeasurePoint?: () => void;
+  onClearMeasure?: () => void;
   onToggleSnapping?: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -46,9 +51,12 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
   enableSnapping = true,
   topologyWarning,
   activeSegment,
+  measureResult = null,
   onCancelDrawing,
   onUndoPoint,
   onFinishDrawing,
+  onUndoMeasurePoint,
+  onClearMeasure,
   onToggleSnapping,
   onZoomIn,
   onZoomOut,
@@ -93,18 +101,32 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
     if (tool === 'attack-arrow' || tool === 'pincer-arrow' || tool === 'gathering-place') {
       return `已点标 ${count}/3 点`;
     }
-    if (tool === 'polyline' || tool === 'polygon' || tool === 'freehand' || tool === 'measure-distance' || tool === 'measure-area') {
+    if (tool === 'measure-distance') {
+      return `已落 ${count} 个点 · 至少 2 点可读总长`;
+    }
+    if (tool === 'measure-area') {
+      return `已落 ${count} 个点 · 至少 3 点可读面积`;
+    }
+    if (tool === 'polyline' || tool === 'polygon' || tool === 'freehand') {
       return `已添加 ${count} 个顶点 (双击或点完成)`;
     }
     return '轻触地图落点';
   };
 
-  const canFinish =
-    drawingTool === 'polyline' || drawingTool === 'freehand'
-      ? drawingPointsCount >= 2
-      : drawingTool === 'polygon' || drawingTool === 'measure-area'
-      ? drawingPointsCount >= 3
-      : false;
+  // 空间量算模式：无需「完成保存」，只提供读数、撤回与重测
+  const isMeasureMode = drawingTool === 'measure-distance' || drawingTool === 'measure-area';
+
+  const canFinish = isMeasureMode
+    ? false
+    : drawingTool === 'polyline' || drawingTool === 'freehand'
+    ? drawingPointsCount >= 2
+    : drawingTool === 'polygon'
+    ? drawingPointsCount >= 3
+    : false;
+
+  // 量算读数主文案
+  const measureReadout = measureResult?.text ?? '—';
+  const measureUnitLabel = measureResult?.kind === 'area' ? '量算面积' : '量算总长';
 
   return (
     <>
@@ -116,19 +138,39 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
           style={{ top: 'calc(env(safe-area-inset-top, 0px) + 3.75rem)' }}
         >
           <div className="flex items-center gap-2 min-w-0">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-500 dark:bg-blue-400 animate-pulse shrink-0" />
+            <span
+              className={`w-2.5 h-2.5 rounded-full animate-pulse shrink-0 ${
+                isMeasureMode
+                  ? 'bg-amber-500 dark:bg-amber-400'
+                  : 'bg-blue-500 dark:bg-blue-400'
+              }`}
+            />
             <div className="min-w-0">
-              <div className="text-xs font-bold text-blue-600 dark:text-blue-300 truncate">
+              <div
+                className={`text-xs font-bold truncate ${
+                  isMeasureMode
+                    ? 'text-amber-600 dark:text-amber-300'
+                    : 'text-blue-600 dark:text-blue-300'
+                }`}
+              >
                 {getToolDisplayName(drawingTool)}
               </div>
               <div className="text-[10px] text-slate-600 dark:text-gray-300 truncate">
-                {getRequiredPointsText(drawingTool, drawingPointsCount)}
+                {isMeasureMode ? (
+                  <span className="font-mono">
+                    {drawingPointsCount > 0
+                      ? `读数 ${measureReadout} · 已落 ${drawingPointsCount} 个点`
+                      : getRequiredPointsText(drawingTool, drawingPointsCount)}
+                  </span>
+                ) : (
+                  getRequiredPointsText(drawingTool, drawingPointsCount)
+                )}
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
-            {onToggleSnapping && (
+            {!isMeasureMode && onToggleSnapping && (
               <button
                 onClick={onToggleSnapping}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold transition ${
@@ -143,24 +185,51 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
               </button>
             )}
 
-            {drawingPointsCount > 0 && onUndoPoint && (
-              <button
-                onClick={onUndoPoint}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-300 active:bg-slate-200 dark:active:bg-gray-700 text-xs font-medium transition"
-              >
-                <Undo2 className="w-3.5 h-3.5" />
-                <span>撤回</span>
-              </button>
-            )}
+            {isMeasureMode ? (
+              <>
+                {drawingPointsCount > 0 && onUndoMeasurePoint && (
+                  <button
+                    onClick={onUndoMeasurePoint}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-300 active:bg-slate-200 dark:active:bg-gray-700 text-xs font-medium transition"
+                    title="撤回上一个量算点"
+                  >
+                    <Undo2 className="w-3.5 h-3.5" />
+                    <span>撤回</span>
+                  </button>
+                )}
+                {drawingPointsCount > 0 && onClearMeasure && (
+                  <button
+                    onClick={onClearMeasure}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-500/40 text-xs font-medium transition"
+                    title="清空量算点重新测量"
+                  >
+                    <Eraser className="w-3.5 h-3.5" />
+                    <span>重测</span>
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                {drawingPointsCount > 0 && onUndoPoint && (
+                  <button
+                    onClick={onUndoPoint}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-300 active:bg-slate-200 dark:active:bg-gray-700 text-xs font-medium transition"
+                  >
+                    <Undo2 className="w-3.5 h-3.5" />
+                    <span>撤回</span>
+                  </button>
+                )}
 
-            {canFinish && onFinishDrawing && (
-              <button
-                onClick={onFinishDrawing}
-                className="flex items-center gap-1 px-3 py-1 rounded-xl bg-emerald-600 text-white active:bg-emerald-500 text-xs font-bold shadow transition"
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>完成</span>
-              </button>
+                {canFinish && onFinishDrawing && (
+                  <button
+                    onClick={onFinishDrawing}
+                    className="flex items-center gap-1 px-3 py-1 rounded-xl bg-emerald-600 text-white active:bg-emerald-500 text-xs font-bold shadow transition"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>完成</span>
+                  </button>
+                )}
+              </>
             )}
 
             <button
@@ -193,8 +262,20 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
           style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4.5rem)' }}
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-600/20 border border-blue-200 dark:border-blue-500/40 flex items-center justify-center shrink-0">
-              <span className="text-xs font-black text-blue-600 dark:text-blue-400 font-mono">
+            <div
+              className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${
+                isMeasureMode
+                  ? 'bg-amber-50 dark:bg-amber-500/20 border-amber-200 dark:border-amber-500/40'
+                  : 'bg-blue-50 dark:bg-blue-600/20 border-blue-200 dark:border-blue-500/40'
+              }`}
+            >
+              <span
+                className={`text-xs font-black font-mono ${
+                  isMeasureMode
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-blue-600 dark:text-blue-400'
+                }`}
+              >
                 {drawingPointsCount}
               </span>
             </div>
@@ -203,7 +284,11 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
                 {getToolDisplayName(drawingTool)}
               </div>
               <div className="text-[10px] text-slate-500 dark:text-gray-400 truncate mt-0.5">
-                {activeSegment ? (
+                {isMeasureMode ? (
+                  <span className="font-mono font-semibold text-amber-600 dark:text-amber-300">
+                    {drawingPointsCount > 0 ? `${measureUnitLabel}: ${measureReadout}` : '轻触地图落点开始量算'}
+                  </span>
+                ) : activeSegment ? (
                   <span className="text-cyan-600 dark:text-cyan-300 font-mono font-medium">
                     当前边: {formatDistance(activeSegment.length)} | 方位角: {activeSegment.azimuth.text}
                   </span>
@@ -217,32 +302,68 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
-            {drawingPointsCount > 0 && onUndoPoint && (
-              <button
-                onClick={onUndoPoint}
-                className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-200 active:bg-slate-200 dark:active:bg-gray-700 text-xs font-semibold border border-slate-200 dark:border-gray-700 transition"
-              >
-                <Undo2 className="w-3.5 h-3.5" />
-                <span>撤回</span>
-              </button>
-            )}
-
-            {canFinish ? (
-              <button
-                onClick={onFinishDrawing}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 active:from-emerald-700 active:to-green-700 text-white text-xs font-black shadow-lg shadow-emerald-600/30 transition active:scale-[0.97]"
-              >
-                <Check className="w-4 h-4 stroke-[3]" />
-                <span>完成保存</span>
-              </button>
+            {isMeasureMode ? (
+              <>
+                {drawingPointsCount > 0 && onUndoMeasurePoint && (
+                  <button
+                    onClick={onUndoMeasurePoint}
+                    className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-200 active:bg-slate-200 dark:active:bg-gray-700 text-xs font-semibold border border-slate-200 dark:border-gray-700 transition"
+                    title="撤回上一个量算点"
+                  >
+                    <Undo2 className="w-3.5 h-3.5" />
+                    <span>撤回</span>
+                  </button>
+                )}
+                {drawingPointsCount > 0 && onClearMeasure && (
+                  <button
+                    onClick={onClearMeasure}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 active:from-rose-600 active:to-red-700 text-white text-xs font-black shadow-lg shadow-rose-600/30 transition active:scale-[0.97]"
+                    title="清空量算点并重新测量"
+                  >
+                    <Eraser className="w-4 h-4 stroke-[3]" />
+                    <span>清除重测</span>
+                  </button>
+                )}
+                {drawingPointsCount === 0 && (
+                  <button
+                    onClick={onCancelDrawing}
+                    className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 dark:bg-gray-800/80 text-slate-500 active:text-slate-800 dark:text-gray-400 dark:active:text-white text-xs font-medium transition"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>取消</span>
+                  </button>
+                )}
+              </>
             ) : (
-              <button
-                onClick={onCancelDrawing}
-                className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 dark:bg-gray-800/80 text-slate-500 active:text-slate-800 dark:text-gray-400 dark:active:text-white text-xs font-medium transition"
-              >
-                <X className="w-3.5 h-3.5" />
-                <span>取消</span>
-              </button>
+              <>
+                {drawingPointsCount > 0 && onUndoPoint && (
+                  <button
+                    onClick={onUndoPoint}
+                    className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-200 active:bg-slate-200 dark:active:bg-gray-700 text-xs font-semibold border border-slate-200 dark:border-gray-700 transition"
+                  >
+                    <Undo2 className="w-3.5 h-3.5" />
+                    <span>撤回</span>
+                  </button>
+                )}
+
+                {canFinish ? (
+                  <button
+                    onClick={onFinishDrawing}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 active:from-emerald-700 active:to-green-700 text-white text-xs font-black shadow-lg shadow-emerald-600/30 transition active:scale-[0.97]"
+                  >
+                    <Check className="w-4 h-4 stroke-[3]" />
+                    <span>完成保存</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={onCancelDrawing}
+                    className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 dark:bg-gray-800/80 text-slate-500 active:text-slate-800 dark:text-gray-400 dark:active:text-white text-xs font-medium transition"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>取消</span>
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>

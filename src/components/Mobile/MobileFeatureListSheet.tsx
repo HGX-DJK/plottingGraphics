@@ -18,6 +18,7 @@ import {
   LayoutList,
   ChevronDown,
   ChevronRight,
+  X,
 } from 'lucide-react';
 import { MobileBottomSheet } from './MobileBottomSheet';
 import { ConfirmModal } from '../Modals/ConfirmModal';
@@ -122,6 +123,9 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
     const matchLayer = layerFilter === 'all' || f.layerId === layerFilter;
     return matchSearch && matchLayer;
   });
+
+  // 是否处于「搜索 / 图层筛选」生效状态，决定顶部统计文案
+  const isFiltering = search.trim() !== '' || layerFilter !== 'all';
 
   const handleCardClick = (id: string) => {
     if (onLocateFeature) {
@@ -253,10 +257,12 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
       <div className="space-y-3 pb-4">
         {/* 顶部统计与视图切换 */}
         <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 transition-colors">
-          <div className="flex items-center gap-2 pl-1">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-              共收录 {features.length} 个标绘要素
+          <div className="flex items-center gap-2 pl-1 min-w-0">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+              {isFiltering
+                ? `筛选出 ${filtered.length} / ${features.length} 个要素`
+                : `共收录 ${features.length} 个标绘要素`}
             </span>
           </div>
 
@@ -291,14 +297,26 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
 
         {/* 搜索框 */}
         <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="搜索要素名称 / 空间备注..."
-            className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 transition"
+            className={`w-full pl-9 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 transition ${
+              search ? 'pr-10' : 'pr-3'
+            }`}
           />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-800 active:bg-slate-200 dark:active:bg-gray-700 flex items-center justify-center transition"
+              title="清除搜索关键词"
+              aria-label="清除搜索关键词"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* 图层标签横向滚动过滤器 */}
@@ -330,10 +348,19 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
               }`}
             >
               <span
-                className="w-2 h-2 rounded-full"
+                className="w-2 h-2 rounded-full shrink-0"
                 style={{ backgroundColor: l.color }}
               />
               <span className="truncate max-w-[110px]">{l.name}</span>
+              <span
+                className={`font-mono text-[10px] px-1.5 py-0.5 rounded-full ${
+                  layerFilter === l.id
+                    ? 'bg-white/25 text-white'
+                    : 'bg-slate-200/80 dark:bg-gray-800 text-slate-600 dark:text-gray-300'
+                }`}
+              >
+                {features.filter((f) => f.layerId === l.id).length}
+              </span>
             </button>
           ))}
         </div>

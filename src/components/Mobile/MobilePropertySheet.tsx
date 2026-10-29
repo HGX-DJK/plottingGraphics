@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PlotFeature, PlotLayer } from '../../types';
 import {
   Sliders,
@@ -43,24 +43,110 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
   const [copied, setCopied] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  /**
+   * 属性编辑草稿 + 节流提交。
+   * 背景：滑块拖动 / 文本连打时，原实现每次 onChange 都直接回写 features，
+   * 导致地图组件的全量几何体重建被逐帧触发，触控端明显卡顿。
+   * 现在改为「本地草稿即时刷新 UI + 150ms 节流回写」，拖动过程不再重建几何体。
+   */
+  const [draft, setDraft] = useState<{ featureId: string; next: PlotFeature } | null>(null);
+  const draftRef = useRef<{ featureId: string; next: PlotFeature } | null>(null);
+  const commitTimerRef = useRef<number | null>(null);
+  const pendingRef = useRef(false);
+  const featureIdRef = useRef<string | null>(null);
+
+  const syncDraft = (next: { featureId: string; next: PlotFeature }) => {
+    draftRef.current = next;
+    setDraft(next);
+  };
+
+  const scheduleCommit = (next: { featureId: string; next: PlotFeature }) => {
+    syncDraft(next);
+    pendingRef.current = true;
+    if (commitTimerRef.current !== null) {
+      window.clearTimeout(commitTimerRef.current);
+    }
+    commitTimerRef.current = window.setTimeout(() => {
+      commitTimerRef.current = null;
+      pendingRef.current = false;
+      const d = draftRef.current;
+      if (d) onUpdateFeature(d.next);
+    }, 150);
+  };
+
+  // 立即提交挂起的编辑（切换/关闭要素前调用，避免丢失最后一次改动）
+  const flushDraft = () => {
+    if (commitTimerRef.current !== null) {
+      window.clearTimeout(commitTimerRef.current);
+      commitTimerRef.current = null;
+    }
+    if (!pendingRef.current) return;
+    pendingRef.current = false;
+    const d = draftRef.current;
+    if (d) onUpdateFeature(d.next);
+  };
+
+  // 外部要素数据变化时同步草稿；切换要素前先提交未落盘的编辑
+  useEffect(() => {
+    if (!feature) {
+      // 要素被关闭：提交挂起的编辑
+      flushDraft();
+      return;
+    }
+    if (featureIdRef.current !== feature.id) {
+      // 切换到另一个要素：先把上一个要素的挂起编辑落盘
+      flushDraft();
+      featureIdRef.current = feature.id;
+      syncDraft({ featureId: feature.id, next: feature });
+      return;
+    }
+    // 同一要素：仅在无挂起编辑时跟随外部数据同步，避免覆盖用户正在编辑的值
+    if (!pendingRef.current) {
+      syncDraft({ featureId: feature.id, next: feature });
+    }
+  }, [feature]);
+
+  // 组件卸载时清理定时器并提交挂起编辑
+  useEffect(
+    () => () => {
+      if (commitTimerRef.current !== null) {
+        window.clearTimeout(commitTimerRef.current);
+        commitTimerRef.current = null;
+      }
+    },
+    []
+  );
+
   if (!feature) return null;
 
+  // 当前正在编辑的要素快照（优先使用草稿，保证输入框实时跟手）
+  const editingFeature = draft && draft.featureId === feature.id ? draft.next : feature;
+
   const handleNameChange = (name: string) => {
-    onUpdateFeature({ ...feature, name, updatedAt: Date.now() });
+    scheduleCommit({
+      featureId: editingFeature.id,
+      next: { ...editingFeature, name, updatedAt: Date.now() },
+    });
   };
 
   const handleLayerChange = (layerId: string) => {
-    onUpdateFeature({ ...feature, layerId, updatedAt: Date.now() });
+    scheduleCommit({
+      featureId: editingFeature.id,
+      next: { ...editingFeature, layerId, updatedAt: Date.now() },
+    });
   };
 
   const handlePropChange = (key: string, value: any) => {
-    onUpdateFeature({
-      ...feature,
-      properties: {
-        ...feature.properties,
-        [key]: value,
+    scheduleCommit({
+      featureId: editingFeature.id,
+      next: {
+        ...editingFeature,
+        properties: {
+          ...editingFeature.properties,
+          [key]: value,
+        },
+        updatedAt: Date.now(),
       },
-      updatedAt: Date.now(),
     });
   };
 
@@ -77,7 +163,7 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
   };
 
   const handleDeleteCustomAttribute = (key: string) => {
-    const existing = { ...(feature.properties.customAttributes || {}) };
+    const existing = { ...(editingFeature.properties.customAttributes || {}) };
     delete existing[key];
     handlePropChange('customAttributes', existing);
   };
@@ -198,7 +284,7 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
             <label className="block text-slate-600 dark:text-gray-400 font-medium mb-1">要素名称</label>
             <input
               type="text"
-              value={feature.name}
+              value={editingFeature.name}
               onChange={(e) => handleNameChange(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl text-slate-800 dark:text-gray-100 focus:outline-none focus:border-blue-500"
             />
@@ -210,26 +296,26 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
                 <Layers className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
                 <span>所属工作图层</span>
               </label>
-              {layers.find((l) => l.id === feature.layerId) && (
+              {layers.find((l) => l.id === editingFeature.layerId) && (
                 <div className="flex items-center gap-1.5">
                   <span
                     className="w-2.5 h-2.5 rounded-full ring-1 ring-slate-300 dark:ring-white/20"
-                    style={{ backgroundColor: layers.find((l) => l.id === feature.layerId)?.color }}
+                    style={{ backgroundColor: layers.find((l) => l.id === editingFeature.layerId)?.color }}
                   />
                   <span className="text-slate-700 dark:text-gray-300 font-semibold truncate max-w-[120px]">
-                    {layers.find((l) => l.id === feature.layerId)?.name}
+                    {layers.find((l) => l.id === editingFeature.layerId)?.name}
                   </span>
                 </div>
               )}
             </div>
             <select
-              value={feature.layerId}
+              value={editingFeature.layerId}
               onChange={(e) => handleLayerChange(e.target.value)}
               className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-slate-300 dark:border-gray-700/80 rounded-xl text-slate-800 dark:text-gray-200 text-xs focus:outline-none focus:border-blue-500"
             >
               {layers.map((l) => (
                 <option key={l.id} value={l.id}>
-                  {l.name} {l.id === feature.layerId ? '(当前归属图层)' : ''}
+                  {l.name} {l.id === editingFeature.layerId ? '(当前归属图层)' : ''}
                 </option>
               ))}
             </select>
@@ -329,7 +415,7 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
               </label>
               <input
                 type="text"
-                value={feature.properties.text || ''}
+                value={editingFeature.properties.text || ''}
                 onChange={(e) => handlePropChange('text', e.target.value)}
                 placeholder="地图显示标签内容"
                 className="w-full px-3 py-1.5 bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-lg text-slate-800 dark:text-gray-100"
@@ -341,12 +427,13 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
               <div className="flex items-center gap-2">
                 <input
                   type="color"
-                  value={feature.properties.textColor || '#ffffff'}
+                  value={editingFeature.properties.textColor || '#ffffff'}
                   onChange={(e) => handlePropChange('textColor', e.target.value)}
-                  className="w-8 h-7 bg-transparent rounded cursor-pointer"
+                  className="w-11 h-11 p-0 bg-transparent rounded-xl cursor-pointer border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-950"
+                  aria-label="选择文字颜色"
                 />
                 <span className="font-mono text-slate-500 dark:text-gray-400">
-                  {feature.properties.textColor || '#ffffff'}
+                  {editingFeature.properties.textColor || '#ffffff'}
                 </span>
               </div>
             </div>
@@ -363,12 +450,13 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
             <div className="flex items-center gap-2">
               <input
                 type="color"
-                value={feature.properties.strokeColor}
+                value={editingFeature.properties.strokeColor}
                 onChange={(e) => handlePropChange('strokeColor', e.target.value)}
-                className="w-8 h-7 bg-transparent rounded cursor-pointer"
+                className="w-11 h-11 p-0 bg-transparent rounded-xl cursor-pointer border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-950"
+                aria-label="选择边框线条颜色"
               />
               <span className="font-mono text-slate-500 dark:text-gray-400">
-                {feature.properties.strokeColor}
+                {editingFeature.properties.strokeColor}
               </span>
             </div>
           </div>
@@ -377,16 +465,22 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
             <div className="flex items-center justify-between text-slate-600 dark:text-gray-400 mb-1">
               <span>线宽粗细</span>
               <span className="font-mono text-blue-600 dark:text-blue-400 font-bold">
-                {feature.properties.strokeWidth} px
+                {editingFeature.properties.strokeWidth} px
               </span>
             </div>
             <input
               type="range"
               min={1}
               max={10}
-              value={feature.properties.strokeWidth}
+              value={editingFeature.properties.strokeWidth}
               onChange={(e) => handlePropChange('strokeWidth', parseInt(e.target.value))}
-              className="w-full accent-blue-500 h-2 bg-slate-200 dark:bg-gray-800 rounded-lg cursor-pointer"
+              className="gp-range"
+              style={
+                {
+                  '--gp-range-progress': `${((editingFeature.properties.strokeWidth - 1) / 9) * 100}%`,
+                } as React.CSSProperties
+              }
+              aria-label="线宽粗细"
             />
           </div>
 
@@ -396,7 +490,7 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
                 type="button"
                 onClick={() => handlePropChange('strokeDasharray', 'solid')}
                 className={`py-1.5 rounded-lg border text-center transition ${
-                  feature.properties.strokeDasharray !== 'dash'
+                  editingFeature.properties.strokeDasharray !== 'dash'
                     ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/20 text-blue-600 dark:text-white font-medium'
                     : 'border-slate-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-slate-500 dark:text-gray-400'
                 }`}
@@ -407,7 +501,7 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
                 type="button"
                 onClick={() => handlePropChange('strokeDasharray', 'dash')}
                 className={`py-1.5 rounded-lg border text-center transition ${
-                  feature.properties.strokeDasharray === 'dash'
+                  editingFeature.properties.strokeDasharray === 'dash'
                     ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/20 text-blue-600 dark:text-white font-medium'
                     : 'border-slate-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-slate-500 dark:text-gray-400'
                 }`}
@@ -426,12 +520,13 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
               <div className="flex items-center gap-2">
                 <input
                   type="color"
-                  value={feature.properties.fillColor}
+                  value={editingFeature.properties.fillColor}
                   onChange={(e) => handlePropChange('fillColor', e.target.value)}
-                  className="w-8 h-7 bg-transparent rounded cursor-pointer"
+                  className="w-11 h-11 p-0 bg-transparent rounded-xl cursor-pointer border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-950"
+                  aria-label="选择区域填充色"
                 />
                 <span className="font-mono text-slate-500 dark:text-gray-400">
-                  {feature.properties.fillColor}
+                  {editingFeature.properties.fillColor}
                 </span>
               </div>
             </div>
@@ -440,7 +535,7 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
               <div className="flex items-center justify-between text-slate-600 dark:text-gray-400 mb-1">
                 <span>填充不透明度</span>
                 <span className="font-mono text-blue-600 dark:text-blue-400 font-bold">
-                  {Math.round(feature.properties.fillOpacity * 100)}%
+                  {Math.round(editingFeature.properties.fillOpacity * 100)}%
                 </span>
               </div>
               <input
@@ -448,9 +543,15 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
                 min={0}
                 max={1}
                 step={0.05}
-                value={feature.properties.fillOpacity}
+                value={editingFeature.properties.fillOpacity}
                 onChange={(e) => handlePropChange('fillOpacity', parseFloat(e.target.value))}
-                className="w-full accent-blue-500 h-2 bg-slate-200 dark:bg-gray-800 rounded-lg cursor-pointer"
+                className="gp-range"
+                style={
+                  {
+                    '--gp-range-progress': `${editingFeature.properties.fillOpacity * 100}%`,
+                  } as React.CSSProperties
+                }
+                aria-label="填充不透明度"
               />
             </div>
           </div>
@@ -464,7 +565,7 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
           </label>
           <textarea
             rows={2}
-            value={feature.properties.notes || ''}
+            value={editingFeature.properties.notes || ''}
             onChange={(e) => handlePropChange('notes', e.target.value)}
             placeholder="填写现场核查记录、规划指标或地物说明..."
             className="w-full px-3 py-2 bg-slate-50 dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl text-slate-800 dark:text-gray-200 resize-none focus:outline-none focus:border-blue-500"

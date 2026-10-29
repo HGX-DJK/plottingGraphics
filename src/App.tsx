@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User, PlotLayer, PlotFeature, PlotFeatureType, BasemapType } from './types';
 import { authService } from './services/authService';
 import { storageService, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM } from './services/storageService';
-import { MaptalksContainer, MaptalksContainerRef } from './components/Map/MaptalksContainer';
+import { MaptalksContainer, MaptalksContainerRef, MeasureResult } from './components/Map/MaptalksContainer';
 import { MobileHeader } from './components/Mobile/MobileHeader';
 import { MobileTabBar, MobileTab } from './components/Mobile/MobileTabBar';
 import { MobilePlottingSheet } from './components/Mobile/MobilePlottingSheet';
@@ -71,6 +71,8 @@ export const App: React.FC = () => {
   const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
   const [drawingTool, setDrawingTool] = useState<PlotFeatureType | 'measure-distance' | 'measure-area' | null>(null);
   const [drawingPointsCount, setDrawingPointsCount] = useState<number>(0);
+  // 空间量算读数 (测距总长 / 测面面积)
+  const [measureResult, setMeasureResult] = useState<MeasureResult | null>(null);
   const [basemap, setBasemap] = useState<BasemapType>(() => themeService.getTheme() === 'light' ? 'street' : 'dark');
   const [cursorCoords, setCursorCoords] = useState<[number, number]>(DEFAULT_MAP_CENTER);
   const [zoomLevel, setZoomLevel] = useState<number>(DEFAULT_MAP_ZOOM);
@@ -119,13 +121,38 @@ export const App: React.FC = () => {
   // 5. 电脑端调试时可选开启「真机外框预览」
   const [deviceFrameMode, setDeviceFrameMode] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  // Toast 内联操作按钮（如删除后的「撤销」）
+  const [toastAction, setToastAction] = useState<{ label: string; onClick: () => void } | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+  const toastSeqRef = useRef(0);
 
-  const showToast = (msg: string) => {
+  const showToast = (msg: string, action?: { label: string; onClick: () => void }) => {
+    // 序号机制：只有最新一条 Toast 的定时器才允许关闭它，避免旧定时器误关新提示
+    const seq = ++toastSeqRef.current;
     setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage((prev) => (prev === msg ? null : prev));
-    }, 2800);
+    setToastAction(action ?? null);
+    if (toastTimerRef.current !== null) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = window.setTimeout(
+      () => {
+        if (toastSeqRef.current !== seq) return;
+        setToastMessage(null);
+        setToastAction(null);
+      },
+      action ? 6000 : 2800
+    );
   };
+
+  // 组件卸载时清理 Toast 定时器
+  useEffect(
+    () => () => {
+      if (toastTimerRef.current !== null) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+    },
+    []
+  );
 
   // 本地 LocalStorage 持久化同步
   useEffect(() => {
@@ -203,8 +230,7 @@ export const App: React.FC = () => {
     setLayers(updated);
     setActiveLayerId(newLayer.id);
     setActiveTab('layers'); // 自动唤起图层管控抽屉，让用户立即看到新图层
-    setToastMessage(`✓ 已新建并切换至「${newLayer.name}」，地图仅显示该图层要素`);
-    setTimeout(() => setToastMessage(null), 3000);
+    showToast(`✓ 已新建并切换至「${newLayer.name}」，地图仅显示该图层要素`);
   };
 
   const handleToggleLayerVisibility = (layerId: string) => {
@@ -254,6 +280,8 @@ export const App: React.FC = () => {
     setFeatures((prev) => [...prev, newFeature]);
     setSelectedFeatureId(newFeature.id);
     setDrawingTool(null);
+    setMeasureResult(null);
+    setDrawingPointsCount(0);
     // 使用函数式更新读取最新图层名，避免闭包陈旧导致提示文案错位
     setLayers((prev) => {
       const target = prev.find((l) => l.id === featureData.layerId);
@@ -290,10 +318,22 @@ export const App: React.FC = () => {
   };
 
   const handleDeleteFeature = (featureId: string) => {
+    const target = features.find((f) => f.id === featureId);
+    if (!target) return;
     setFeatures((prev) => prev.filter((f) => f.id !== featureId));
     if (selectedFeatureId === featureId) {
       setSelectedFeatureId(null);
     }
+    // 提供撤销入口，避免误触删除后无法找回
+    showToast(`✓ 已删除要素 "${target.name}"`, {
+      label: '撤销',
+      onClick: () => {
+        setFeatures((prev) =>
+          prev.some((f) => f.id === target.id) ? prev : [...prev, target]
+        );
+        showToast(`↩ 已恢复要素 "${target.name}"`);
+      },
+    });
   };
 
   // 导入与重置
@@ -336,6 +376,8 @@ export const App: React.FC = () => {
       setSelectedFeatureId(null);
       setActiveTab(null);
     }
+    setMeasureResult(null);
+    setDrawingPointsCount(0);
   };
 
   const handleToggleMeasureArea = () => {
@@ -346,6 +388,15 @@ export const App: React.FC = () => {
       setSelectedFeatureId(null);
       setActiveTab(null);
     }
+    setMeasureResult(null);
+    setDrawingPointsCount(0);
+  };
+
+  // 退出标绘/量算模式：统一复位量算读数
+  const handleCancelDrawing = () => {
+    setDrawingTool(null);
+    setMeasureResult(null);
+    setDrawingPointsCount(0);
   };
 
   // 设备 GPS 实时定位
@@ -441,7 +492,9 @@ export const App: React.FC = () => {
           高度随当前界面状态自适应，避免与标绘控制条、要素快览卡片重叠 */}
       {toastMessage && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-white/95 dark:bg-gray-900/95 border border-emerald-500/50 shadow-2xl text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-2 backdrop-blur-md animate-in slide-in-from-bottom-2 duration-200 pointer-events-none max-w-[calc(100%-7rem)]"
+          className={`absolute left-1/2 -translate-x-1/2 z-[65] px-4 py-2 rounded-2xl bg-white/95 dark:bg-gray-900/95 border border-emerald-500/50 shadow-2xl text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-2 backdrop-blur-md animate-in slide-in-from-bottom-2 duration-200 max-w-[calc(100%-7rem)] ${
+            toastAction ? 'pointer-events-auto' : 'pointer-events-none'
+          }`}
           style={{
             bottom: `calc(env(safe-area-inset-bottom, 0px) + ${
               drawingTool || selectedFeature ? '9.25rem' : '7rem'
@@ -450,6 +503,18 @@ export const App: React.FC = () => {
         >
           <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse shrink-0" />
           <span className="truncate">{toastMessage}</span>
+          {toastAction && (
+            <button
+              onClick={() => {
+                const action = toastAction;
+                setToastAction(null);
+                action.onClick();
+              }}
+              className="shrink-0 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-[11px] font-bold transition"
+            >
+              {toastAction.label}
+            </button>
+          )}
         </div>
       )}
 
@@ -468,12 +533,13 @@ export const App: React.FC = () => {
             setSelectedFeatureId(id);
           }}
           onCreateFeature={handleCreateFeature}
-          onCancelDrawing={() => setDrawingTool(null)}
+          onCancelDrawing={handleCancelDrawing}
           onCoordinatesChange={(coords, zoom) => {
             setCursorCoords(coords);
             setZoomLevel(zoom);
           }}
           onDrawingPointsChange={setDrawingPointsCount}
+          onMeasureResultChange={setMeasureResult}
           onTopologyWarning={setTopologyWarning}
           onActiveSegmentChange={setActiveSegment}
           onSnapFeedback={() => showToast('🧲 已吸附至相邻要素顶点')}
@@ -521,10 +587,13 @@ export const App: React.FC = () => {
           enableSnapping={enableSnapping}
           topologyWarning={topologyWarning}
           activeSegment={activeSegment}
+          measureResult={measureResult}
           hasSelectedFeature={!!selectedFeature && !drawingTool && activeTab !== 'properties'}
-          onCancelDrawing={() => setDrawingTool(null)}
+          onCancelDrawing={handleCancelDrawing}
           onUndoPoint={() => mapRef.current?.undoPoint()}
           onFinishDrawing={() => mapRef.current?.finishCurrentDrawing()}
+          onUndoMeasurePoint={() => mapRef.current?.undoMeasurePoint()}
+          onClearMeasure={() => mapRef.current?.clearMeasure()}
           onToggleSnapping={() => setEnableSnapping(!enableSnapping)}
           onZoomIn={() => mapRef.current?.zoomIn()}
           onZoomOut={() => mapRef.current?.zoomOut()}
@@ -589,6 +658,8 @@ export const App: React.FC = () => {
         onSelectTool={(tool) => {
           setDrawingTool(tool);
           setSelectedFeatureId(null);
+          setMeasureResult(null);
+          setDrawingPointsCount(0);
         }}
         activeLayerName={activeLayer?.name || '默认工作图层'}
         activeLayerColor={activeLayer?.color || '#3b82f6'}

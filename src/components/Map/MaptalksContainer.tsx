@@ -26,6 +26,18 @@ import {
 } from '../../utils/geoUtils';
 import { Loader2 } from 'lucide-react';
 
+/** 空间量算读数结果 (测距 / 测面) */
+export interface MeasureResult {
+  /** 量算类型：distance=测距，area=测面 */
+  kind: 'distance' | 'area';
+  /** 原始量算值 (米 / 平方米) */
+  value: number;
+  /** 格式化后的读数文案 */
+  text: string;
+  /** 已落点数量 */
+  pointCount: number;
+}
+
 export interface MaptalksContainerRef {
   zoomIn: () => void;
   zoomOut: () => void;
@@ -33,6 +45,10 @@ export interface MaptalksContainerRef {
   resetNorth: () => void;
   undoPoint: () => void;
   finishCurrentDrawing: () => void;
+  /** 量算模式：撤回上一个量算点 */
+  undoMeasurePoint: () => void;
+  /** 量算模式：清空所有量算点并重测 */
+  clearMeasure: () => void;
   locateUser: (coord: [number, number]) => void;
   focusFeature: (target: string | PlotFeature) => void;
 }
@@ -51,6 +67,7 @@ interface MaptalksContainerProps {
   onCoordinatesChange?: (coords: [number, number], zoom: number) => void;
   onBearingChange?: (bearing: number, pitch: number) => void;
   onDrawingPointsChange?: (count: number) => void;
+  onMeasureResultChange?: (result: MeasureResult | null) => void;
   onTopologyWarning?: (msg: string | null) => void;
   onActiveSegmentChange?: (segment: { length: number; azimuth: { degrees: number; text: string } } | null) => void;
   onSnapFeedback?: (snapped: boolean) => void;
@@ -145,6 +162,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       onCoordinatesChange,
       onBearingChange,
       onDrawingPointsChange,
+      onMeasureResultChange,
       onTopologyWarning,
       onActiveSegmentChange,
       onSnapFeedback,
@@ -223,10 +241,151 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
     const measurePointsRef = useRef<[number, number][]>([]);
     measurePointsRef.current = measurePoints;
 
-    // 向上汇报当前打点数量
+    // 量算读数结果 (测距总长 / 测面面积)，实时回传至 UI 控制条展示
+    const [measureResult, setMeasureResult] = useState<MeasureResult | null>(null);
+
+    // 记录当前量算模式，用于侦测「测距 <-> 测面」切换并清空上一模式的落点
+    const measureToolRef = useRef<'measure-distance' | 'measure-area' | null>(null);
+
+    // 量算回调使用 ref 持有，避免回调标识变化触发量算几何体重绘
+    const onMeasureResultChangeRef = useRef(onMeasureResultChange);
+    onMeasureResultChangeRef.current = onMeasureResultChange;
+
+    // 是否处于空间量算模式 (测距 / 测面)
+    const isMeasureTool =
+      drawingTool === 'measure-distance' || drawingTool === 'measure-area';
+
+    // 向上汇报当前打点数量：量算模式上报量算点，普通标绘上报标绘控制点
     useEffect(() => {
-      onDrawingPointsChange?.(drawingPoints.length);
-    }, [drawingPoints, onDrawingPointsChange]);
+      onDrawingPointsChange?.(
+        isMeasureTool ? measurePoints.length : drawingPoints.length
+      );
+    }, [isMeasureTool, measurePoints, drawingPoints, onDrawingPointsChange]);
+
+    // 量算读数结果回传
+    useEffect(() => {
+      onMeasureResultChangeRef.current?.(measureResult);
+    }, [measureResult]);
+
+    /**
+     * 渲染量算几何体并同步读数。
+     * 测距：折线 + 顶点标定 + 终点总长标注；测面：多边形 + 顶点标定 + 中心面积标注。
+     * 顶点标定圆点解决移动端落点无感知的问题。
+     */
+    const renderMeasure = (
+      tool: 'measure-distance' | 'measure-area',
+      pts: [number, number][]
+    ): MeasureResult | null => {
+      const measureLayer = measureLayerRef.current;
+      const maptalks = (window as any).maptalks;
+      if (!measureLayer || !maptalks) return null;
+
+      measureLayer.clear();
+      if (pts.length === 0) return null;
+
+      // 顶点标定圆点 (移动端落点反馈)
+      const vertexMarkers = pts.map(
+        (pt) =>
+          new maptalks.Marker(pt, {
+            symbol: [
+              {
+                markerType: 'ellipse',
+                markerWidth: 10,
+                markerHeight: 10,
+                markerFill: '#ffffff',
+                markerFillOpacity: 1,
+                markerLineColor: tool === 'measure-distance' ? '#f59e0b' : '#10b981',
+                markerLineWidth: 2.5,
+              },
+            ],
+          })
+      );
+
+      if (tool === 'measure-distance') {
+        if (pts.length < 2) {
+          measureLayer.addGeometry(vertexMarkers);
+          return {
+            kind: 'distance',
+            value: 0,
+            text: '至少需要 2 个点',
+            pointCount: pts.length,
+          };
+        }
+
+        let totalDist = 0;
+        for (let i = 0; i < pts.length - 1; i++) {
+          totalDist += calculateSphericalDistance(pts[i], pts[i + 1]);
+        }
+
+        const line = new maptalks.LineString(pts, {
+          symbol: {
+            lineColor: '#f59e0b',
+            lineWidth: 3,
+            lineDasharray: [6, 4],
+          },
+        });
+        const endMarker = new maptalks.Marker(pts[pts.length - 1], {
+          symbol: {
+            textName: `总长: ${formatDistance(totalDist)}`,
+            textSize: 12,
+            textFill: '#fbbf24',
+            textHaloFill: '#111827',
+            textHaloRadius: 3,
+            textDy: -15,
+            textWeight: 'bold',
+          },
+        });
+        measureLayer.addGeometry([line, endMarker, ...vertexMarkers]);
+
+        return {
+          kind: 'distance',
+          value: totalDist,
+          text: formatDistance(totalDist),
+          pointCount: pts.length,
+        };
+      }
+
+      // 测面
+      if (pts.length < 3) {
+        measureLayer.addGeometry(vertexMarkers);
+        return {
+          kind: 'area',
+          value: 0,
+          text: '至少需要 3 个点',
+          pointCount: pts.length,
+        };
+      }
+
+      const area = calculateSphericalPolygonArea(pts);
+      const poly = new maptalks.Polygon([pts], {
+        symbol: {
+          lineColor: '#10b981',
+          lineWidth: 2.5,
+          lineDasharray: [5, 5],
+          polygonFill: '#10b981',
+          polygonOpacity: 0.3,
+        },
+      });
+      const centerMarker = new maptalks.Marker(pts[pts.length - 1], {
+        symbol: {
+          textName: `面积: ${formatArea(area)}`,
+          textSize: 12,
+          textFill: '#34d399',
+          textHaloFill: '#111827',
+          textHaloRadius: 3,
+          textDy: -15,
+          textWeight: 'bold',
+        },
+      });
+      measureLayer.addGeometry([poly, centerMarker, ...vertexMarkers]);
+
+      return {
+        kind: 'area',
+        value: area,
+        text: formatArea(area),
+        pointCount: pts.length,
+      };
+    };
 
     // 精准聚焦与视口平滑居中 (支持要素对象或要素ID，自适应点/线/面/战术箭头视距)
     const focusFeatureOnMap = (feat: PlotFeature) => {
@@ -354,6 +513,25 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         if (pts.length >= 2) {
           finishDrawing(pts);
         }
+      },
+      undoMeasurePoint: () => {
+        const pts = measurePointsRef.current;
+        if (pts.length === 0) return;
+        const newPts = pts.slice(0, -1);
+        measurePointsRef.current = newPts;
+        setMeasurePoints(newPts);
+        setMeasureResult(
+          renderMeasure(
+            drawingToolRef.current === 'measure-area' ? 'measure-area' : 'measure-distance',
+            newPts
+          )
+        );
+      },
+      clearMeasure: () => {
+        measurePointsRef.current = [];
+        setMeasurePoints([]);
+        setMeasureResult(null);
+        measureLayerRef.current?.clear();
       },
       locateUser: (coord: [number, number]) => {
         const map = mapInstanceRef.current;
@@ -889,6 +1067,8 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         measureLayer?.clear();
         setDrawingPoints([]);
         setMeasurePoints([]);
+        setMeasureResult(null);
+        measureToolRef.current = null;
         map.setCursor('default');
         onTopologyWarningRef.current?.(null);
         onActiveSegmentChangeRef.current?.(null);
@@ -899,61 +1079,21 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
 
       // 空间量算模式 (测距与测面)
       if (drawingTool === 'measure-distance' || drawingTool === 'measure-area') {
+        // 量算模式切换 (测距 <-> 测面) 时清空上一模式的落点，避免点位跨模式泄漏
+        if (measureToolRef.current !== drawingTool) {
+          measureToolRef.current = drawingTool;
+          measurePointsRef.current = [];
+          setMeasurePoints([]);
+          setMeasureResult(null);
+          measureLayer?.clear();
+        }
+
         const handleMeasureClick = (e: any) => {
           const coord: [number, number] = [e.coordinate.x, e.coordinate.y];
           const newPts = [...measurePointsRef.current, coord];
+          measurePointsRef.current = newPts;
           setMeasurePoints(newPts);
-
-          measureLayer.clear();
-          if (drawingTool === 'measure-distance' && newPts.length >= 2) {
-            let totalDist = 0;
-            for (let i = 0; i < newPts.length - 1; i++) {
-              totalDist += calculateSphericalDistance(newPts[i], newPts[i + 1]);
-            }
-
-            const line = new maptalks.LineString(newPts, {
-              symbol: {
-                lineColor: '#f59e0b',
-                lineWidth: 3,
-                lineDasharray: [6, 4],
-              },
-            });
-            const endMarker = new maptalks.Marker(coord, {
-              symbol: {
-                textName: `总长: ${formatDistance(totalDist)}`,
-                textSize: 12,
-                textFill: '#fbbf24',
-                textHaloFill: '#111827',
-                textHaloRadius: 3,
-                textDy: -15,
-                textWeight: 'bold',
-              },
-            });
-            measureLayer.addGeometry([line, endMarker]);
-          } else if (drawingTool === 'measure-area' && newPts.length >= 3) {
-            const area = calculateSphericalPolygonArea(newPts);
-            const poly = new maptalks.Polygon([newPts], {
-              symbol: {
-                lineColor: '#10b981',
-                lineWidth: 2.5,
-                lineDasharray: [5, 5],
-                polygonFill: '#10b981',
-                polygonOpacity: 0.3,
-              },
-            });
-            const centerMarker = new maptalks.Marker(coord, {
-              symbol: {
-                textName: `面积: ${formatArea(area)}`,
-                textSize: 12,
-                textFill: '#34d399',
-                textHaloFill: '#111827',
-                textHaloRadius: 3,
-                textDy: -15,
-                textWeight: 'bold',
-              },
-            });
-            measureLayer.addGeometry([poly, centerMarker]);
-          }
+          setMeasureResult(renderMeasure(drawingTool, newPts));
         };
 
         map.on('click', handleMeasureClick);

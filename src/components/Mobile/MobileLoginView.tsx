@@ -27,10 +27,12 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
   theme,
   onToggleTheme,
 }) => {
-  const [username, setUsername] = useState('admin');
+  // 记住的工号（上次勾选「记住登录状态」时留存）用于预填登录框
+  const rememberedAccount = React.useMemo(() => authService.getRememberedAccount(), []);
+  const [username, setUsername] = useState(rememberedAccount || 'admin');
   const [password, setPassword] = useState('admin123');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
+  const [rememberMe, setRememberMe] = useState(() => !!rememberedAccount);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -43,7 +45,8 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
 
     setLoading(true);
     setErrorMsg('');
-    const res = await authService.login(username, password);
+    // rememberMe 决定会话是持久化还是仅本次有效
+    const res = await authService.login(username, password, rememberMe);
     setLoading(false);
 
     if (res.success && res.user) {
@@ -202,17 +205,20 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
                 </div>
               </div>
 
-              {/* 记住工号复选框 */}
+              {/* 记住登录状态复选框：勾选则下次打开自动进入系统并预填工号 */}
               <div className="flex items-center justify-between pt-1 text-[11px]">
-                <label className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 cursor-pointer select-none">
+                <label className="flex items-center gap-2 text-slate-500 dark:text-slate-400 cursor-pointer select-none min-h-[36px]">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded bg-slate-100 dark:bg-slate-950 border-slate-300 dark:border-slate-800 text-blue-600 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                    className="w-4 h-4 rounded bg-slate-100 dark:bg-slate-950 border-slate-300 dark:border-slate-800 text-blue-600 focus:ring-0 focus:ring-offset-0 cursor-pointer shrink-0"
                   />
-                  <span>记住工号信息</span>
+                  <span>记住登录状态</span>
                 </label>
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+                  {rememberMe ? '下次自动进入' : '仅本次会话有效'}
+                </span>
               </div>
 
               {/* 登录操作主按钮 */}

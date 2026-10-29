@@ -60,13 +60,13 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
       <div className="space-y-4 pb-4 text-xs">
         {/* 用户信息卡片 */}
         <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border border-blue-200 dark:border-blue-900/40 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-3xl">{currentUser?.avatar || '👤'}</span>
-            <div>
-              <div className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
-                <span>{currentUser?.displayName}</span>
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="text-3xl shrink-0">{currentUser?.avatar || '👤'}</span>
+            <div className="min-w-0">
+              <div className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-1.5 min-w-0">
+                <span className="truncate">{currentUser?.displayName}</span>
               </div>
-              <div className="text-[11px] text-blue-600 dark:text-blue-300/80 mt-0.5">
+              <div className="text-[11px] text-blue-600 dark:text-blue-300/80 mt-0.5 truncate">
                 {currentUser?.roleName}
               </div>
             </div>
@@ -77,7 +77,7 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
               onClose();
               onLogout();
             }}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-300 font-medium active:scale-95 transition"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-300 font-medium active:scale-95 transition shrink-0"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>退出</span>
@@ -132,19 +132,25 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
             <Globe2 className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
             <span>选择底图图源</span>
           </label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2 items-stretch">
             {basemaps.map((b) => (
               <button
                 key={b.id}
                 onClick={() => onChangeBasemap(b.id)}
-                className={`p-2.5 rounded-xl border text-left transition ${
+                aria-pressed={basemap === b.id}
+                className={`p-2.5 rounded-xl border text-left transition active:scale-[0.97] min-w-0 ${
                   basemap === b.id
                     ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/15 shadow ring-1 ring-blue-500'
                     : 'border-slate-200 dark:border-gray-800 bg-slate-50 dark:bg-gray-950 hover:bg-slate-100 dark:hover:bg-gray-900'
                 }`}
               >
-                <div className="font-bold text-slate-800 dark:text-gray-200">{b.label}</div>
-                <div className="text-[10px] text-slate-500 dark:text-gray-400 mt-0.5">{b.desc}</div>
+                <div className="font-bold text-slate-800 dark:text-gray-200 truncate">
+                  {b.label}
+                </div>
+                {/* 窄屏下限制描述为两行，避免卡片高度参差与文字溢出 */}
+                <div className="text-[10px] text-slate-500 dark:text-gray-400 mt-0.5 leading-tight line-clamp-2 break-words min-h-[2.4em]">
+                  {b.desc}
+                </div>
               </button>
             ))}
           </div>

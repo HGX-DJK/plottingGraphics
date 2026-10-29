@@ -26,6 +26,12 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
   hasSelectedFeature,
   isDrawing,
 }) => {
+  /** 顶部激活指示条：当前页签以高亮短横条标识 */
+  const ActiveIndicator = ({ show }: { show: boolean }) =>
+    show ? (
+      <span className="absolute top-0 left-1/2 -translate-x-1/2 h-[3px] w-7 rounded-full bg-blue-500 dark:bg-blue-400 animate-in fade-in zoom-in-95 duration-200" />
+    ) : null;
+
   return (
     <nav className="absolute bottom-0 left-0 right-0 z-30 bg-white/90 dark:bg-gray-950/90 backdrop-blur-lg border-t border-slate-200/80 dark:border-gray-800/80 safe-bottom select-none transition-colors duration-200">
       <div className="h-14 px-2 flex items-center justify-around">
@@ -38,6 +44,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
             activeTab === 'layers' ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-500 dark:text-gray-400'
           }`}
         >
+          <ActiveIndicator show={activeTab === 'layers'} />
           <div className="relative">
             <Layers className="w-5 h-5" />
             <span className="absolute -top-1 -right-2 text-[9px] px-1 py-0 rounded-full bg-slate-200 dark:bg-gray-800 text-slate-700 dark:text-gray-300 font-mono">
@@ -87,6 +94,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
             activeTab === 'features' ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-500 dark:text-gray-400'
           }`}
         >
+          <ActiveIndicator show={activeTab === 'features'} />
           <div className="relative">
             <ListFilter className="w-5 h-5" />
             <span className="absolute -top-1 -right-2 text-[9px] px-1 py-0 rounded-full bg-slate-200 dark:bg-gray-800 text-slate-700 dark:text-gray-300 font-mono">
@@ -114,6 +122,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
               : 'text-amber-600 dark:text-amber-400'
           }`}
         >
+          <ActiveIndicator show={activeTab === 'properties' && hasSelectedFeature} />
           <div className="relative">
             <Sliders className="w-5 h-5" />
             {hasSelectedFeature && (
@@ -128,10 +137,11 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
           onClick={() => onSelectTab(activeTab === 'more' ? null : 'more')}
           aria-label="更多与设置"
           aria-pressed={activeTab === 'more'}
-          className={`flex-1 flex flex-col items-center justify-center py-1 transition min-h-[44px] ${
+          className={`flex-1 flex flex-col items-center justify-center py-1 transition relative min-h-[44px] ${
             activeTab === 'more' ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-500 dark:text-gray-400'
           }`}
         >
+          <ActiveIndicator show={activeTab === 'more'} />
           <MoreHorizontal className="w-5 h-5" />
           <span className="text-[10px] mt-1">更多</span>
         </button>

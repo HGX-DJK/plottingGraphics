@@ -1,6 +1,7 @@
 import { User } from '../types';
 
 const STORAGE_KEY_AUTH = 'geoplot_studio_user';
+const STORAGE_KEY_REMEMBERED = 'geoplot_studio_remembered_account';
 
 export const PRESET_USERS: User[] = [
   {
@@ -29,24 +30,66 @@ export const PRESET_USERS: User[] = [
   },
 ];
 
+/** 从指定存储中解析登录会话，解析失败返回 null 且不抛出 */
+function readUserFrom(storage: Storage | undefined): User | null {
+  if (!storage) return null;
+  try {
+    const data = storage.getItem(STORAGE_KEY_AUTH);
+    if (!data) return null;
+    return JSON.parse(data) as User;
+  } catch (e) {
+    console.error('Failed to parse user session', e);
+    return null;
+  }
+}
+
+/**
+ * 持久化登录会话。
+ * remember = true  -> 写入 localStorage，关闭浏览器后依然保持登录，并记住工号；
+ * remember = false -> 仅写入 sessionStorage，关闭标签页即失效，且不记住工号。
+ */
+function persistUser(user: User, remember: boolean) {
+  const payload = JSON.stringify(user);
+  try {
+    if (remember) {
+      localStorage.setItem(STORAGE_KEY_AUTH, payload);
+      localStorage.setItem(STORAGE_KEY_REMEMBERED, user.username);
+      sessionStorage.removeItem(STORAGE_KEY_AUTH);
+    } else {
+      sessionStorage.setItem(STORAGE_KEY_AUTH, payload);
+      localStorage.removeItem(STORAGE_KEY_AUTH);
+      localStorage.removeItem(STORAGE_KEY_REMEMBERED);
+    }
+  } catch (e) {
+    console.error('Failed to persist user session', e);
+  }
+}
+
 export const authService = {
   getCurrentUser(): User | null {
+    // 先查持久会话，再查本次会话
+    return readUserFrom(localStorage) || readUserFrom(sessionStorage);
+  },
+
+  /** 读取已记住的工号 / 登录账号（用于登录页预填） */
+  getRememberedAccount(): string | null {
     try {
-      const data = localStorage.getItem(STORAGE_KEY_AUTH);
-      if (!data) return null;
-      return JSON.parse(data);
+      return localStorage.getItem(STORAGE_KEY_REMEMBERED);
     } catch (e) {
-      console.error('Failed to parse user session', e);
       return null;
     }
   },
 
-  login(username: string, password?: string): Promise<{ success: boolean; user?: User; message?: string }> {
+  login(
+    username: string,
+    password?: string,
+    remember = true
+  ): Promise<{ success: boolean; user?: User; message?: string }> {
     return new Promise((resolve) => {
       setTimeout(() => {
         const found = PRESET_USERS.find((u) => u.username.toLowerCase() === username.trim().toLowerCase());
         if (found) {
-          localStorage.setItem(STORAGE_KEY_AUTH, JSON.stringify(found));
+          persistUser(found, remember);
           resolve({ success: true, user: found });
           return;
         }
@@ -61,7 +104,7 @@ export const authService = {
             roleName: '外业标绘调查员',
             avatar: '👤',
           };
-          localStorage.setItem(STORAGE_KEY_AUTH, JSON.stringify(newUser));
+          persistUser(newUser, remember);
           resolve({ success: true, user: newUser });
           return;
         }
@@ -71,14 +114,20 @@ export const authService = {
     });
   },
 
-  quickLogin(userId: string): User {
+  quickLogin(userId: string, remember = true): User {
     const user = PRESET_USERS.find((u) => u.id === userId) || PRESET_USERS[0];
-    localStorage.setItem(STORAGE_KEY_AUTH, JSON.stringify(user));
+    persistUser(user, remember);
     return user;
   },
 
   logout(): void {
-    localStorage.removeItem(STORAGE_KEY_AUTH);
+    // 退出仅清除登录态，已记住的工号保留，便于下次快速登录
+    try {
+      localStorage.removeItem(STORAGE_KEY_AUTH);
+      sessionStorage.removeItem(STORAGE_KEY_AUTH);
+    } catch (e) {
+      console.error('Failed to clear user session', e);
+    }
   },
 
   getPresetUsers(): User[] {

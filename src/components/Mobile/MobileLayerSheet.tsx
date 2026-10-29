@@ -66,6 +66,7 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
   onLocateFeature,
 }) => {
   // 记录每个图层树分支的折叠/展开状态（默认当前工作图层展开）
+  // 使用显式三态：undefined=未设置(按默认规则推导), true=展开, false=折叠
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>(() => ({
     [activeLayerId]: true,
   }));
@@ -84,11 +85,19 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
     count?: number;
   } | null>(null);
 
+  // 展开状态推导：显式设置优先，否则默认展开当前工作层与含要素的图层
+  const isLayerExpanded = (layerId: string, layerFeatureCount: number) => {
+    const explicit = expandedMap[layerId];
+    if (explicit !== undefined) return explicit;
+    return layerId === activeLayerId || layerFeatureCount > 0;
+  };
+
   const toggleExpand = (layerId: string) => {
-    setExpandedMap((prev) => ({
-      ...prev,
-      [layerId]: prev[layerId] === undefined ? false : !prev[layerId],
-    }));
+    setExpandedMap((prev) => {
+      const explicit = prev[layerId];
+      const current = explicit !== undefined ? explicit : layerId === activeLayerId;
+      return { ...prev, [layerId]: !current };
+    });
   };
 
   const getFeatureIcon = (type: string) => {
@@ -184,7 +193,7 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
         {layers.map((layer) => {
           const isActive = layer.id === activeLayerId;
           const layerFeatures = features.filter((f) => f.layerId === layer.id);
-          const isExpanded = expandedMap[layer.id] ?? (isActive || layerFeatures.length > 0);
+          const isExpanded = isLayerExpanded(layer.id, layerFeatures.length);
           const isSliderOpen = sliderLayerId === layer.id;
 
           return (
@@ -444,8 +453,7 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
                                   <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate mt-0.5">
                                     {getFeatureMetric(feat)}
                                   </div>
-                                </div>
-                              </div>
+                                </div>                              </div>
 
                               {/* 右侧操作按钮：地图定位与删除 */}
                               <div className="flex items-center gap-1.5 ml-2 shrink-0">

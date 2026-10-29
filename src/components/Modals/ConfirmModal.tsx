@@ -1,6 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Trash2, HelpCircle } from 'lucide-react';
+import { lockBodyScroll, trapFocus } from '../../utils/uiUtils';
 
 export interface ConfirmModalProps {
   isOpen: boolean;
@@ -23,20 +24,27 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   cancelText = '取消',
   type = 'danger',
 }) => {
+  const panelRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') onClose();
-      };
-      window.addEventListener('keydown', handleKeyDown);
-      return () => {
-        document.body.style.overflow = '';
-        window.removeEventListener('keydown', handleKeyDown);
-      };
-    } else {
-      document.body.style.overflow = '';
-    }
+    if (!isOpen) return;
+
+    const releaseLock = lockBodyScroll();
+    const releaseFocus = trapFocus(panelRef.current);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      releaseFocus();
+      releaseLock();
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -54,6 +62,11 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
       }}
     >
       <div
+        ref={panelRef}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="gp-confirm-title"
+        aria-describedby="gp-confirm-message"
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-[320px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-3xl p-5 sm:p-6 shadow-2xl ring-1 ring-black/5 dark:ring-white/10 flex flex-col items-center text-center animate-in zoom-in-95 duration-150 my-auto transition-colors duration-200"
       >
@@ -77,12 +90,18 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         </div>
 
         {/* 标题 */}
-        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-1.5 shrink-0">
+        <h3
+          id="gp-confirm-title"
+          className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-1.5 shrink-0"
+        >
           {title || (type === 'danger' ? '确认删除' : '操作确认')}
         </h3>
 
         {/* 提示内容 */}
-        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-5 px-1 break-words">
+        <p
+          id="gp-confirm-message"
+          className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-5 px-1 break-words"
+        >
           {message}
         </p>
 
@@ -91,7 +110,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-750 dark:active:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition border border-slate-200 dark:border-slate-700/60 shadow-sm"
+            className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:active:bg-slate-600 text-slate-700 dark:text-slate-300 font-bold text-xs transition border border-slate-200 dark:border-slate-700/60 shadow-sm"
           >
             {cancelText}
           </button>

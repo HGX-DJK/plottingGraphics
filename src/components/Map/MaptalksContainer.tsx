@@ -182,10 +182,34 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
     const enableSnappingRef = useRef(enableSnapping);
     enableSnappingRef.current = enableSnapping;
 
+    // 事件回调使用 ref 持有，避免回调标识变化导致几何体被无谓地全量重建。
+    // 之前 onSelectFeature 每次渲染都是新引用，鼠标移动引发的重渲染会连带
+    // 清空并重建全部矢量要素，造成明显卡顿。
+    const onSelectFeatureRef = useRef(onSelectFeature);
+    onSelectFeatureRef.current = onSelectFeature;
+
+    const onCreateFeatureRef = useRef(onCreateFeature);
+    onCreateFeatureRef.current = onCreateFeature;
+
+    const onCancelDrawingRef = useRef(onCancelDrawing);
+    onCancelDrawingRef.current = onCancelDrawing;
+
+    const onTopologyWarningRef = useRef(onTopologyWarning);
+    onTopologyWarningRef.current = onTopologyWarning;
+
+    const onActiveSegmentChangeRef = useRef(onActiveSegmentChange);
+    onActiveSegmentChangeRef.current = onActiveSegmentChange;
+
+    const onSnapFeedbackRef = useRef(onSnapFeedback);
+    onSnapFeedbackRef.current = onSnapFeedback;
+
+    // 吸附候选顶点始终基于最新要素数据计算，避免使用陈旧闭包
     const getCandidateVertices = (): [number, number][] => {
-      const visibleLayerIds = new Set(layers.filter((l) => l.visible).map((l) => l.id));
+      const currentLayers = layersRef.current;
+      const currentFeatures = featuresRef.current;
+      const visibleLayerIds = new Set(currentLayers.filter((l) => l.visible).map((l) => l.id));
       const candidates: [number, number][] = [];
-      features.forEach((feat) => {
+      currentFeatures.forEach((feat) => {
         if (visibleLayerIds.has(feat.layerId) && feat.coordinates) {
           feat.coordinates.forEach((c) => candidates.push(c));
         }
@@ -452,6 +476,37 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
 
       mapInstanceRef.current = map;
 
+      // 容器尺寸自适应：地图在首帧布局完成前初始化时，画布尺寸可能与容器
+      // 不一致，导致渲染区域偏移（出现大片空白）。这里监听容器尺寸变化并
+      // 主动触发 resize，确保任何进入路径下地图都能完整铺满。
+      const syncMapSize = () => {
+        try {
+          if (!mapInstanceRef.current) return;
+          const el = mapContainerRef.current;
+          if (!el) return;
+          const w = el.clientWidth;
+          const h = el.clientHeight;
+          if (w > 0 && h > 0) {
+            mapInstanceRef.current.resize();
+          }
+        } catch (e) {
+          /* 忽略尺寸同步异常，避免阻断渲染 */
+        }
+      };
+
+      // 首帧 + 下一帧各同步一次，覆盖登录态切换与设备旋转等布局时序差异
+      requestAnimationFrame(() => {
+        syncMapSize();
+        requestAnimationFrame(syncMapSize);
+      });
+      const resizeTimer = window.setTimeout(syncMapSize, 300);
+
+      let resizeObserver: ResizeObserver | null = null;
+      if (typeof ResizeObserver !== 'undefined' && mapContainerRef.current) {
+        resizeObserver = new ResizeObserver(() => syncMapSize());
+        resizeObserver.observe(mapContainerRef.current);
+      }
+
       // 坐标与缩放变动监听
       map.on('mousemove touchmove', (e: any) => {
         if (onCoordinatesChange && e.coordinate) {
@@ -478,6 +533,11 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       });
 
       return () => {
+        window.clearTimeout(resizeTimer);
+        if (resizeObserver) {
+          resizeObserver.disconnect();
+          resizeObserver = null;
+        }
         if (map) {
           map.remove();
           mapInstanceRef.current = null;
@@ -555,17 +615,17 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
               if (drawingToolRef.current) return;
               if (e.domEvent) e.domEvent.stopPropagation();
               if (!layer.locked) {
-                onSelectFeature(feat.id);
+                onSelectFeatureRef.current(feat.id);
               }
             });
 
             geom.on('mouseover', () => {
-              if (!drawingTool) {
+              if (!drawingToolRef.current) {
                 map.setCursor('pointer');
               }
             });
             geom.on('mouseout', () => {
-              if (!drawingTool) {
+              if (!drawingToolRef.current) {
                 map.setCursor('default');
               }
             });
@@ -574,7 +634,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
           }
         });
       });
-    }, [features, layers, selectedFeatureId, drawingTool, onSelectFeature]);
+    }, [features, layers, selectedFeatureId]);
 
     // 6. 选中要素时聚焦 (使用 prevSelectedIdRef 避免重复触发与闭包失效)
     const prevSelectedIdRef = useRef<string | null>(null);
@@ -830,8 +890,8 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         setDrawingPoints([]);
         setMeasurePoints([]);
         map.setCursor('default');
-        onTopologyWarning?.(null);
-        onActiveSegmentChange?.(null);
+        onTopologyWarningRef.current?.(null);
+        onActiveSegmentChangeRef.current?.(null);
         return;
       }
 
@@ -917,7 +977,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
           if (snap.snapped) {
             coord = snap.snappedCoord;
             wasSnapped = true;
-            onSnapFeedback?.(true);
+            onSnapFeedbackRef.current?.(true);
           }
         }
 
@@ -998,7 +1058,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         const lastPt = pts[pts.length - 1];
         const segDist = calculateSphericalDistance(lastPt, mouseCoord);
         const az = calculateAzimuth(lastPt, mouseCoord);
-        onActiveSegmentChange?.({ length: segDist, azimuth: az });
+        onActiveSegmentChangeRef.current?.({ length: segDist, azimuth: az });
       };
 
       // 双击完成
@@ -1017,8 +1077,8 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         map.off('click', handleClick);
         map.off('mousemove', handleMouseMove);
         map.off('dblclick', handleDblClick);
-        onTopologyWarning?.(null);
-        onActiveSegmentChange?.(null);
+        onTopologyWarningRef.current?.(null);
+        onActiveSegmentChangeRef.current?.(null);
       };
     }, [drawingTool]);
 
@@ -1112,11 +1172,11 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         },
       };
 
-      onCreateFeature(newFeature);
+      onCreateFeatureRef.current(newFeature);
       setDrawingPoints([]);
-      onTopologyWarning?.(null);
-      onActiveSegmentChange?.(null);
-      onCancelDrawing();
+      onTopologyWarningRef.current?.(null);
+      onActiveSegmentChangeRef.current?.(null);
+      onCancelDrawingRef.current();
     };
 
     // 渲染半透明预览
@@ -1134,12 +1194,12 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         const topo = checkPolygonSelfIntersection(pts);
         if (topo.hasIntersection) {
           hasTopoError = true;
-          onTopologyWarning?.(topo.message || '⚠️ 存在边线自相交 (不符合GIS拓扑规范)');
+          onTopologyWarningRef.current?.(topo.message || '⚠️ 存在边线自相交 (不符合GIS拓扑规范)');
         } else {
-          onTopologyWarning?.(null);
+          onTopologyWarningRef.current?.(null);
         }
       } else {
-        onTopologyWarning?.(null);
+        onTopologyWarningRef.current?.(null);
       }
 
       const symbol = {

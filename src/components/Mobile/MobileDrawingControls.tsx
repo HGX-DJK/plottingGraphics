@@ -108,11 +108,15 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
 
   return (
     <>
-      {/* 顶部标绘状态指示条 (仅在标绘或量算交互模式时显示) */}
+      {/* 顶部标绘状态指示条 (仅在标绘或量算交互模式时显示)
+          位置基于安全区计算：始终位于顶部胶囊下方，刘海屏设备同样不会互相遮挡 */}
       {drawingTool && (
-        <div className="absolute top-14 left-3 right-3 z-30 flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border border-blue-500/50 shadow-2xl animate-in slide-in-from-top-4 duration-200">
+        <div
+          className="absolute left-3 right-3 z-30 flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border border-blue-500/50 shadow-2xl animate-in slide-in-from-top-4 duration-200"
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 3.75rem)' }}
+        >
           <div className="flex items-center gap-2 min-w-0">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-500 dark:bg-blue-400 animate-ping shrink-0" />
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-500 dark:bg-blue-400 animate-pulse shrink-0" />
             <div className="min-w-0">
               <div className="text-xs font-bold text-blue-600 dark:text-blue-300 truncate">
                 {getToolDisplayName(drawingTool)}
@@ -170,17 +174,24 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
         </div>
       )}
 
-      {/* 拓扑规范警示提示条 */}
+      {/* 拓扑规范警示提示条 (位于标绘状态条下方，二者不重叠) */}
       {drawingTool && topologyWarning && (
-        <div className="absolute top-28 left-3 right-3 z-30 flex items-center gap-2 p-2.5 rounded-xl bg-red-50 dark:bg-red-950/95 border border-red-300 dark:border-red-500/60 text-red-700 dark:text-red-200 text-xs font-semibold backdrop-blur-md shadow-2xl animate-in slide-in-from-top-2 duration-200">
+        <div
+          className="absolute left-3 right-3 z-30 flex items-center gap-2 p-2.5 rounded-xl bg-red-50 dark:bg-red-950/95 border border-red-300 dark:border-red-500/60 text-red-700 dark:text-red-200 text-xs font-semibold backdrop-blur-md shadow-2xl animate-in slide-in-from-top-2 duration-200"
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 7.25rem)' }}
+        >
           <AlertTriangle className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0 animate-pulse" />
           <span className="truncate">{topologyWarning}</span>
         </div>
       )}
 
-      {/* 底部显眼完成控制条 (触屏单手交互优化，免除双击与盲点) */}
+      {/* 底部显眼完成控制条 (触屏单手交互优化，免除双击与盲点)
+          底部偏移按安全区计算，避免与 TabBar 及 Home Indicator 重叠 */}
       {drawingTool && (
-        <div className="absolute bottom-20 left-3 right-3 z-30 flex items-center justify-between gap-2.5 p-3 rounded-2xl bg-white/95 dark:bg-gray-950/95 backdrop-blur-xl border border-blue-500/40 dark:border-blue-500/50 shadow-2xl animate-in slide-in-from-bottom-4 duration-200">
+        <div
+          className="absolute left-3 right-3 z-30 flex items-center justify-between gap-2.5 p-3 rounded-2xl bg-white/95 dark:bg-gray-950/95 backdrop-blur-xl border border-blue-500/40 dark:border-blue-500/50 shadow-2xl animate-in slide-in-from-bottom-4 duration-200"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4.5rem)' }}
+        >
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-600/20 border border-blue-200 dark:border-blue-500/40 flex items-center justify-center shrink-0">
               <span className="text-xs font-black text-blue-600 dark:text-blue-400 font-mono">
@@ -219,7 +230,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
             {canFinish ? (
               <button
                 onClick={onFinishDrawing}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 active:from-emerald-700 active:to-green-700 text-white text-xs font-black shadow-lg shadow-emerald-600/30 animate-pulse transition"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 active:from-emerald-700 active:to-green-700 text-white text-xs font-black shadow-lg shadow-emerald-600/30 transition active:scale-[0.97]"
               >
                 <Check className="w-4 h-4 stroke-[3]" />
                 <span>完成保存</span>
@@ -239,9 +250,12 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
 
       {/* 右侧悬浮移动端 GIS 交互工具组 (模块化整合设计，当选中要素时智能抬升避让，彻底避免遮挡) */}
       <div
-        className={`absolute right-3 z-20 flex flex-col gap-2.5 transition-all duration-300 ${
-          drawingTool ? 'bottom-44' : hasSelectedFeature ? 'bottom-[180px]' : 'bottom-[102px]'
-        }`}
+        className="absolute right-3 z-20 flex flex-col gap-2.5 transition-all duration-300"
+        style={{
+          bottom: `calc(env(safe-area-inset-bottom, 0px) + ${
+            drawingTool ? '11.5rem' : hasSelectedFeature ? '11.5rem' : '6.5rem'
+          })`,
+        }}
       >
         {/* 1. 空间量算双功能模块 (测距 / 测面) */}
         <div className="flex flex-col bg-white/90 dark:bg-gray-950/85 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-xl overflow-hidden">

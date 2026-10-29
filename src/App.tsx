@@ -19,6 +19,7 @@ import { ClearFeaturesModal } from './components/Modals/ClearFeaturesModal';
 import { Smartphone, Monitor, Compass, Copy } from 'lucide-react';
 import { CoordinateFormat, formatCoordinates } from './utils/geoUtils';
 import { ThemeMode, themeService } from './services/themeService';
+import { copyToClipboard } from './utils/uiUtils';
 
 export const App: React.FC = () => {
   const mapRef = useRef<MaptalksContainerRef>(null);
@@ -88,11 +89,11 @@ export const App: React.FC = () => {
     });
   };
 
-  const handleCopyCoordinates = (e: React.MouseEvent) => {
+  const handleCopyCoordinates = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const text = formatCoordinates(cursorCoords, coordinateFormat, 6);
-    navigator.clipboard?.writeText(text);
-    showToast(`✓ 已复制精确坐标: ${text}`);
+    const ok = await copyToClipboard(text);
+    showToast(ok ? `✓ 已复制精确坐标: ${text}` : '复制失败，请检查浏览器剪贴板权限');
   };
 
   // 4. 模态弹窗状态
@@ -155,16 +156,17 @@ export const App: React.FC = () => {
   // 切换激活工作图层：核心逻辑，仅显示该图层下要素，自动隐藏其他图层要素
   const handleSelectActiveLayer = (layerId: string) => {
     setActiveLayerId(layerId);
-    setLayers((prev) =>
-      prev.map((l) => ({
+    // 函数式更新中读取最新图层名，避免连续切换时闭包陈旧导致提示错位
+    setLayers((prev) => {
+      const target = prev.find((l) => l.id === layerId);
+      if (target) {
+        showToast(`已切换至「${target.name}」，地图仅显示该图层要素`);
+      }
+      return prev.map((l) => ({
         ...l,
         visible: l.id === layerId,
-      }))
-    );
-    const target = layers.find((l) => l.id === layerId);
-    if (target) {
-      showToast(`已切换至「${target.name}」，地图仅显示该图层要素`);
-    }
+      }));
+    });
   };
 
   // 快捷视图范围控制：仅显示当前工作图层 vs 显示全图层
@@ -225,7 +227,7 @@ export const App: React.FC = () => {
 
   const handleDeleteLayer = (layerId: string) => {
     if (layers.length <= 1) {
-      alert('至少需要保留一个图层！');
+      showToast('至少需要保留一个图层，无法删除当前唯一图层');
       return;
     }
     const updated = layers.filter((l) => l.id !== layerId);
@@ -243,8 +245,6 @@ export const App: React.FC = () => {
       prev.map((l) => (l.id === featureData.layerId && !l.visible ? { ...l, visible: true } : l))
     );
 
-    const targetLayer = layers.find((l) => l.id === featureData.layerId);
-
     const newFeature: PlotFeature = {
       ...featureData,
       id: `feat-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
@@ -254,7 +254,12 @@ export const App: React.FC = () => {
     setFeatures((prev) => [...prev, newFeature]);
     setSelectedFeatureId(newFeature.id);
     setDrawingTool(null);
-    showToast(`✓ 已在「${targetLayer?.name || '指定图层'}」中创建要素 "${newFeature.name}"`);
+    // 使用函数式更新读取最新图层名，避免闭包陈旧导致提示文案错位
+    setLayers((prev) => {
+      const target = prev.find((l) => l.id === featureData.layerId);
+      showToast(`✓ 已在「${target?.name || '指定图层'}」中创建要素 "${newFeature.name}"`);
+      return prev;
+    });
   };
 
   const handleUpdateFeature = (updated: PlotFeature) => {
@@ -432,11 +437,19 @@ export const App: React.FC = () => {
         onToggleTheme={handleToggleTheme}
       />
 
-      {/* 标绘与操作反馈 Toast */}
+      {/* 标绘与操作反馈 Toast (底部安全区浮层，不遮挡顶部状态条与刘海区域)
+          高度随当前界面状态自适应，避免与标绘控制条、要素快览卡片重叠 */}
       {toastMessage && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-white/95 dark:bg-gray-900/95 border border-emerald-500/50 shadow-2xl text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-2 backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200 pointer-events-none">
+        <div
+          className="absolute left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-white/95 dark:bg-gray-900/95 border border-emerald-500/50 shadow-2xl text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-2 backdrop-blur-md animate-in slide-in-from-bottom-2 duration-200 pointer-events-none max-w-[calc(100%-7rem)]"
+          style={{
+            bottom: `calc(env(safe-area-inset-bottom, 0px) + ${
+              drawingTool || selectedFeature ? '9.25rem' : '7rem'
+            })`,
+          }}
+        >
           <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse shrink-0" />
-          <span>{toastMessage}</span>
+          <span className="truncate">{toastMessage}</span>
         </div>
       )}
 
@@ -470,11 +483,13 @@ export const App: React.FC = () => {
           }}
         />
 
-        {/* 底部左侧：空间经纬度与比例尺沉浸式徽章 (专业GIS底栏布局，明暗自适应) */}
+        {/* 底部左侧：空间经纬度与比例尺沉浸式徽章 (专业GIS底栏布局，明暗自适应)
+            底部偏移基于安全区计算，避开 TabBar 与 Home Indicator */}
         {!drawingTool && !selectedFeature && (
           <div
             onClick={handleCycleCoordinateFormat}
-            className="absolute bottom-[68px] left-3 z-10 pointer-events-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white/90 dark:bg-gray-950/90 backdrop-blur-md border border-slate-200/90 dark:border-white/10 shadow-lg text-slate-700 dark:text-gray-300 font-mono text-[10px] active:scale-95 transition cursor-pointer select-none max-w-[calc(100%-60px)]"
+            className="absolute left-3 z-10 pointer-events-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white/90 dark:bg-gray-950/90 backdrop-blur-md border border-slate-200/90 dark:border-white/10 shadow-lg text-slate-700 dark:text-gray-300 font-mono text-[10px] active:scale-95 transition cursor-pointer select-none max-w-[calc(100%-60px)]"
+            style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4.25rem)' }}
             title="点击切换坐标系统 (DD / DMS / EPSG:3857)"
           >
             <Compass className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 shrink-0" />

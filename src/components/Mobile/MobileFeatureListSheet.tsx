@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PlotFeature, PlotLayer } from '../../types';
 import {
   ListFilter,
@@ -59,11 +59,27 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
   const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
+  // 记录用户是否手动改过筛选条件：手动选择后不再被自动重置覆盖
+  const userPickedFilterRef = useRef(false);
+  const prevActiveLayerRef = useRef(activeLayerId);
+
   useEffect(() => {
-    if (activeLayerId) {
+    // 仅在「激活图层确实发生变化」时才同步默认筛选；
+    // 否则用户手动选中的筛选会在每次打开面板时被强制覆盖。
+    if (!activeLayerId) return;
+    if (activeLayerId !== prevActiveLayerRef.current) {
+      prevActiveLayerRef.current = activeLayerId;
+      userPickedFilterRef.current = false;
       setLayerFilter(activeLayerId);
     }
-  }, [activeLayerId, isOpen]);
+  }, [activeLayerId]);
+
+  // 打开面板时，若用户尚未手动选择过，则始终跟随当前工作图层
+  useEffect(() => {
+    if (isOpen && !userPickedFilterRef.current && activeLayerId) {
+      setLayerFilter(activeLayerId);
+    }
+  }, [isOpen, activeLayerId]);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const toggleGroup = (layerId: string) => {
@@ -130,7 +146,7 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
         className={`p-2.5 rounded-xl border transition-all flex items-center justify-between gap-2.5 cursor-pointer ${
           isSelected
             ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 ring-1 ring-blue-500/50 shadow-md'
-            : 'border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/70 hover:bg-slate-50 dark:hover:bg-slate-900 active:bg-slate-100 dark:active:bg-slate-850'
+            : 'border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/70 hover:bg-slate-50 dark:hover:bg-slate-900 active:bg-slate-100 dark:active:bg-slate-800'
         }`}
       >
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -149,16 +165,17 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
             <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">
               {feat.name}
             </div>
-            <div className="flex items-center gap-2 mt-0.5 text-[10px]">
+            <div className="flex items-center gap-1.5 mt-0.5 text-[10px] min-w-0">
               <span
                 className="w-1.5 h-1.5 rounded-full shrink-0"
                 style={{ backgroundColor: layer?.color || '#666' }}
               />
-              <span className="text-slate-500 dark:text-slate-400 truncate max-w-[100px]">
+              {/* 图层名与指标分层排布，避免长图层名挤占指标显示空间 */}
+              <span className="text-slate-500 dark:text-slate-400 truncate max-w-[42%] shrink">
                 {layer?.name || '默认图层'}
               </span>
               {metric && (
-                <span className="text-blue-600 dark:text-blue-400 font-mono truncate">
+                <span className="text-blue-600 dark:text-blue-400 font-mono truncate shrink-0">
                   • {metric}
                 </span>
               )}
@@ -213,10 +230,10 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
                 onClose();
                 onOpenClearFeatures();
               }}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-950/40 border border-rose-500/30 text-rose-300 active:bg-rose-900/50 text-[11px] font-bold transition"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-300 active:bg-rose-100 dark:active:bg-rose-900/50 text-[11px] font-bold transition"
               title="清空地图要素"
             >
-              <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+              <Trash2 className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
               <span>清空</span>
             </button>
           )}
@@ -287,7 +304,10 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
         {/* 图层标签横向滚动过滤器 */}
         <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
           <button
-            onClick={() => setLayerFilter('all')}
+            onClick={() => {
+              userPickedFilterRef.current = true;
+              setLayerFilter('all');
+            }}
             className={`px-3 py-1 rounded-full text-xs shrink-0 transition ${
               layerFilter === 'all'
                 ? 'bg-blue-600 text-white font-medium shadow'
@@ -299,7 +319,10 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
           {layers.map((l) => (
             <button
               key={l.id}
-              onClick={() => setLayerFilter(l.id)}
+              onClick={() => {
+                userPickedFilterRef.current = true;
+                setLayerFilter(l.id);
+              }}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs shrink-0 transition ${
                 layerFilter === l.id
                   ? 'bg-blue-600 text-white font-medium shadow'

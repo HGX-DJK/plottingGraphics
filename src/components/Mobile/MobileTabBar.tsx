@@ -32,7 +32,9 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
         {/* 1. 图层管理 */}
         <button
           onClick={() => onSelectTab(activeTab === 'layers' ? null : 'layers')}
-          className={`flex-1 flex flex-col items-center justify-center py-1 transition relative ${
+          aria-label="图层管理"
+          aria-pressed={activeTab === 'layers'}
+          className={`flex-1 flex flex-col items-center justify-center py-1 transition relative min-h-[44px] ${
             activeTab === 'layers' ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-500 dark:text-gray-400'
           }`}
         >
@@ -48,12 +50,14 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
         {/* 2. 标绘工具箱 (核心大按钮) */}
         <button
           onClick={() => onSelectTab(activeTab === 'plot' ? null : 'plot')}
-          className="flex-1 flex flex-col items-center justify-center py-1 transition group"
+          aria-label="标绘工具箱"
+          aria-pressed={activeTab === 'plot'}
+          className="flex-1 flex flex-col items-center justify-center py-1 transition group min-h-[44px]"
         >
           <div
             className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg transition-transform ${
               isDrawing
-                ? 'bg-amber-500 text-gray-950 ring-4 ring-amber-500/30 scale-105 animate-pulse'
+                ? 'bg-amber-500 text-gray-950 ring-4 ring-amber-500/30 scale-105'
                 : activeTab === 'plot'
                 ? 'bg-blue-600 text-white ring-4 ring-blue-500/30 scale-105'
                 : 'bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-blue-500/25'
@@ -77,7 +81,9 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
         {/* 3. 要素清单 */}
         <button
           onClick={() => onSelectTab(activeTab === 'features' ? null : 'features')}
-          className={`flex-1 flex flex-col items-center justify-center py-1 transition relative ${
+          aria-label="要素清单"
+          aria-pressed={activeTab === 'features'}
+          className={`flex-1 flex flex-col items-center justify-center py-1 transition relative min-h-[44px] ${
             activeTab === 'features' ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-500 dark:text-gray-400'
           }`}
         >
@@ -98,7 +104,9 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
             }
           }}
           disabled={!hasSelectedFeature}
-          className={`flex-1 flex flex-col items-center justify-center py-1 transition relative ${
+          aria-label={hasSelectedFeature ? '要素属性' : '要素属性（需先选中要素）'}
+          aria-pressed={activeTab === 'properties'}
+          className={`flex-1 flex flex-col items-center justify-center py-1 transition relative min-h-[44px] ${
             !hasSelectedFeature
               ? 'opacity-30 cursor-not-allowed text-slate-400 dark:text-gray-600'
               : activeTab === 'properties'
@@ -118,7 +126,9 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
         {/* 5. 更多与设置 */}
         <button
           onClick={() => onSelectTab(activeTab === 'more' ? null : 'more')}
-          className={`flex-1 flex flex-col items-center justify-center py-1 transition ${
+          aria-label="更多与设置"
+          aria-pressed={activeTab === 'more'}
+          className={`flex-1 flex flex-col items-center justify-center py-1 transition min-h-[44px] ${
             activeTab === 'more' ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-500 dark:text-gray-400'
           }`}
         >

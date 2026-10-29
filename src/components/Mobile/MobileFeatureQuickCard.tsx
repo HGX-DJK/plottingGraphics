@@ -64,7 +64,7 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
         ? ` | 周长 ${formatDistance(feature.properties.calculatedLength)}`
         : '';
       return (
-        <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-mono font-bold">
+        <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-mono font-bold">
           {areaStr} ({muStr}){perimStr}
         </span>
       );
@@ -79,14 +79,14 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
         azText = ` | 方位: ${az.text}`;
       }
       return (
-        <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 font-mono font-bold">
+        <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 font-mono font-bold">
           长度 {formatDistance(feature.properties.calculatedLength)}{azText}
         </span>
       );
     }
     if (feature.coordinates && feature.coordinates[0]) {
       return (
-        <span className="text-[10px] px-2 py-0.5 rounded-md bg-blue-500/15 border border-blue-500/30 text-blue-300 font-mono">
+        <span className="text-[10px] px-2 py-0.5 rounded-md bg-blue-500/15 border border-blue-500/30 text-blue-700 dark:text-blue-300 font-mono">
           {feature.coordinates[0][0].toFixed(4)}°E, {feature.coordinates[0][1].toFixed(4)}°N
         </span>
       );
@@ -95,7 +95,10 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
   };
 
   return (
-    <div className="absolute bottom-[66px] left-3 right-3 z-30 pointer-events-auto bg-white/95 dark:bg-slate-950/95 backdrop-blur-2xl border border-blue-400/50 dark:border-blue-500/50 rounded-2xl p-3 shadow-2xl animate-in slide-in-from-bottom-3 duration-200 ring-1 ring-black/5 dark:ring-blue-500/20 text-slate-800 dark:text-gray-100 transition-colors duration-200">
+    <div
+      className="absolute left-3 right-3 z-30 pointer-events-auto bg-white/95 dark:bg-slate-950/95 backdrop-blur-2xl border border-blue-400/50 dark:border-blue-500/50 rounded-2xl p-3 shadow-2xl animate-in slide-in-from-bottom-3 duration-200 ring-1 ring-black/5 dark:ring-blue-500/20 text-slate-800 dark:text-gray-100 transition-colors duration-200"
+      style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4.25rem)' }}
+    >
       <div className="flex items-center justify-between gap-2.5">
         {/* 左侧：要素标识与图层信息 */}
         <div className="flex items-center gap-2.5 min-w-0 flex-1">

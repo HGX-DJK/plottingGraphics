@@ -16,6 +16,7 @@ import {
   exportToGeoJSON,
   downloadFile,
 } from '../../utils/geoUtils';
+import { copyToClipboard } from '../../utils/uiUtils';
 import { ConfirmModal } from './ConfirmModal';
 
 interface ImportExportModalProps {
@@ -37,6 +38,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
@@ -52,17 +54,21 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
     downloadFile(`GeoPlot_Features_${Date.now()}.geojson`, geojsonStr);
   };
 
-  const handleCopyGeoJSON = () => {
+  const handleCopyGeoJSON = async () => {
     const geojsonStr = exportToGeoJSON(features);
-    navigator.clipboard?.writeText(geojsonStr);
-    setCopyFeedback('✓ 已成功复制标准 GeoJSON 文本至剪贴板！');
+    const ok = await copyToClipboard(geojsonStr);
+    setCopyFeedback(
+      ok ? '✓ 已成功复制标准 GeoJSON 文本至剪贴板！' : '复制失败，请检查浏览器剪贴板权限'
+    );
     setTimeout(() => setCopyFeedback(null), 2500);
   };
 
-  const handleCopyProjectJSON = () => {
+  const handleCopyProjectJSON = async () => {
     const jsonStr = exportPlottingProject(layers, features);
-    navigator.clipboard?.writeText(jsonStr);
-    setCopyFeedback('✓ 已成功复制工程数据 JSON 至剪贴板！');
+    const ok = await copyToClipboard(jsonStr);
+    setCopyFeedback(
+      ok ? '✓ 已成功复制工程数据 JSON 至剪贴板！' : '复制失败，请检查浏览器剪贴板权限'
+    );
     setTimeout(() => setCopyFeedback(null), 2500);
   };
 
@@ -79,6 +85,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
         // 如果是 GeoPlot 导出的完整项目数据
         if (parsed.layers && parsed.features) {
           onImportData(parsed.layers, parsed.features);
+          setImportError(null);
           setImportStatus(`成功导入 ${parsed.layers.length} 个图层，${parsed.features.length} 个要素！`);
           setTimeout(() => {
             onClose();
@@ -136,6 +143,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
           );
 
           onImportData([...layers, newLayer], [...features, ...importedFeatures]);
+          setImportError(null);
           setImportStatus(`成功导入 ${importedFeatures.length} 个 GeoJSON 要素到新图层！`);
           setTimeout(() => {
             onClose();
@@ -143,10 +151,10 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
           return;
         }
 
-        alert('未识别的文件格式，请导入标准的 GeoPlot JSON 或 GeoJSON 文件。');
+        setImportError('未识别的文件格式，请导入标准的 GeoPlot JSON 或 GeoJSON 文件。');
       } catch (err) {
         console.error(err);
-        alert('文件解析失败，请确保格式正确。');
+        setImportError('文件解析失败，请确保文件格式正确且未损坏。');
       }
     };
     reader.readAsText(file);
@@ -172,6 +180,13 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
         </div>
 
         <div className="p-6 space-y-4">
+          {importError && (
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-500/40 rounded-xl text-rose-800 dark:text-rose-300 text-xs flex items-center gap-2 animate-in fade-in duration-150">
+              <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+              <span>{importError}</span>
+            </div>
+          )}
+
           {importStatus && (
             <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-2">
               <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />

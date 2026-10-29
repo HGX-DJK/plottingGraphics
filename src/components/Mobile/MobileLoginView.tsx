@@ -190,7 +190,7 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
                       className={`px-2 py-1.5 rounded-xl border text-center transition flex flex-col items-center justify-center ${
                         username === role.id
                           ? 'bg-blue-50 dark:bg-blue-500/15 border-blue-500 text-blue-600 dark:text-blue-400 font-bold ring-1 ring-blue-500/30'
-                          : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200/90 dark:border-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750'
+                          : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200/90 dark:border-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
                       }`}
                     >
                       <span className="text-[11px] leading-tight">{role.label}</span>

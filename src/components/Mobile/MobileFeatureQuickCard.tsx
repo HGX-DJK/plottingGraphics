@@ -105,14 +105,15 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
 
   return (
     <div
-      className="absolute left-3 right-3 z-30 pointer-events-auto bg-white/95 dark:bg-slate-950/95 backdrop-blur-2xl border border-blue-400/50 dark:border-blue-500/50 rounded-2xl p-3 shadow-2xl animate-in slide-in-from-bottom-3 duration-200 ring-1 ring-black/5 dark:ring-blue-500/20 text-slate-800 dark:text-gray-100 transition-colors duration-200"
+      className="absolute left-3 right-3 z-30 pointer-events-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-blue-400/50 dark:border-blue-500/50 rounded-3xl p-3.5 shadow-2xl animate-in slide-in-from-bottom-3 duration-200 ring-1 ring-black/5 dark:ring-blue-500/20 text-slate-800 dark:text-gray-100 transition-colors duration-200 space-y-3"
       style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4.25rem)' }}
     >
-      <div className="flex items-center justify-between gap-2.5">
-        {/* 左侧：要素标识与图层信息 */}
-        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+      {/* 第一行：要素标识、名称、图层与空间指标 + 右上角关闭按钮 */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          {/* 类型图标徽章 */}
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-inner"
+            className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border shadow-inner"
             style={{
               backgroundColor: `${layer?.color || '#3b82f6'}20`,
               borderColor: `${layer?.color || '#3b82f6'}40`,
@@ -128,76 +129,74 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
                 className="w-2 h-2 rounded-full shrink-0"
                 style={{ backgroundColor: layer?.color || '#3b82f6' }}
               />
-              <span className="text-xs font-black text-slate-900 dark:text-gray-100 truncate">
+              <h4 className="text-sm font-black text-slate-900 dark:text-gray-100 truncate">
                 {feature.name}
-              </span>
+              </h4>
             </div>
 
             <div className="flex items-center gap-2 mt-1 truncate">
-              <span className="text-[10px] text-slate-500 dark:text-gray-400">
-                {layer?.name || '默认图层'}
+              <span className="text-[11px] font-medium text-slate-500 dark:text-gray-400 truncate">
+                {layer?.name || '默认工作图层'}
               </span>
               {renderSpatialMetrics()}
             </div>
           </div>
         </div>
 
-        {/* 右侧：快捷操作组 */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* 居中聚焦 */}
-          <button
-            onClick={onFocus}
-            className="p-2 rounded-xl bg-slate-100 dark:bg-gray-900 border border-slate-200 dark:border-gray-800 text-blue-600 dark:text-blue-400 active:bg-slate-200 dark:active:bg-gray-800 transition shadow-sm"
-            title="地图聚焦"
-            aria-label="在地图中居中聚焦该要素"
-          >
-            <Crosshair className="w-4 h-4" />
-          </button>
+        {/* 关闭按钮 */}
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition shrink-0 cursor-pointer"
+          title="关闭"
+          aria-label="关闭要素快览卡片"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
 
-          {/* 属性详情与编辑 */}
-          <button
-            onClick={onOpenProperties}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-600 text-white font-bold text-xs active:bg-blue-500 shadow-md shadow-blue-600/30 transition"
-            title="查看属性与样式"
-            aria-label="查看要素属性与样式"
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>属性</span>
-          </button>
+      {/* 第二行：操作按钮网格 (均匀呼吸感分布，大触控热区，不再拥挤) */}
+      <div className="grid grid-cols-4 gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/80">
+        {/* 聚焦居中 */}
+        <button
+          onClick={onFocus}
+          className="flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-2xl bg-slate-100/90 dark:bg-slate-800/80 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 text-blue-600 dark:text-blue-400 active:scale-95 transition cursor-pointer"
+          title="地图居中聚焦"
+        >
+          <Crosshair className="w-4 h-4" />
+          <span className="text-[11px] font-bold">聚焦</span>
+        </button>
 
-          {/* 微调顶点 (用于多边形、折线、军标箭头、点位等二次调整) */}
-          {onEditVertices && (
-            <button
-              onClick={onEditVertices}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-md shadow-amber-500/30 active:scale-95 transition"
-              title="微调控制顶点"
-              aria-label="进入顶点拖拽微调模式"
-            >
-              <Move className="w-3.5 h-3.5" />
-              <span>微调</span>
-            </button>
-          )}
-
-          {/* 快捷删除 */}
+        {/* 微调顶点 */}
+        {onEditVertices && (
           <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="p-2 rounded-xl bg-rose-50 dark:bg-red-950/40 border border-rose-200 dark:border-red-900/40 text-rose-600 dark:text-red-400 active:bg-rose-100 dark:active:bg-red-900/40 transition"
-            title="删除"
-            aria-label="删除该要素"
+            onClick={onEditVertices}
+            className="flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-2xl bg-gradient-to-b from-amber-500 to-amber-600 text-white active:scale-95 transition shadow-md shadow-amber-500/25 cursor-pointer"
+            title="微调要素顶点与控制点"
           >
-            <Trash2 className="w-4 h-4" />
+            <Move className="w-4 h-4" />
+            <span className="text-[11px] font-bold">微调</span>
           </button>
+        )}
 
-          {/* 关闭快显卡片 */}
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white active:bg-slate-100 dark:active:bg-gray-800 transition"
-            title="关闭"
-            aria-label="关闭要素快览卡片"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        {/* 属性配置 */}
+        <button
+          onClick={onOpenProperties}
+          className="flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white active:scale-95 transition shadow-md shadow-blue-600/25 cursor-pointer"
+          title="查看要素属性与样式"
+        >
+          <Sliders className="w-4 h-4" />
+          <span className="text-[11px] font-bold">属性</span>
+        </button>
+
+        {/* 快捷删除 */}
+        <button
+          onClick={() => setShowDeleteConfirm(true)}
+          className="flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 active:scale-95 transition cursor-pointer"
+          title="删除要素"
+        >
+          <Trash2 className="w-4 h-4" />
+          <span className="text-[11px] font-bold">删除</span>
+        </button>
       </div>
 
       {/* 中文定制确认弹窗 */}

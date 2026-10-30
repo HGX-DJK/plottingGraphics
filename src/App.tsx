@@ -24,7 +24,19 @@ import { ClearFeaturesModal } from './components/Modals/ClearFeaturesModal';
 import { ExportImageModal } from './components/Modals/ExportImageModal';
 import { MobilePoiSearchSheet } from './components/Mobile/MobilePoiSearchSheet';
 import { AmapPoiItem } from './services/amapSearchService';
-import { Smartphone, Monitor, Move, Check, X } from 'lucide-react';
+import {
+  Smartphone,
+  Monitor,
+  Move,
+  Check,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+} from 'lucide-react';
 import {
   CoordinateFormat,
   formatCoordinates,
@@ -177,9 +189,10 @@ export const App: React.FC = () => {
   const [isImportExportModalOpen, setIsImportExportModalOpen] = useState(false);
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
 
-  // 8. 顶点二次拖拽修改状态 (解决画错拐点必须整图删掉重画痛点)
+  // 8. 顶点二次拖拽修改与重定位状态 (解决画错拐点必须整图删掉重画痛点)
   const [editingFeature, setEditingFeature] = useState<PlotFeature | null>(null);
   const [editingCoords, setEditingCoords] = useState<[number, number][]>([]);
+  const [selectedVertexIndex, setSelectedVertexIndex] = useState<number>(0);
 
   const handleStartVertexEdit = (feat: PlotFeature) => {
     if (!feat.coordinates || feat.coordinates.length === 0) {
@@ -188,12 +201,28 @@ export const App: React.FC = () => {
     }
     setEditingFeature(feat);
     setEditingCoords(feat.coordinates);
+    setSelectedVertexIndex(0);
     setSelectedFeatureId(null);
     setActiveTab(null);
-    mapRef.current?.startVertexEdit(feat.id, (newCoords) => {
-      setEditingCoords(newCoords);
-    });
-    showToast(`已进入「${feat.name}」顶点微调模式，可直接在地图拖拽把手`);
+    mapRef.current?.startVertexEdit(
+      feat.id,
+      (newCoords) => {
+        setEditingCoords(newCoords);
+      },
+      (idx) => {
+        setSelectedVertexIndex(idx);
+      }
+    );
+    showToast(`已进入「${feat.name}」微调模式：点击地图或方向键可直接移动拐点`);
+  };
+
+  const handleSelectVertex = (idx: number) => {
+    setSelectedVertexIndex(idx);
+    mapRef.current?.selectVertex(idx);
+  };
+
+  const handleNudgeVertex = (dxMeters: number, dyMeters: number) => {
+    mapRef.current?.nudgeSelectedVertex(dxMeters, dyMeters);
   };
 
   const handleSaveVertexEdit = () => {
@@ -570,35 +599,110 @@ export const App: React.FC = () => {
           />
         )}
 
-        {/* 顶点二次拖拽修改浮动控制条 */}
+        {/* 顶点二次拖拽与重定位微调浮动控制台 */}
         {editingFeature && (
           <div
-            className="absolute left-3 right-3 z-30 pointer-events-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border-2 border-amber-500/80 rounded-2xl p-3 shadow-2xl animate-in slide-in-from-bottom-4 duration-200 ring-1 ring-amber-500/30 flex items-center justify-between gap-2.5"
+            className="absolute left-3 right-3 z-30 pointer-events-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border-2 border-amber-500/80 rounded-3xl p-3.5 shadow-2xl animate-in slide-in-from-bottom-4 duration-200 ring-1 ring-amber-500/30 space-y-2.5"
             style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4.25rem)' }}
           >
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 font-bold text-xs text-amber-600 dark:text-amber-400">
-                <Move className="w-4 h-4 animate-pulse shrink-0" />
-                <span className="truncate">正在微调: {editingFeature.name}</span>
+            {/* 顶层：要素名称、当前选中拐点指示与前后切换按钮 */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 font-bold text-xs text-amber-600 dark:text-amber-400">
+                  <Move className="w-4 h-4 animate-pulse shrink-0" />
+                  <span className="truncate">微调: {editingFeature.name}</span>
+                </div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate font-mono">
+                  {editingCoords[selectedVertexIndex]
+                    ? `${editingCoords[selectedVertexIndex][0].toFixed(5)}°E, ${editingCoords[selectedVertexIndex][1].toFixed(5)}°N`
+                    : '共 ' + editingCoords.length + ' 个拐点'}
+                </div>
               </div>
-              <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                直接拖拽地图蓝白把手 (共 {editingCoords.length} 个拐点)
+
+              {/* 拐点前后切换胶囊 */}
+              <div className="flex items-center gap-1 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 rounded-2xl p-1 shrink-0">
+                <button
+                  onClick={() => {
+                    const prev = (selectedVertexIndex - 1 + editingCoords.length) % editingCoords.length;
+                    handleSelectVertex(prev);
+                  }}
+                  className="p-1 rounded-xl hover:bg-amber-200/50 dark:hover:bg-amber-800/50 text-amber-800 dark:text-amber-200 transition active:scale-90 cursor-pointer"
+                  title="上一个拐点"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-xs font-black text-amber-700 dark:text-amber-300 font-mono px-1.5">
+                  点 {selectedVertexIndex + 1}/{editingCoords.length}
+                </span>
+                <button
+                  onClick={() => {
+                    const next = (selectedVertexIndex + 1) % editingCoords.length;
+                    handleSelectVertex(next);
+                  }}
+                  className="p-1 rounded-xl hover:bg-amber-200/50 dark:hover:bg-amber-800/50 text-amber-800 dark:text-amber-200 transition active:scale-90 cursor-pointer"
+                  title="下一个拐点"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            {/* 中间层：高精度方向微调键盘与操作指引 */}
+            <div className="flex items-center justify-between gap-2 p-2 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200/80 dark:border-slate-800">
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight min-w-0 flex-1">
+                <span className="font-semibold text-slate-700 dark:text-slate-300 block">💡 移动方式：</span>
+                直接点击地图任意处可立即重定位，亦可拖拽把手或按键微调。
+              </div>
+
+              {/* 4 方向精密微调按钮组 (5m 精度) */}
+              <div className="grid grid-cols-3 gap-1 shrink-0 items-center justify-items-center">
+                <div />
+                <button
+                  onClick={() => handleNudgeVertex(0, 5)}
+                  className="p-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-90 transition shadow-sm text-slate-700 dark:text-slate-200 cursor-pointer"
+                  title="向北微移 5 米"
+                >
+                  <ArrowUp className="w-3.5 h-3.5" />
+                </button>
+                <div />
+                <button
+                  onClick={() => handleNudgeVertex(-5, 0)}
+                  className="p-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-90 transition shadow-sm text-slate-700 dark:text-slate-200 cursor-pointer"
+                  title="向西微移 5 米"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => handleNudgeVertex(0, -5)}
+                  className="p-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-90 transition shadow-sm text-slate-700 dark:text-slate-200 cursor-pointer"
+                  title="向南微移 5 米"
+                >
+                  <ArrowDown className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => handleNudgeVertex(5, 0)}
+                  className="p-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-90 transition shadow-sm text-slate-700 dark:text-slate-200 cursor-pointer"
+                  title="向东微移 5 米"
+                >
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* 底层：取消与保存操作 */}
+            <div className="flex items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/80">
               <button
                 onClick={handleCancelVertexEdit}
-                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition cursor-pointer"
+                className="flex-1 py-2.5 px-3 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold active:scale-95 transition text-center cursor-pointer"
               >
-                取消
+                取消修改
               </button>
               <button
                 onClick={handleSaveVertexEdit}
-                className="flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold shadow-md shadow-orange-500/30 hover:opacity-95 active:scale-95 transition cursor-pointer"
+                className="flex-[1.5] py-2.5 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white text-xs font-bold shadow-lg shadow-orange-500/25 hover:opacity-95 active:scale-95 transition flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <Check className="w-3.5 h-3.5 stroke-[3]" />
-                <span>保存修改</span>
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>保存微调并更新要素</span>
               </button>
             </div>
           </div>

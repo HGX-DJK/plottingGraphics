@@ -33,7 +33,14 @@ export interface MaptalksContainerRef {
   flyToLocation: (coord: [number, number], title?: string, subtitle?: string, zoom?: number) => void;
   clearSearchMarker: () => void;
   captureMapImage: () => Promise<string>;
-  startVertexEdit: (featureId: string, onUpdateCoords: (coords: [number, number][]) => void) => void;
+  startVertexEdit: (
+    featureId: string,
+    onUpdateCoords: (coords: [number, number][]) => void,
+    onSelectVertex?: (index: number) => void
+  ) => void;
+  selectVertex: (index: number) => void;
+  moveSelectedVertex: (newCoord: [number, number]) => void;
+  nudgeSelectedVertex: (dxMeters: number, dyMeters: number) => void;
   stopVertexEdit: () => void;
 }
 
@@ -208,6 +215,150 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
           } catch (e) {}
         }, 2200);
       }
+    };
+
+    // 顶点二次拖拽与点击重定位状态管理
+    const activeEditStateRef = useRef<{
+      featureId: string;
+      targetFeat: PlotFeature;
+      currentCoords: [number, number][];
+      selectedIndex: number;
+      onUpdateCoords: (coords: [number, number][]) => void;
+      onSelectVertex?: (index: number) => void;
+    } | null>(null);
+
+    const updateEditingGeometry = () => {
+      const state = activeEditStateRef.current;
+      const map = mapInstanceRef.current;
+      const maptalks = (window as any).maptalks;
+      if (!state || !map || !maptalks) return;
+
+      const vecLayer = map.getLayer(state.targetFeat.layerId);
+      if (vecLayer) {
+        const oldGeom = vecLayer.getGeometryById
+          ? vecLayer.getGeometryById(state.targetFeat.id)
+          : null;
+        if (oldGeom) {
+          vecLayer.removeGeometry(oldGeom);
+        }
+        const previewFeat = { ...state.targetFeat, coordinates: [...state.currentCoords] };
+        const updatedGeom = createGeometryFromFeature(maptalks, previewFeat, true);
+        if (updatedGeom) {
+          vecLayer.addGeometry(updatedGeom);
+        }
+      }
+
+      state.onUpdateCoords([...state.currentCoords]);
+    };
+
+    const renderEditHandles = () => {
+      const state = activeEditStateRef.current;
+      const map = mapInstanceRef.current;
+      const maptalks = (window as any).maptalks;
+      if (!state || !map || !maptalks) return;
+
+      let vertexLayer = map.getLayer('system-vertex-handles');
+      if (!vertexLayer) {
+        vertexLayer = new maptalks.VectorLayer('system-vertex-handles', [], {
+          zIndex: 1005,
+          enableAltitude: true,
+        }).addTo(map);
+      }
+      vertexLayer.clear();
+
+      state.currentCoords.forEach((coord, idx) => {
+        const isSelected = idx === state.selectedIndex;
+
+        const handleMarker = new maptalks.Marker(coord, {
+          id: `vertex-handle-${idx}`,
+          draggable: true,
+          cursor: 'move',
+          symbol: isSelected
+            ? [
+                {
+                  markerType: 'ellipse',
+                  markerWidth: 44,
+                  markerHeight: 44,
+                  markerFill: '#f59e0b',
+                  markerFillOpacity: 0.35,
+                  markerLineColor: '#fbbf24',
+                  markerLineWidth: 2,
+                },
+                {
+                  markerType: 'ellipse',
+                  markerWidth: 34,
+                  markerHeight: 34,
+                  markerFill: '#f59e0b',
+                  markerFillOpacity: 0.98,
+                  markerLineColor: '#ffffff',
+                  markerLineWidth: 3.5,
+                },
+                {
+                  textName: `点${idx + 1}`,
+                  textSize: 11,
+                  textFill: '#ffffff',
+                  textWeight: 'bold',
+                  textHaloFill: '#78350f',
+                  textHaloRadius: 2,
+                },
+              ]
+            : [
+                {
+                  markerType: 'ellipse',
+                  markerWidth: 30,
+                  markerHeight: 30,
+                  markerFill: '#2563eb',
+                  markerFillOpacity: 0.95,
+                  markerLineColor: '#ffffff',
+                  markerLineWidth: 2.5,
+                },
+                {
+                  textName: String(idx + 1),
+                  textSize: 12,
+                  textFill: '#ffffff',
+                  textWeight: 'bold',
+                  textHaloFill: '#1e3a8a',
+                  textHaloRadius: 1.5,
+                },
+              ],
+        });
+
+        // 1. 点击/触控选中该拐点
+        handleMarker.on('click tap', (e: any) => {
+          if (e.domEvent) e.domEvent.stopPropagation();
+          state.selectedIndex = idx;
+          state.onSelectVertex?.(idx);
+          renderEditHandles();
+        });
+
+        // 2. 触控按下：立刻阻止事件冒泡与临时禁用地图漫游以允许流畅拖动
+        handleMarker.on('touchstart mousedown', (e: any) => {
+          if (e.domEvent) e.domEvent.stopPropagation();
+          state.selectedIndex = idx;
+          state.onSelectVertex?.(idx);
+          map.config('draggable', false);
+        });
+
+        // 3. 拖拽中：获取实时经纬度并动态重绘要素
+        handleMarker.on('dragging', (e: any) => {
+          const pt = e.coordinate || (handleMarker.getCoordinates ? handleMarker.getCoordinates() : null);
+          if (!pt) return;
+
+          state.currentCoords[idx] = [
+            Number(pt.x.toFixed(6)),
+            Number(pt.y.toFixed(6)),
+          ];
+          updateEditingGeometry();
+        });
+
+        // 4. 拖拽结束：恢复地图漫游拖拽
+        handleMarker.on('touchend mouseup dragend', () => {
+          map.config('draggable', true);
+          renderEditHandles();
+        });
+
+        vertexLayer.addGeometry(handleMarker);
+      });
     };
 
     // 暴露地图控制接口给外部悬浮按钮
@@ -416,7 +567,11 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         }
         throw new Error('未检测到可用的地图画布');
       },
-      startVertexEdit: (featureId: string, onUpdateCoords: (coords: [number, number][]) => void) => {
+      startVertexEdit: (
+        featureId: string,
+        onUpdateCoords: (coords: [number, number][]) => void,
+        onSelectVertex?: (index: number) => void
+      ) => {
         const map = mapInstanceRef.current;
         const maptalks = (window as any).maptalks;
         if (!map || !maptalks) return;
@@ -424,92 +579,53 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         const targetFeat = featuresRef.current.find((f) => f.id === featureId);
         if (!targetFeat || !targetFeat.coordinates || targetFeat.coordinates.length === 0) return;
 
-        // 获取或创建顶点交互控制层
-        let vertexLayer = map.getLayer('system-vertex-handles');
-        if (!vertexLayer) {
-          vertexLayer = new maptalks.VectorLayer('system-vertex-handles', [], {
-            zIndex: 1005,
-            enableAltitude: true,
-          }).addTo(map);
-        }
-        vertexLayer.clear();
-
-        // 拷贝当前要素的坐标副本
         const currentCoords: [number, number][] = targetFeat.coordinates.map((c) => [c[0], c[1]]);
 
-        // 为每一个拐点/控制点添加高对比度、带编号的可拖拽把手
-        currentCoords.forEach((coord, idx) => {
-          const handleMarker = new maptalks.Marker(coord, {
-            id: `vertex-handle-${idx}`,
-            draggable: true,
-            cursor: 'move',
-            symbol: [
-              {
-                markerType: 'ellipse',
-                markerWidth: 30,
-                markerHeight: 30,
-                markerFill: '#2563eb',
-                markerFillOpacity: 0.95,
-                markerLineColor: '#ffffff',
-                markerLineWidth: 3,
-                markerDx: 0,
-                markerDy: 0,
-              },
-              {
-                textName: String(idx + 1),
-                textSize: 12,
-                textFill: '#ffffff',
-                textWeight: 'bold',
-                textHaloFill: '#1d4ed8',
-                textHaloRadius: 1.5,
-                textDx: 0,
-                textDy: 0,
-              },
-            ],
-          });
+        activeEditStateRef.current = {
+          featureId,
+          targetFeat,
+          currentCoords,
+          selectedIndex: 0,
+          onUpdateCoords,
+          onSelectVertex,
+        };
 
-          // 拖拽开始：禁用地图漫游以保证触控拖拽极其精准
-          handleMarker.on('dragstart', () => {
-            map.config('draggable', false);
-          });
-
-          // 拖拽中：实时更新把手坐标并重绘几何体
-          handleMarker.on('dragging', (e: any) => {
-            if (!e.coordinate) return;
-            const newPt: [number, number] = [
-              Number(e.coordinate.x.toFixed(6)),
-              Number(e.coordinate.y.toFixed(6)),
-            ];
-            currentCoords[idx] = newPt;
-
-            // 实时重绘该要素所属图层中的几何体
-            const vecLayer = map.getLayer(targetFeat.layerId);
-            if (vecLayer) {
-              const oldGeom = vecLayer.getGeometryById
-                ? vecLayer.getGeometryById(targetFeat.id)
-                : null;
-              if (oldGeom) {
-                vecLayer.removeGeometry(oldGeom);
-              }
-              const previewFeat = { ...targetFeat, coordinates: [...currentCoords] };
-              const updatedGeom = createGeometryFromFeature(maptalks, previewFeat, true);
-              if (updatedGeom) {
-                vecLayer.addGeometry(updatedGeom);
-              }
-            }
-
-            onUpdateCoords([...currentCoords]);
-          });
-
-          // 拖拽结束：恢复地图漫游拖拽
-          handleMarker.on('dragend', () => {
-            map.config('draggable', true);
-          });
-
-          vertexLayer.addGeometry(handleMarker);
-        });
+        renderEditHandles();
+        onSelectVertex?.(0);
+      },
+      selectVertex: (index: number) => {
+        if (activeEditStateRef.current) {
+          activeEditStateRef.current.selectedIndex = index;
+          renderEditHandles();
+        }
+      },
+      moveSelectedVertex: (newCoord: [number, number]) => {
+        const state = activeEditStateRef.current;
+        if (state && state.selectedIndex >= 0) {
+          state.currentCoords[state.selectedIndex] = [
+            Number(newCoord[0].toFixed(6)),
+            Number(newCoord[1].toFixed(6)),
+          ];
+          updateEditingGeometry();
+          renderEditHandles();
+        }
+      },
+      nudgeSelectedVertex: (dxMeters: number, dyMeters: number) => {
+        const state = activeEditStateRef.current;
+        if (!state || state.selectedIndex < 0) return;
+        const cur = state.currentCoords[state.selectedIndex];
+        const lat = cur[1];
+        const deltaLat = dyMeters / 111320;
+        const deltaLng = dxMeters / (111320 * Math.cos((lat * Math.PI) / 180));
+        state.currentCoords[state.selectedIndex] = [
+          Number((cur[0] + deltaLng).toFixed(6)),
+          Number((cur[1] + deltaLat).toFixed(6)),
+        ];
+        updateEditingGeometry();
+        renderEditHandles();
       },
       stopVertexEdit: () => {
+        activeEditStateRef.current = null;
         const map = mapInstanceRef.current;
         if (!map) return;
         const vertexLayer = map.getLayer('system-vertex-handles');
@@ -629,8 +745,20 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       map.on('rotate pitch viewchange moveend animateend zoomend', handleMapTransform);
       handleMapTransform();
 
-      // 点击空白处取消要素选中
-      map.on('click', (e: any) => {
+      // 点击空白处取消要素选中，若在微调模式下则点击地图直接将选中的拐点移动至点击处
+      map.on('click tap', (e: any) => {
+        const editState = activeEditStateRef.current;
+        if (editState && editState.selectedIndex >= 0 && e.coordinate) {
+          const targetCoord: [number, number] = [
+            Number(e.coordinate.x.toFixed(6)),
+            Number(e.coordinate.y.toFixed(6)),
+          ];
+          editState.currentCoords[editState.selectedIndex] = targetCoord;
+          updateEditingGeometry();
+          renderEditHandles();
+          return;
+        }
+
         if (!drawingTool && e.target === map) {
           onSelectFeature(null);
         }
@@ -716,6 +844,18 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
           if (geom) {
             geom.on('click tap', (e: any) => {
               if (drawingTool) return;
+              // 若当前正处于微调模式，点击要素内部区域同样将选中拐点移动至该点击位置
+              if (activeEditStateRef.current && activeEditStateRef.current.selectedIndex >= 0 && e.coordinate) {
+                if (e.domEvent) e.domEvent.stopPropagation();
+                const targetCoord: [number, number] = [
+                  Number(e.coordinate.x.toFixed(6)),
+                  Number(e.coordinate.y.toFixed(6)),
+                ];
+                activeEditStateRef.current.currentCoords[activeEditStateRef.current.selectedIndex] = targetCoord;
+                updateEditingGeometry();
+                renderEditHandles();
+                return;
+              }
               if (e.domEvent) e.domEvent.stopPropagation();
               if (!layer.locked) {
                 onSelectFeatureRef.current(feat.id);

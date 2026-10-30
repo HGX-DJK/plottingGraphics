@@ -947,13 +947,53 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
           }
         }
 
-        // 多边形自动闭合
+        // 多边形自动闭合判定：
+        // 只有当已有至少 3 个有效顶点，且本次点击精准命中「起点」标记（手指触控像素距离 <= 26px，或经吸附精准对齐起点），才视为闭合完成；
+        // 否则一律作为新的多边形拐点加入，支持任意多边形拐点采集 (4点、5点、6点...N点)！
         if (drawingTool === 'polygon' && existingPts.length >= 3) {
-          const distToFirst = calculateSphericalDistance(coord, existingPts[0]);
-          const zoom = map.getZoom();
-          const threshold = Math.max(30, 20000 / Math.pow(2, zoom - 10));
-          if (distToFirst <= threshold) {
+          let isCloseToFirst = false;
+
+          // 1. 若开启了磁吸且精准吸附到了起点坐标
+          if (wasSnapped && coord[0] === existingPts[0][0] && coord[1] === existingPts[0][1]) {
+            isCloseToFirst = true;
+          } else if (typeof map.coordinateToContainerPoint === 'function') {
+            // 2. 屏幕像素距离校验 (触控点距离起点标记在 26px 以内，相当于手指准确点击起点)
+            try {
+              const pFirstScreen = map.coordinateToContainerPoint(
+                new maptalks.Coordinate(existingPts[0][0], existingPts[0][1])
+              );
+              const pCurrScreen = map.coordinateToContainerPoint(
+                new maptalks.Coordinate(coord[0], coord[1])
+              );
+              if (pFirstScreen && pCurrScreen) {
+                const pixelDist = Math.hypot(pCurrScreen.x - pFirstScreen.x, pCurrScreen.y - pFirstScreen.y);
+                if (pixelDist <= 26) {
+                  isCloseToFirst = true;
+                }
+              }
+            } catch (err) {}
+          } else {
+            // 兜底方案：使用高精度分辨率计算 (不大于 16 像素距离)
+            const res = typeof map.getResolution === 'function' ? map.getResolution() : 5;
+            const thresholdMeters = Math.max(5, res * 16);
+            const distToFirst = calculateSphericalDistance(coord, existingPts[0]);
+            if (distToFirst <= thresholdMeters) {
+              isCloseToFirst = true;
+            }
+          }
+
+          if (isCloseToFirst) {
             finishDrawing(existingPts);
+            return;
+          }
+        }
+
+        // 避免手抖在同一微小位置产生退化重叠边
+        if (existingPts.length > 0) {
+          const lastPt = existingPts[existingPts.length - 1];
+          const distToLast = calculateSphericalDistance(coord, lastPt);
+          const res = typeof map.getResolution === 'function' ? map.getResolution() : 5;
+          if (distToLast < Math.max(0.5, res * 2.5)) {
             return;
           }
         }
@@ -1026,11 +1066,12 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         }
       };
 
-      // 双击完成多边形/折线采集
+      // 双击完成多边形/折线采集 (面要素至少需要3个点)
       const handleDblClick = (e: any) => {
         if (e.domEvent) e.domEvent.stopPropagation();
         const pts = drawingPointsRef.current;
-        if (pts.length >= 2) {
+        const minPts = drawingTool === 'polygon' ? 3 : 2;
+        if (pts.length >= minPts) {
           finishDrawing(pts);
         }
       };

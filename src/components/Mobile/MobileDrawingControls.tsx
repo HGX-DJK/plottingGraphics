@@ -118,8 +118,15 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
     if (tool === 'measure-area') {
       return `已落 ${count} 个点 · 至少 3 点可读面积`;
     }
-    if (tool === 'polyline' || tool === 'polygon' || tool === 'freehand') {
-      return `已添加 ${count} 个顶点 (双击或点完成)`;
+    if (tool === 'polyline' || tool === 'freehand') {
+      return count >= 2
+        ? `已采 ${count} 个顶点 (可继续点标或点完成)`
+        : `已点标 ${count}/2 点 · 至少需 2 点`;
+    }
+    if (tool === 'polygon') {
+      return count >= 3
+        ? `已采 ${count} 个顶点 (可继续添加或点起点闭合)`
+        : `已采 ${count}/3 个顶点 · 至少需 3 点`;
     }
     return '轻触地图落点';
   };
@@ -329,7 +336,9 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
                     当前边: {formatDistance(activeSegment.length)} | 方位角: {activeSegment.azimuth.text}
                   </span>
                 ) : canFinish ? (
-                  '已满足闭合条件，点击右侧完成保存'
+                  drawingTool === 'polygon'
+                    ? `已采 ${drawingPointsCount} 点 · 可继续落点/点起点闭合/完成保存`
+                    : `已采 ${drawingPointsCount} 点 · 可继续落点或完成保存`
                 ) : (
                   getRequiredPointsText(drawingTool, drawingPointsCount)
                 )}

@@ -227,19 +227,20 @@ export function usePlotDrawing({
       pts.forEach((pt, idx) => {
         const isFirst = idx === 0;
         const isLast = idx === pts.length - 1;
+        const isPolygonReadyToClose = isFirst && drawingTool === 'polygon' && pts.length >= 3;
         const vertexMarker = new maptalks.Marker(pt, {
           symbol: [
             {
               markerType: 'ellipse',
-              markerWidth: isFirst ? 18 : 14,
-              markerHeight: isFirst ? 18 : 14,
-              markerFill: isFirst ? '#10b981' : isLast ? '#3b82f6' : '#f59e0b',
+              markerWidth: isPolygonReadyToClose ? 20 : isFirst ? 18 : 14,
+              markerHeight: isPolygonReadyToClose ? 20 : isFirst ? 18 : 14,
+              markerFill: isPolygonReadyToClose ? '#10b981' : isFirst ? '#059669' : isLast ? '#3b82f6' : '#f59e0b',
               markerLineColor: '#ffffff',
-              markerLineWidth: 2,
+              markerLineWidth: isPolygonReadyToClose ? 2.5 : 2,
               markerFillOpacity: 0.95,
             },
             {
-              textName: isFirst ? '起点' : `#${idx + 1}`,
+              textName: isPolygonReadyToClose ? '点此闭合' : isFirst ? '起点' : `#${idx + 1}`,
               textSize: 10,
               textFill: '#ffffff',
               textHaloFill: '#0b1120',
@@ -249,6 +250,15 @@ export function usePlotDrawing({
             },
           ],
         });
+        if (isPolygonReadyToClose) {
+          vertexMarker.on('click tap', (ev: any) => {
+            if (ev.domEvent) ev.domEvent.stopPropagation();
+            const currentPoints = drawingPointsRef.current;
+            if (currentPoints.length >= 3) {
+              finishDrawing(currentPoints);
+            }
+          });
+        }
         previewLayer.addGeometry(vertexMarker);
       });
 

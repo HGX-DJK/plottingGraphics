@@ -69,7 +69,13 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
   ];
 
   return (
-    <div className="relative w-full h-full max-h-screen bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col justify-between safe-top safe-bottom px-5 py-5 sm:py-6 overflow-hidden select-none transition-colors duration-300">
+    <div
+      className="relative w-full h-full max-h-screen bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col justify-between px-5 pb-5 sm:pb-6 overflow-hidden select-none transition-colors duration-300"
+      style={{
+        paddingTop: 'max(calc(env(safe-area-inset-top, 0px) + 16px), 28px)',
+        paddingBottom: 'max(calc(env(safe-area-inset-bottom, 0px) + 12px), 20px)',
+      }}
+    >
       {/* 背景柔光氛围 (浅色为清透微蓝天际光，暗色为极夜深邃光晕) */}
       <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[380px] h-[380px] bg-gradient-to-b from-blue-500/15 dark:from-blue-600/20 via-cyan-400/10 dark:via-indigo-600/10 to-transparent rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-64 h-64 bg-indigo-500/10 dark:bg-cyan-600/10 rounded-full blur-3xl pointer-events-none" />
@@ -104,19 +110,20 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
 
       {/* 主体居中登录卡片容器 */}
       <div className="max-w-sm w-full mx-auto my-auto flex flex-col justify-center gap-4 sm:gap-5 z-10 py-1">
-        {/* 1. 顶部品牌与系统标题 (已移除顶部多余图标，界面更加纯粹大气) */}
+        {/* 1. 顶部品牌与系统标题：中文大标题优先，英文字标作为优雅副标题置于下方 */}
         <div className="text-center flex flex-col items-center">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 mb-2">
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+            标绘系统
+          </h1>
+
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 mt-1.5 mb-1.5">
             <Sparkles className="w-3 h-3 text-blue-600 dark:text-cyan-400" />
             <span className="text-[10px] font-bold text-blue-700 dark:text-cyan-300 tracking-wider font-mono">
               PLOTTING SYSTEM
             </span>
           </div>
 
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-            标绘系统
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             空间地理协同采集与现场态势推演平台
           </p>
         </div>

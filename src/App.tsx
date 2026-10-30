@@ -282,13 +282,14 @@ export const App: React.FC = () => {
 
       // 合成带工程标题、指北针、图层色标与时间戳的水印成果简报
       const posterDataUrl = await generateMapPoster(rawDataUrl, {
-        title: '标绘系统 • 现场态势标绘成果简报',
+        title: '现场空间地理协同标绘成果专题图',
+        projectName: '空间地理协同采集与现场态势推演平台',
         activeLayerName: activeLayer?.name || '默认工作图层',
         activeLayerColor: activeLayer?.color || '#3b82f6',
         featuresCount: features.length,
         zoomLevel: Math.round(zoomLevel),
         centerCoords: cursorCoords,
-        author: currentUser?.displayName || '外业作业员',
+        author: currentUser?.displayName || '系统主管',
       });
 
       setExportImageDataUrl(posterDataUrl);

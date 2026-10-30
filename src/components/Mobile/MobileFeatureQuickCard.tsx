@@ -58,13 +58,19 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
   const renderSpatialMetrics = () => {
     if (feature.properties.calculatedArea) {
       const area = feature.properties.calculatedArea;
-      const areaStr = area >= 10000 ? `${(area / 1000000).toFixed(3)} km²` : `${Math.round(area).toLocaleString()} m²`;
+      // 单位阈值与 geoUtils.formatArea 保持一致：>= 1km² 用 km²，>= 1ha 用公顷，其余用 m²
+      const areaStr =
+        area >= 1000000
+          ? `${(area / 1000000).toFixed(2)} km²`
+          : area >= 10000
+          ? `${(area / 10000).toFixed(2)} ha`
+          : `${Math.round(area).toLocaleString()} m²`;
       const muStr = `${(area * 0.0015).toFixed(2)} 亩`;
       const perimStr = feature.properties.calculatedLength
         ? ` | 周长 ${formatDistance(feature.properties.calculatedLength)}`
         : '';
       return (
-        <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-mono font-bold">
+        <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-mono font-bold truncate">
           {areaStr} ({muStr}){perimStr}
         </span>
       );
@@ -140,6 +146,7 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
             onClick={onFocus}
             className="p-2 rounded-xl bg-slate-100 dark:bg-gray-900 border border-slate-200 dark:border-gray-800 text-blue-600 dark:text-blue-400 active:bg-slate-200 dark:active:bg-gray-800 transition shadow-sm"
             title="地图聚焦"
+            aria-label="在地图中居中聚焦该要素"
           >
             <Crosshair className="w-4 h-4" />
           </button>
@@ -149,6 +156,7 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
             onClick={onOpenProperties}
             className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-600 text-white font-bold text-xs active:bg-blue-500 shadow-md shadow-blue-600/30 transition"
             title="查看属性与样式"
+            aria-label="查看要素属性与样式"
           >
             <Sliders className="w-3.5 h-3.5" />
             <span>属性</span>
@@ -159,6 +167,7 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
             onClick={() => setShowDeleteConfirm(true)}
             className="p-2 rounded-xl bg-rose-50 dark:bg-red-950/40 border border-rose-200 dark:border-red-900/40 text-rose-600 dark:text-red-400 active:bg-rose-100 dark:active:bg-red-900/40 transition"
             title="删除"
+            aria-label="删除该要素"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -168,6 +177,7 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
             onClick={onClose}
             className="p-1.5 rounded-lg text-slate-400 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white active:bg-slate-100 dark:active:bg-gray-800 transition"
             title="关闭"
+            aria-label="关闭要素快览卡片"
           >
             <X className="w-4 h-4" />
           </button>

@@ -168,6 +168,7 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
             <button
               type="button"
               onClick={() => onShowOnlyActiveLayer?.()}
+              aria-pressed={isOnlyActiveVisible}
               className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition cursor-pointer ${
                 isOnlyActiveVisible
                   ? 'bg-blue-600 text-white border-blue-600 font-bold shadow-sm'
@@ -179,6 +180,7 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
             <button
               type="button"
               onClick={() => onShowAllLayers?.()}
+              aria-pressed={!isOnlyActiveVisible && isAllVisible}
               className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition cursor-pointer ${
                 !isOnlyActiveVisible && isAllVisible
                   ? 'bg-blue-600 text-white border-blue-600 font-bold shadow-sm'
@@ -210,11 +212,21 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
                 <div className="flex items-start justify-between gap-2.5">
                   {/* 左侧：展开折叠 + 色标 + 标题与元数据 */}
                   <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() => {
                       onSelectActiveLayer(layer.id);
                       toggleExpand(layer.id);
                     }}
-                    className="flex items-start gap-2.5 flex-1 min-w-0 cursor-pointer"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onSelectActiveLayer(layer.id);
+                        toggleExpand(layer.id);
+                      }
+                    }}
+                    className="flex items-start gap-2.5 flex-1 min-w-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 rounded-lg"
+                    aria-label={`切换至图层 ${layer.name} 并${isExpanded ? '收起' : '展开'}要素`}
                   >
                     {/* 折叠/展开箭头 */}
                     <button
@@ -224,6 +236,8 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
                         toggleExpand(layer.id);
                       }}
                       className="mt-0.5 p-1 -ml-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/60 transition shrink-0"
+                      aria-label={isExpanded ? '收起图层要素' : '展开图层要素'}
+                      aria-expanded={isExpanded}
                     >
                       {isExpanded ? (
                         <ChevronDown className="w-4 h-4 text-blue-400" />
@@ -296,6 +310,8 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
                           : 'text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:text-slate-700 dark:hover:text-slate-300'
                       }`}
                       title={layer.visible ? '隐藏图层' : '显示图层'}
+                      aria-label={layer.visible ? '隐藏该图层' : '显示该图层'}
+                      aria-pressed={layer.visible}
                     >
                       {layer.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                     </button>
@@ -308,6 +324,8 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
                           : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800'
                       }`}
                       title="图层设置与透明度"
+                      aria-label="图层设置与透明度"
+                      aria-expanded={isSliderOpen}
                     >
                       <Sliders className="w-4 h-4" />
                     </button>
@@ -334,7 +352,13 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
                       step={0.05}
                       value={layer.opacity}
                       onChange={(e) => onChangeOpacity(layer.id, parseFloat(e.target.value))}
-                      className="w-full accent-blue-600 h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg cursor-pointer"
+                      className="gp-range"
+                      style={
+                        {
+                          '--gp-range-progress': `${layer.opacity * 100}%`,
+                        } as React.CSSProperties
+                      }
+                      aria-label={`${layer.name} 透明度`}
                     />
 
                     <div className="flex items-center justify-between pt-1.5 border-t border-slate-200 dark:border-slate-800/60 text-xs">
@@ -424,6 +448,8 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
                             >
                               {/* 点击查看要素并在地图中定位 */}
                               <div
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => {
                                   if (onLocateFeature) {
                                     onLocateFeature(feat.id);
@@ -432,8 +458,20 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
                                   }
                                   onClose();
                                 }}
-                                className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    if (onLocateFeature) {
+                                      onLocateFeature(feat.id);
+                                    } else {
+                                      onSelectFeature?.(feat.id);
+                                    }
+                                    onClose();
+                                  }
+                                }}
+                                className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 rounded-lg"
                                 title="点击在地图中定位该要素"
+                                aria-label={`在地图中定位要素 ${feat.name}`}
                               >
                                 <div
                                   className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border"
@@ -468,6 +506,7 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
                                   }}
                                   className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-500/15 dark:hover:bg-blue-500/25 border border-blue-200 dark:border-blue-500/30 text-blue-600 dark:text-blue-400 text-xs font-medium transition"
                                   title="在地图中居中定位该要素"
+                                  aria-label="在地图中居中定位该要素"
                                 >
                                   <Crosshair className="w-3 h-3" />
                                   <span>定位</span>
@@ -483,6 +522,7 @@ export const MobileLayerSheet: React.FC<MobileLayerSheetProps> = ({
                                   }}
                                   className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition"
                                   title="删除该要素"
+                                  aria-label="删除该要素"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>

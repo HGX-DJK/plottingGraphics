@@ -280,13 +280,17 @@ export function formatDistance(meters: number): string {
 }
 
 /**
- * 格式化空间面积显示 (平方米 / 平方公里 / 亩)
+ * 格式化空间面积显示 (平方米 / 公顷 / 平方公里 + 亩)
+ * 阈值：>= 1 km² 用平方公里，>= 1 ha 用公顷，其余用平方米
  */
 export function formatArea(sqMeters: number): string {
   if (!sqMeters || isNaN(sqMeters)) return '0 m²';
   const mu = (sqMeters * 0.0015).toFixed(1); // 换算为中国常用亩
   if (sqMeters >= 1000000) {
     return `${(sqMeters / 1000000).toFixed(2)} km² (${mu} 亩)`;
+  }
+  if (sqMeters >= 10000) {
+    return `${(sqMeters / 10000).toFixed(2)} ha (${mu} 亩)`;
   }
   return `${Math.round(sqMeters).toLocaleString()} m² (${mu} 亩)`;
 }

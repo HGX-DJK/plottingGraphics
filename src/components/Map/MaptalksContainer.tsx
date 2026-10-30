@@ -24,7 +24,7 @@ import {
   findSnapTarget,
   checkPolygonSelfIntersection,
 } from '../../utils/geoUtils';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
 
 /** 空间量算读数结果 (测距 / 测面) */
 export interface MeasureResult {
@@ -179,6 +179,8 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
     const [maptalksReady, setMaptalksReady] = useState(
       typeof window !== 'undefined' && !!(window as any).maptalks
     );
+    // 引擎长时间未就绪（CDN 不可达 / 网络受限）时的失败态，避免永久空转
+    const [maptalksFailed, setMaptalksFailed] = useState(false);
 
     // 标绘交互中暂存的控制点
     const [drawingPoints, setDrawingPoints] = useState<[number, number][]>([]);
@@ -598,14 +600,30 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
     }));
 
     // 1. 检测 window.maptalks 注入状态
+    // 脚本以 async 方式加载（外业弱网环境下 CDN 可能长时间不可达），
+    // 因此除轮询就绪外，额外设置超时阈值：超时后进入失败态并提供重试入口，
+    // 避免用户面对一个永远转圈的空白地图。
     useEffect(() => {
       if (maptalksReady) return;
+      setMaptalksFailed(false);
+
+      const POLL_INTERVAL = 150;
+      const TIMEOUT = 20000;
+      let waited = 0;
+
       const timer = setInterval(() => {
         if (typeof window !== 'undefined' && (window as any).maptalks) {
           setMaptalksReady(true);
           clearInterval(timer);
+          return;
         }
-      }, 150);
+        waited += POLL_INTERVAL;
+        if (waited >= TIMEOUT) {
+          clearInterval(timer);
+          setMaptalksFailed(true);
+        }
+      }, POLL_INTERVAL);
+
       return () => clearInterval(timer);
     }, [maptalksReady]);
 
@@ -1502,12 +1520,43 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
 
     return (
       <div className="relative w-full h-full flex-1 overflow-hidden">
-        {/* 脚本加载等待遮罩 */}
+        {/* 脚本加载等待遮罩
+            层级置于 z-20（低于顶栏/底栏的 z-30），确保引擎加载期间应用外壳
+            依然可见可点，用户可以正常切换图层、要素与控制中心。
+            z-index: 20 仅为地图区域内的层叠顺序，不与 Toast(z-65)、抽屉(z-60) 冲突。*/}
         {!maptalksReady && (
-          <div className="absolute inset-0 z-40 bg-slate-100 dark:bg-gray-950 flex flex-col items-center justify-center gap-3 text-slate-700 dark:text-gray-300">
-            <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-            <div className="text-xs font-medium">正在加载 MapTalks GL 移动端引擎...</div>
-            <div className="text-[10px] text-slate-400 dark:text-gray-500 font-mono">https://maptalks.com/api/maptalks-gl.js</div>
+          <div className="absolute inset-0 z-20 bg-slate-100 dark:bg-gray-950 flex flex-col items-center justify-center gap-3 px-8 text-center text-slate-700 dark:text-gray-300">
+            {maptalksFailed ? (
+              <>
+                <AlertTriangle className="w-8 h-8 text-amber-500" />
+                <div className="text-xs font-bold">地图引擎加载失败</div>
+                <div className="text-[11px] leading-relaxed text-slate-500 dark:text-gray-400 max-w-[17rem]">
+                  无法从 CDN 获取 MapTalks GL 引擎，请检查网络、代理或防火墙设置后重试。
+                </div>
+                <div className="text-[10px] text-slate-400 dark:text-gray-500 font-mono break-all">
+                  https://maptalks.com/api/maptalks-gl.js
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMaptalksFailed(false);
+                    setMaptalksReady(false);
+                    window.location.reload();
+                  }}
+                  aria-label="重新加载地图引擎"
+                  className="mt-1 flex items-center gap-1.5 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-500 active:scale-95 transition text-white text-xs font-bold shadow-lg"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  重新加载
+                </button>
+              </>
+            ) : (
+              <>
+                <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+                <div className="text-xs font-medium">正在加载 MapTalks GL 移动端引擎...</div>
+                <div className="text-[10px] text-slate-400 dark:text-gray-500 font-mono">https://maptalks.com/api/maptalks-gl.js</div>
+              </>
+            )}
           </div>
         )}
 

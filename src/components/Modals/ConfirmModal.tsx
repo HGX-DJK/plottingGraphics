@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Trash2, HelpCircle } from 'lucide-react';
-import { lockBodyScroll, trapFocus } from '../../utils/uiUtils';
+import { lockBodyScroll, trapFocus, setBackgroundInert } from '../../utils/uiUtils';
 
 export interface ConfirmModalProps {
   isOpen: boolean;
@@ -26,26 +26,34 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // onClose 可能由父组件传入内联函数，这里用 ref 固定引用，
+  // 避免 effect 因依赖变化反复重挂（会打断焦点陷阱与背景隔离）。
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!isOpen) return;
 
     const releaseLock = lockBodyScroll();
     const releaseFocus = trapFocus(panelRef.current);
+    const releaseInert = setBackgroundInert(true);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        onCloseRef.current();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      // 顺序要求：先归还焦点给触发元素，再解除背景 inert
       releaseFocus();
+      releaseInert();
       releaseLock();
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -68,6 +76,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         aria-labelledby="gp-confirm-title"
         aria-describedby="gp-confirm-message"
         onClick={(e) => e.stopPropagation()}
+        tabIndex={-1}
         className="w-full max-w-[320px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-3xl p-5 sm:p-6 shadow-2xl ring-1 ring-black/5 dark:ring-white/10 flex flex-col items-center text-center animate-in zoom-in-95 duration-150 my-auto transition-colors duration-200"
       >
         {/* 顶部醒目图标 */}

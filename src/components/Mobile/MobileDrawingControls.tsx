@@ -192,6 +192,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
                     onClick={onUndoMeasurePoint}
                     className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-300 active:bg-slate-200 dark:active:bg-gray-700 text-xs font-medium transition"
                     title="撤回上一个量算点"
+                    aria-label="撤回上一个量算点"
                   >
                     <Undo2 className="w-3.5 h-3.5" />
                     <span>撤回</span>
@@ -202,6 +203,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
                     onClick={onClearMeasure}
                     className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-500/40 text-xs font-medium transition"
                     title="清空量算点重新测量"
+                    aria-label="清空量算点并重新测量"
                   >
                     <Eraser className="w-3.5 h-3.5" />
                     <span>重测</span>
@@ -236,6 +238,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
               onClick={onCancelDrawing}
               className="p-1.5 rounded-xl bg-slate-100 dark:bg-gray-800 text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white transition"
               title="退出标绘"
+              aria-label="退出标绘模式"
             >
               <X className="w-4 h-4" />
             </button>
@@ -309,6 +312,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
                     onClick={onUndoMeasurePoint}
                     className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-200 active:bg-slate-200 dark:active:bg-gray-700 text-xs font-semibold border border-slate-200 dark:border-gray-700 transition"
                     title="撤回上一个量算点"
+                    aria-label="撤回上一个量算点"
                   >
                     <Undo2 className="w-3.5 h-3.5" />
                     <span>撤回</span>
@@ -319,6 +323,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
                     onClick={onClearMeasure}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 active:from-rose-600 active:to-red-700 text-white text-xs font-black shadow-lg shadow-rose-600/30 transition active:scale-[0.97]"
                     title="清空量算点并重新测量"
+                    aria-label="清空量算点并重新测量"
                   >
                     <Eraser className="w-4 h-4 stroke-[3]" />
                     <span>清除重测</span>
@@ -388,6 +393,8 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
                 : 'text-slate-700 dark:text-gray-300 active:bg-slate-100 dark:active:bg-gray-800/80 hover:text-blue-600 dark:hover:text-white'
             }`}
             title="空间折线测距 (Distance)"
+            aria-label="空间折线测距"
+            aria-pressed={drawingTool === 'measure-distance'}
           >
             <Ruler className="w-4 h-4" />
           </button>
@@ -400,6 +407,8 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
                 : 'text-slate-700 dark:text-gray-300 active:bg-slate-100 dark:active:bg-gray-800/80 hover:text-blue-600 dark:hover:text-white'
             }`}
             title="空间多边形测面 (Area)"
+            aria-label="空间多边形测面"
+            aria-pressed={drawingTool === 'measure-area'}
           >
             <Maximize2 className="w-4 h-4" />
           </button>
@@ -414,6 +423,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
                 Math.abs(bearing) > 0.5 ? 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-300 shadow-inner' : 'text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white'
               }`}
               title={`当前地图朝向: ${Math.round(((bearing % 360) + 360) % 360)}° (点击一键复位正北)`}
+              aria-label="一键复位正北"
             >
               {/* 物理真实动态指南针磁针 (跟随地图旋转角动态转动) */}
               <div
@@ -439,6 +449,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
             onClick={onResetView}
             className="w-10 h-10 flex items-center justify-center text-blue-600 dark:text-blue-400 active:bg-slate-100 dark:active:bg-gray-800/80 border-b border-slate-200/80 dark:border-white/10 transition"
             title="复位全景范围"
+            aria-label="复位全景范围"
           >
             <Crosshair className="w-4 h-4" />
           </button>
@@ -448,6 +459,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
               onClick={onLocateGPS}
               className="w-10 h-10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 active:bg-slate-100 dark:active:bg-gray-800/80 border-b border-slate-200/80 dark:border-white/10 transition"
               title="GPS 实时设备定位"
+              aria-label="GPS 实时设备定位"
             >
               <Navigation className="w-4 h-4" />
             </button>
@@ -457,6 +469,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
             onClick={onZoomIn}
             className="w-10 h-10 flex items-center justify-center text-slate-700 dark:text-gray-200 active:bg-slate-100 dark:active:bg-gray-800/80 border-b border-slate-200/80 dark:border-white/10 transition"
             title="放大"
+            aria-label="地图放大"
           >
             <Plus className="w-4 h-4" />
           </button>
@@ -467,6 +480,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
               onOpenClearFeatures ? 'border-b border-slate-200/80 dark:border-white/10' : ''
             }`}
             title="缩小"
+            aria-label="地图缩小"
           >
             <Minus className="w-4 h-4" />
           </button>
@@ -477,6 +491,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
               onClick={onOpenClearFeatures}
               className="w-10 h-10 flex items-center justify-center text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 active:bg-red-50 dark:active:bg-red-950/40 transition"
               title="清空地图要素 (Clear Features)"
+              aria-label="清空地图要素"
             >
               <Trash2 className="w-4 h-4" />
             </button>

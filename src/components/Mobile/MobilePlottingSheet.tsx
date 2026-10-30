@@ -208,6 +208,8 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
                   <button
                     key={layer.id}
                     onClick={() => onSelectActiveLayer(layer.id)}
+                    aria-pressed={isSelected}
+                    aria-label={`切换目标图层至 ${layer.name}`}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs shrink-0 transition-all ${
                       isSelected
                         ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/30 ring-1 ring-blue-400'
@@ -241,6 +243,7 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
         <div className="flex p-1 bg-slate-100 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 text-xs transition-colors duration-200">
           <button
             onClick={() => setActiveCategory('shapes')}
+            aria-pressed={activeCategory === 'shapes'}
             className={`flex-1 py-1.5 rounded-lg font-medium transition ${
               activeCategory === 'shapes'
                 ? 'bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow font-bold'
@@ -251,6 +254,7 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
           </button>
           <button
             onClick={() => setActiveCategory('points')}
+            aria-pressed={activeCategory === 'points'}
             className={`flex-1 py-1.5 rounded-lg font-medium transition ${
               activeCategory === 'points'
                 ? 'bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow font-bold'
@@ -261,6 +265,7 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
           </button>
           <button
             onClick={() => setActiveCategory('arrows')}
+            aria-pressed={activeCategory === 'arrows'}
             className={`flex-1 py-1.5 rounded-lg font-medium transition ${
               activeCategory === 'arrows'
                 ? 'bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow font-bold'
@@ -281,6 +286,8 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
                 <button
                   key={item.type}
                   onClick={() => handlePick(item.type)}
+                  aria-pressed={isSelected}
+                  aria-label={`${item.name}：${item.desc}`}
                   className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition-all ${
                     isSelected
                       ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/15 ring-2 ring-blue-500'
@@ -313,6 +320,8 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
                 <button
                   key={item.type}
                   onClick={() => handlePick(item.type)}
+                  aria-pressed={isSelected}
+                  aria-label={`${item.name}：${item.desc}`}
                   className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition-all ${
                     isSelected
                       ? 'border-amber-500 bg-amber-50 dark:bg-amber-500/15 ring-2 ring-amber-500'
@@ -342,6 +351,8 @@ export const MobilePlottingSheet: React.FC<MobilePlottingSheetProps> = ({
                 <button
                   key={item.type}
                   onClick={() => handlePick(item.type)}
+                  aria-pressed={isSelected}
+                  aria-label={`${item.name}：${item.desc}`}
                   className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition-all ${
                     isSelected
                       ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-500/15 ring-2 ring-cyan-500'

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
-import { lockBodyScroll, trapFocus } from '../../utils/uiUtils';
+import { lockBodyScroll, trapFocus, setBackgroundInert } from '../../utils/uiUtils';
 
 interface MobileBottomSheetProps {
   isOpen: boolean;
@@ -29,23 +29,35 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
   const dragStartYRef = useRef<number | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
   const isDraggingRef = useRef(false);
+  // 拖拽中状态用于关闭过渡动画，保证手势跟手无延迟
+  const [isDragging, setIsDragging] = useState(false);
+
+  // 关闭逻辑用 ref 稳定化，避免 requestClose 每次渲染变化导致下方 effect 反复重挂
+  // （重挂会造成滚动锁与焦点陷阱在离场动画期间被释放又重新获取）
+  const isClosingRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   // 关闭动画：先播放离场过渡，再真正卸载，避免抽屉「瞬间消失」
   const requestClose = React.useCallback(() => {
-    if (isClosing) return;
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
     setIsClosing(true);
     window.setTimeout(() => {
+      isClosingRef.current = false;
       setIsClosing(false);
-      onClose();
+      onCloseRef.current();
     }, 220);
-  }, [isClosing, onClose]);
+  }, []);
 
-  // 滚动锁 + 焦点陷阱 + Esc 关闭
+  // 滚动锁 + 焦点陷阱 + 背景隔离 + Esc 关闭
   useEffect(() => {
     if (!isOpen) return;
 
     const releaseLock = lockBodyScroll();
-    const releaseFocus = trapFocus(panelRef.current);
+    // 聚焦抽屉容器本身，避免在某个按钮上留下突兀的焦点环
+    const releaseFocus = trapFocus(panelRef.current, { focusFirst: false });
+    const releaseInert = setBackgroundInert(true);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -57,7 +69,10 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      // 顺序要求：先归还焦点给触发元素，再解除背景 inert，
+      // 否则触发元素仍处于 inert 状态，focus 会被浏览器静默忽略。
       releaseFocus();
+      releaseInert();
       releaseLock();
     };
   }, [isOpen, requestClose]);
@@ -68,6 +83,7 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
       dragOffsetRef.current = 0;
       dragStartYRef.current = null;
       isDraggingRef.current = false;
+      setIsDragging(false);
       setDragOffset(0);
     }
   }, [isOpen]);
@@ -78,6 +94,8 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
     dragStartYRef.current = e.clientY;
     isDraggingRef.current = true;
     dragOffsetRef.current = 0;
+    // 立即关闭过渡动画，否则首次滑动会被 220ms 的过渡拖慢，破坏跟手感
+    setIsDragging(true);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
@@ -94,6 +112,7 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
     if (!isDraggingRef.current) return;
     isDraggingRef.current = false;
     dragStartYRef.current = null;
+    setIsDragging(false);
 
     const offset = dragOffsetRef.current;
     dragOffsetRef.current = 0;
@@ -126,14 +145,18 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`relative w-full ${heightClass} bg-white dark:bg-gray-900 border-t border-slate-200 dark:border-gray-800 rounded-t-3xl shadow-2xl flex flex-col overflow-hidden z-10 safe-bottom text-slate-800 dark:text-gray-100 transition-colors duration-200 ${
+        tabIndex={-1}
+        className={`relative w-full ${heightClass} bg-white dark:bg-gray-900 border-t border-slate-200 dark:border-gray-800 rounded-t-3xl shadow-2xl flex flex-col overflow-hidden z-10 safe-bottom text-slate-800 dark:text-gray-100 transition-colors duration-200 focus:outline-none ${
           isClosing
             ? 'gp-sheet-exit'
             : 'animate-in slide-in-from-bottom-full duration-250 ease-out'
         }`}
         style={{
-          transform: dragOffset ? `translateY(${dragOffset}px)` : undefined,
-          transition: isDraggingRef.current ? 'none' : 'transform 220ms cubic-bezier(0.4, 0, 0.2, 1)',
+          transform: `translateY(${dragOffset}px)`,
+          // 拖拽期间禁用过渡以保证跟手；松手后恢复位移与配色的平滑过渡
+          transition: isDragging
+            ? 'none'
+            : 'transform 220ms cubic-bezier(0.4, 0, 0.2, 1), color 200ms, background-color 200ms, border-color 200ms',
         }}
       >
         {/* 顶部下拉手柄 (支持向下拖拽关闭) */}

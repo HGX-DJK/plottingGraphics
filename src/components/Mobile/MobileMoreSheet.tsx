@@ -96,6 +96,7 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => onSelectTheme?.('dark')}
+              aria-pressed={theme === 'dark'}
               className={`p-2.5 rounded-xl border flex items-center gap-2.5 transition text-left ${
                 theme === 'dark'
                   ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/15 shadow ring-1 ring-blue-500 text-blue-700 dark:text-white'
@@ -111,6 +112,7 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
 
             <button
               onClick={() => onSelectTheme?.('light')}
+              aria-pressed={theme === 'light'}
               className={`p-2.5 rounded-xl border flex items-center gap-2.5 transition text-left ${
                 theme === 'light'
                   ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/15 shadow ring-1 ring-blue-500 text-blue-700 dark:text-white'

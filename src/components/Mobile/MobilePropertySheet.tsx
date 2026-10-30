@@ -225,6 +225,7 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
                 }}
                 className="p-1 rounded text-slate-400 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition"
                 title="复制坐标"
+                aria-label="复制该要素坐标"
               >
                 {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
@@ -391,6 +392,7 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
                       onClick={() => handleDeleteCustomAttribute(k)}
                       className="text-slate-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 p-0.5"
                       title="删除字段"
+                      aria-label={`删除字段 ${k}`}
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -489,6 +491,7 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
               <button
                 type="button"
                 onClick={() => handlePropChange('strokeDasharray', 'solid')}
+                aria-pressed={editingFeature.properties.strokeDasharray !== 'dash'}
                 className={`py-1.5 rounded-lg border text-center transition ${
                   editingFeature.properties.strokeDasharray !== 'dash'
                     ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/20 text-blue-600 dark:text-white font-medium'
@@ -500,6 +503,7 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
               <button
                 type="button"
                 onClick={() => handlePropChange('strokeDasharray', 'dash')}
+                aria-pressed={editingFeature.properties.strokeDasharray === 'dash'}
                 className={`py-1.5 rounded-lg border text-center transition ${
                   editingFeature.properties.strokeDasharray === 'dash'
                     ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/20 text-blue-600 dark:text-white font-medium'

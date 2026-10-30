@@ -146,12 +146,21 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
     return (
       <div
         key={feat.id}
+        role="button"
+        tabIndex={0}
         onClick={() => handleCardClick(feat.id)}
-        className={`p-2.5 rounded-xl border transition-all flex items-center justify-between gap-2.5 cursor-pointer ${
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleCardClick(feat.id);
+          }
+        }}
+        className={`p-2.5 rounded-xl border transition-all flex items-center justify-between gap-2.5 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 ${
           isSelected
             ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 ring-1 ring-blue-500/50 shadow-md'
             : 'border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/70 hover:bg-slate-50 dark:hover:bg-slate-900 active:bg-slate-100 dark:active:bg-slate-800'
         }`}
+        aria-label={`要素 ${feat.name}`}
       >
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <div
@@ -200,6 +209,7 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
             }}
             className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-500/15 dark:hover:bg-blue-500/25 active:bg-blue-200 border border-blue-200 dark:border-blue-500/30 text-blue-600 dark:text-blue-400 text-[11px] font-medium transition"
             title="在地图中定位该要素"
+            aria-label={`在地图中定位要素 ${feat.name}`}
           >
             <Crosshair className="w-3 h-3" />
             <span>定位</span>
@@ -212,6 +222,7 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
             }}
             className="p-1 rounded-lg text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition"
             title="删除要素"
+            aria-label={`删除要素 ${feat.name}`}
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -270,6 +281,7 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
           <div className="flex items-center bg-slate-100 dark:bg-slate-950/80 p-0.5 rounded-lg border border-slate-200 dark:border-slate-800 text-[11px]">
             <button
               onClick={() => setViewMode('grouped')}
+              aria-pressed={viewMode === 'grouped'}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition ${
                 viewMode === 'grouped'
                   ? 'bg-white dark:bg-blue-600 text-blue-600 dark:text-white font-bold shadow-sm'
@@ -282,6 +294,7 @@ export const MobileFeatureListSheet: React.FC<MobileFeatureListSheetProps> = ({
             </button>
             <button
               onClick={() => setViewMode('flat')}
+              aria-pressed={viewMode === 'flat'}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition ${
                 viewMode === 'flat'
                   ? 'bg-white dark:bg-blue-600 text-blue-600 dark:text-white font-bold shadow-sm'

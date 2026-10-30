@@ -9,9 +9,17 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="format-detection" content="telephone=no" />
     <title>标绘系统</title>
-    <!-- MapTalks GL 官方 CDN 引入 (通过 link 与 script 方式) -->
-    <link rel="stylesheet" href="https://maptalks.com/api/maptalks-gl.css" />
-    <script type="text/javascript" src="https://maptalks.com/api/maptalks-gl.js"></script>
+    <!-- MapTalks GL 官方 CDN 引入 (通过 link 与 script 方式)
+         说明: 引擎脚本与样式均采用非阻塞加载。CDN 抖动或不可达时，
+         页面仍能立即渲染登录页与「引擎加载中」遮罩，而不会整页白屏。 -->
+    <link rel="preconnect" href="https://maptalks.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://maptalks.com/api/maptalks-gl.css"
+      media="print"
+      onload="this.media='all'"
+    />
+    <script type="text/javascript" src="https://maptalks.com/api/maptalks-gl.js" async></script>
     <script>
       try {
         var t = localStorage.getItem('geoplot_studio_theme_mode');

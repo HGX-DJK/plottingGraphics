@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { User, PlotLayer, PlotFeature, PlotFeatureType, BasemapType } from './types';
 import { authService } from './services/authService';
 import { storageService, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM } from './services/storageService';
@@ -489,34 +490,39 @@ export const App: React.FC = () => {
       />
 
       {/* 标绘与操作反馈 Toast (底部安全区浮层，不遮挡顶部状态条与刘海区域)
-          高度随当前界面状态自适应，避免与标绘控制条、要素快览卡片重叠 */}
-      {toastMessage && (
-        <div
-          className={`absolute left-1/2 -translate-x-1/2 z-[65] px-4 py-2 rounded-2xl bg-white/95 dark:bg-gray-900/95 border border-emerald-500/50 shadow-2xl text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-2 backdrop-blur-md animate-in slide-in-from-bottom-2 duration-200 max-w-[calc(100%-7rem)] ${
-            toastAction ? 'pointer-events-auto' : 'pointer-events-none'
-          }`}
-          style={{
-            bottom: `calc(env(safe-area-inset-bottom, 0px) + ${
-              drawingTool || selectedFeature ? '9.25rem' : '7rem'
-            })`,
-          }}
-        >
-          <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse shrink-0" />
-          <span className="truncate">{toastMessage}</span>
-          {toastAction && (
-            <button
-              onClick={() => {
-                const action = toastAction;
-                setToastAction(null);
-                action.onClick();
-              }}
-              className="shrink-0 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-[11px] font-bold transition"
-            >
-              {toastAction.label}
-            </button>
-          )}
-        </div>
-      )}
+          高度随当前界面状态自适应，避免与标绘控制条、要素快览卡片重叠
+          通过 Portal 渲染到 body，使其不被抽屉打开时的背景 inert 隔离影响 */}
+      {toastMessage &&
+        (typeof document !== 'undefined'
+          ? createPortal(
+              <div
+                className={`fixed left-1/2 -translate-x-1/2 z-[65] px-4 py-2 rounded-2xl bg-white/95 dark:bg-gray-900/95 border border-emerald-500/50 shadow-2xl text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-2 backdrop-blur-md animate-in slide-in-from-bottom-2 duration-200 max-w-[calc(100%-7rem)] ${
+                  toastAction ? 'pointer-events-auto' : 'pointer-events-none'
+                }`}
+                style={{
+                  bottom: `calc(env(safe-area-inset-bottom, 0px) + ${
+                    drawingTool || selectedFeature ? '9.25rem' : '7rem'
+                  })`,
+                }}
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse shrink-0" />
+                <span className="truncate">{toastMessage}</span>
+                {toastAction && (
+                  <button
+                    onClick={() => {
+                      const action = toastAction;
+                      setToastAction(null);
+                      action.onClick();
+                    }}
+                    className="shrink-0 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-[11px] font-bold transition"
+                  >
+                    {toastAction.label}
+                  </button>
+                )}
+              </div>,
+              document.body
+            )
+          : null)}
 
       {/* 2. MapTalks GL 触控地图画布 */}
       <div className="flex-1 w-full h-full relative overflow-hidden">
@@ -573,6 +579,7 @@ export const App: React.FC = () => {
               onClick={handleCopyCoordinates}
               className="p-1 rounded-full text-slate-400 dark:text-gray-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800 transition shrink-0 ml-0.5"
               title="一键复制高精坐标至剪贴板"
+              aria-label="复制当前坐标到剪贴板"
             >
               <Copy className="w-3 h-3" />
             </button>

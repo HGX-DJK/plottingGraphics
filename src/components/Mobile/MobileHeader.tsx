@@ -21,13 +21,16 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
   onToggleTheme,
 }) => {
   return (
-    <header className="absolute top-0 left-0 right-0 z-30 pointer-events-none px-3.5 pt-[max(env(safe-area-inset-top),12px)] select-none">
-      <div className="flex items-center justify-between">
-        {/* 左侧：当前工作图层灵动胶囊 (单行设计，告别拥挤与截断) */}
+    <header className="absolute top-0 left-0 right-0 z-30 pointer-events-none px-3 pt-[max(env(safe-area-inset-top),12px)] select-none">
+      {/* 顶栏合并为单一胶囊：左区=当前工作图层，右区=主题切换 + 当前身份
+          统一 44px 高度与内边距，避免左右两块高低不齐；图层名占据弹性空间，
+          既不会过早截断，也不会在中间留下空洞。 */}
+      <div className="pointer-events-auto flex items-center gap-1 h-11 pl-1 pr-1 rounded-full bg-white/90 dark:bg-gray-950/90 backdrop-blur-xl border border-slate-200/90 dark:border-white/10 shadow-lg shadow-slate-900/5 dark:shadow-black/30">
+        {/* 左区：当前工作图层切换 */}
         <button
           onClick={onOpenLayers}
           aria-label={`当前工作图层 ${activeLayer?.name || '默认工作图层'}，点击打开图层管控`}
-          className="pointer-events-auto flex items-center gap-2 pl-3 pr-2.5 py-2 rounded-full bg-white/90 dark:bg-gray-950/90 backdrop-blur-xl border border-slate-200/90 dark:border-white/10 shadow-lg active:scale-95 transition-all text-slate-800 dark:text-gray-100 max-w-[60%] min-h-[36px]"
+          className="flex items-center gap-2 min-w-0 flex-1 h-9 pl-2 pr-1.5 rounded-full text-left active:bg-slate-100/80 dark:active:bg-white/10 transition"
         >
           <span
             className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm ring-2 ring-black/5 dark:ring-white/20"
@@ -36,30 +39,35 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
           <span className="text-xs font-bold text-slate-800 dark:text-gray-100 truncate tracking-tight">
             {activeLayer?.name || '默认工作图层'}
           </span>
-          <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-gray-400 shrink-0 ml-0.5" />
+          <span className="w-5 h-5 shrink-0 rounded-full grid place-items-center bg-slate-100/90 dark:bg-white/10">
+            <ChevronDown className="w-3 h-3 text-slate-500 dark:text-gray-400" />
+          </span>
         </button>
 
-        {/* 右侧：主题切换与控制中心一体化胶囊 (高颜值一体化排布，彻底释放横向空间) */}
-        <div className="pointer-events-auto flex items-center p-1 rounded-full bg-white/90 dark:bg-gray-950/90 backdrop-blur-xl border border-slate-200/90 dark:border-white/10 shadow-lg">
+        {/* 右区：主题切换 + 当前身份 */}
+        <div className="flex items-center gap-0.5 shrink-0">
           {onToggleTheme && (
             <button
               onClick={onToggleTheme}
               aria-label={theme === 'dark' ? '切换为清新浅色模式' : '切换为极夜深色模式'}
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-gray-800/80 active:scale-90 transition text-slate-700 dark:text-amber-400"
+              className="w-8 h-8 grid place-items-center rounded-full hover:bg-slate-100 dark:hover:bg-gray-800/80 active:scale-90 transition text-slate-600 dark:text-amber-400"
             >
-              {theme === 'dark' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5 text-indigo-600" />}
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4 text-indigo-600" />}
             </button>
           )}
 
-          <span className="w-px h-3.5 bg-slate-200 dark:bg-gray-800 mx-0.5" />
+          <span className="w-px h-4 bg-slate-200 dark:bg-gray-800 mx-1" />
 
           <button
             onClick={onOpenMore}
             aria-label="打开控制中心与设置"
-            className="flex items-center gap-1.5 pl-1.5 pr-2.5 py-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-gray-800/80 active:scale-95 transition text-slate-800 dark:text-gray-200 min-h-[32px]"
+            className="flex items-center gap-1.5 h-9 pl-1 pr-2.5 rounded-full hover:bg-slate-100 dark:hover:bg-gray-800/80 active:scale-95 transition"
           >
-            <span className="text-sm leading-none">{currentUser?.avatar || '👤'}</span>
-            <span className="text-xs font-bold truncate max-w-[64px]">
+            {/* 头像徽章：用中性圆形托底，避免彩色 emoji 散落在界面中显得突兀 */}
+            <span className="w-6 h-6 shrink-0 rounded-full grid place-items-center text-[12px] leading-none bg-slate-100 dark:bg-white/10 ring-1 ring-slate-200/80 dark:ring-white/10">
+              {currentUser?.avatar || '👤'}
+            </span>
+            <span className="text-xs font-bold text-slate-800 dark:text-gray-100 truncate max-w-[72px]">
               {currentUser?.displayName.split(' ')[0] || '李工'}
             </span>
           </button>

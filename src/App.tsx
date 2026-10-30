@@ -443,6 +443,7 @@ export const App: React.FC = () => {
           onToggleMeasureDistance={handleToggleMeasureDistance}
           onToggleMeasureArea={handleToggleMeasureArea}
           onLocateGPS={handleLocateGPS}
+          onOpenClearFeatures={() => setIsClearModalOpen(true)}
         />
 
         {/* 要素快览悬浮卡片 */}

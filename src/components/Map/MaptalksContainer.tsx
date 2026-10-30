@@ -755,21 +755,25 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       <div className="w-full h-full relative select-none">
         <div ref={mapContainerRef} className="w-full h-full bg-slate-900" />
 
-        {/* 弱网/CDN 不可达时的友好失败态 */}
+        {/* 弱网/CDN 不可达时的友好失败态
+            层级置于 z-20（低于顶栏/底栏的 z-30），确保引擎异常期间应用外壳仍可见可点。 */}
         {maptalksFailed && !maptalksReady && (
-          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/95 backdrop-blur-md px-6 text-center animate-in fade-in duration-300">
-            <div className="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-3 shadow-lg shadow-amber-500/10">
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/95 dark:bg-gray-950/95 backdrop-blur-xl px-6 text-center animate-in fade-in duration-300">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500 dark:text-amber-400 mb-3 shadow-lg shadow-amber-500/10">
               <AlertTriangle className="w-7 h-7" />
             </div>
-            <h3 className="text-base font-bold text-white mb-1">MapTalks GL 核心引擎加载超时</h3>
-            <p className="text-xs text-slate-400 max-w-xs mb-4 leading-relaxed">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-white mb-1">MapTalks GL 核心引擎加载超时</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mb-4 leading-relaxed">
               当前网络环境可能无法访问外部 CDN 资源，请检查移动网络连接或切换 Wi-Fi 后重试。
             </p>
             <button
               onClick={() => {
                 setMaptalksFailed(false);
                 setMaptalksReady(false);
+                // 脚本已加载失败，单纯重置状态无法重新拉取引擎，必须整页重载
+                window.location.reload();
               }}
+              aria-label="重新加载地图引擎"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-semibold shadow-lg shadow-blue-600/30 transition-all cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
@@ -778,11 +782,12 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
           </div>
         )}
 
-        {/* 首次加载过渡态 */}
+        {/* 首次加载过渡态
+            同样置于 z-20，避免引擎加载期间把顶栏与底栏一并遮住而无法操作。 */}
         {!maptalksReady && !maptalksFailed && (
-          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm text-white">
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/95 dark:bg-gray-950/95 backdrop-blur-xl text-slate-700 dark:text-gray-300">
             <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-3" />
-            <span className="text-xs text-slate-300 font-mono tracking-wider">
+            <span className="text-xs text-slate-600 dark:text-slate-300 font-mono tracking-wider">
               正在初始化 MapTalks GL 空间渲染引擎...
             </span>
           </div>

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { User, PlotFeatureType, BasemapType } from './types';
+import { User, PlotFeatureType, BasemapType, PlotFeature } from './types';
 import { authService } from './services/authService';
 import { storageService, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM } from './services/storageService';
 import {
@@ -21,10 +21,17 @@ import { MobileLoginView } from './components/Mobile/MobileLoginView';
 import { NewLayerModal } from './components/Modals/NewLayerModal';
 import { ImportExportModal } from './components/Modals/ImportExportModal';
 import { ClearFeaturesModal } from './components/Modals/ClearFeaturesModal';
+import { ExportImageModal } from './components/Modals/ExportImageModal';
 import { MobilePoiSearchSheet } from './components/Mobile/MobilePoiSearchSheet';
 import { AmapPoiItem } from './services/amapSearchService';
-import { Smartphone, Monitor } from 'lucide-react';
-import { CoordinateFormat, formatCoordinates } from './utils/geoUtils';
+import { Smartphone, Monitor, Move, Check, X } from 'lucide-react';
+import {
+  CoordinateFormat,
+  formatCoordinates,
+  calculateLineLength,
+  calculateSphericalPolygonArea,
+} from './utils/geoUtils';
+import { generateMapPoster } from './utils/mapPosterGenerator';
 import { ThemeMode, themeService } from './services/themeService';
 import { copyToClipboard } from './utils/uiUtils';
 import { useToast } from './hooks/useToast';
@@ -169,6 +176,101 @@ export const App: React.FC = () => {
   const [isNewLayerModalOpen, setIsNewLayerModalOpen] = useState(false);
   const [isImportExportModalOpen, setIsImportExportModalOpen] = useState(false);
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
+
+  // 8. 顶点二次拖拽修改状态 (解决画错拐点必须整图删掉重画痛点)
+  const [editingFeature, setEditingFeature] = useState<PlotFeature | null>(null);
+  const [editingCoords, setEditingCoords] = useState<[number, number][]>([]);
+
+  const handleStartVertexEdit = (feat: PlotFeature) => {
+    if (!feat.coordinates || feat.coordinates.length === 0) {
+      showToast('该要素无有效坐标，无法微调顶点');
+      return;
+    }
+    setEditingFeature(feat);
+    setEditingCoords(feat.coordinates);
+    setSelectedFeatureId(null);
+    setActiveTab(null);
+    mapRef.current?.startVertexEdit(feat.id, (newCoords) => {
+      setEditingCoords(newCoords);
+    });
+    showToast(`已进入「${feat.name}」顶点微调模式，可直接在地图拖拽把手`);
+  };
+
+  const handleSaveVertexEdit = () => {
+    if (!editingFeature) return;
+
+    let calculatedLength: number | undefined;
+    let calculatedArea: number | undefined;
+
+    if (editingFeature.type === 'polyline' || editingFeature.type === 'freehand') {
+      calculatedLength = calculateLineLength(editingCoords);
+    } else if (editingFeature.type === 'polygon' || editingFeature.type === 'rectangle') {
+      calculatedArea = calculateSphericalPolygonArea(editingCoords);
+      calculatedLength = calculateLineLength(editingCoords);
+    }
+
+    const updated: PlotFeature = {
+      ...editingFeature,
+      coordinates: editingCoords,
+      properties: {
+        ...editingFeature.properties,
+        ...(calculatedLength !== undefined ? { calculatedLength } : {}),
+        ...(calculatedArea !== undefined ? { calculatedArea } : {}),
+      },
+      updatedAt: Date.now(),
+    };
+
+    handleUpdateFeature(updated);
+    mapRef.current?.stopVertexEdit();
+    setEditingFeature(null);
+    showToast(`✓ 已成功保存「${editingFeature.name}」的顶点修改`);
+  };
+
+  const handleCancelVertexEdit = () => {
+    if (!editingFeature) return;
+    mapRef.current?.stopVertexEdit();
+    handleUpdateFeature(editingFeature); // 恢复原状
+    setEditingFeature(null);
+    showToast('已取消顶点微调');
+  };
+
+  // 9. 高清标绘成果图生成导出状态 (解决领导汇报截屏杂乱痛点)
+  const [isExportImageModalOpen, setIsExportImageModalOpen] = useState(false);
+  const [exportImageDataUrl, setExportImageDataUrl] = useState<string | null>(null);
+  const [isExportingImage, setIsExportingImage] = useState(false);
+
+  const handleOpenExportPoster = async () => {
+    setIsExportImageModalOpen(true);
+    setIsExportingImage(true);
+    setExportImageDataUrl(null);
+
+    try {
+      if (!mapRef.current) {
+        throw new Error('地图未就绪');
+      }
+      // 捕获地图原始底图
+      const rawDataUrl = await mapRef.current.captureMapImage();
+
+      // 合成带工程标题、指北针、图层色标与时间戳的水印成果简报
+      const posterDataUrl = await generateMapPoster(rawDataUrl, {
+        title: '标绘系统 • 现场态势标绘成果简报',
+        activeLayerName: activeLayer?.name || '默认工作图层',
+        activeLayerColor: activeLayer?.color || '#3b82f6',
+        featuresCount: features.length,
+        zoomLevel: Math.round(zoomLevel),
+        centerCoords: cursorCoords,
+        author: currentUser?.displayName || '外业作业员',
+      });
+
+      setExportImageDataUrl(posterDataUrl);
+    } catch (err: any) {
+      console.error('Failed to generate poster:', err);
+      showToast(`导出失败: ${err.message || '画布跨域或未就绪'}`);
+      setIsExportImageModalOpen(false);
+    } finally {
+      setIsExportingImage(false);
+    }
+  };
 
   // 清除要素
   const handleClearActiveLayer = () => {
@@ -451,19 +553,55 @@ export const App: React.FC = () => {
           onToggleMeasureDistance={handleToggleMeasureDistance}
           onToggleMeasureArea={handleToggleMeasureArea}
           onLocateGPS={handleLocateGPS}
+          onExportPoster={handleOpenExportPoster}
           onOpenClearFeatures={() => setIsClearModalOpen(true)}
         />
 
         {/* 要素快览悬浮卡片 */}
-        {selectedFeature && !drawingTool && activeTab !== 'properties' && (
+        {selectedFeature && !drawingTool && activeTab !== 'properties' && !editingFeature && (
           <MobileFeatureQuickCard
             feature={selectedFeature}
             layer={layers.find((l) => l.id === selectedFeature.layerId)}
             onFocus={() => handleLocateFeature(selectedFeature.id)}
             onOpenProperties={() => setActiveTab('properties')}
+            onEditVertices={() => handleStartVertexEdit(selectedFeature)}
             onDelete={() => handleDeleteFeature(selectedFeature.id)}
             onClose={() => setSelectedFeatureId(null)}
           />
+        )}
+
+        {/* 顶点二次拖拽修改浮动控制条 */}
+        {editingFeature && (
+          <div
+            className="absolute left-3 right-3 z-30 pointer-events-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border-2 border-amber-500/80 rounded-2xl p-3 shadow-2xl animate-in slide-in-from-bottom-4 duration-200 ring-1 ring-amber-500/30 flex items-center justify-between gap-2.5"
+            style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4.25rem)' }}
+          >
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 font-bold text-xs text-amber-600 dark:text-amber-400">
+                <Move className="w-4 h-4 animate-pulse shrink-0" />
+                <span className="truncate">正在微调: {editingFeature.name}</span>
+              </div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                直接拖拽地图蓝白把手 (共 {editingCoords.length} 个拐点)
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={handleCancelVertexEdit}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleSaveVertexEdit}
+                className="flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold shadow-md shadow-orange-500/30 hover:opacity-95 active:scale-95 transition cursor-pointer"
+              >
+                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                <span>保存修改</span>
+              </button>
+            </div>
+          </div>
         )}
       </div>
 
@@ -558,6 +696,10 @@ export const App: React.FC = () => {
           setActiveTab(null);
           setIsImportExportModalOpen(true);
         }}
+        onExportPoster={() => {
+          setActiveTab(null);
+          handleOpenExportPoster();
+        }}
         onOpenSearch={() => {
           setActiveTab(null);
           setIsSearchOpen(true);
@@ -594,6 +736,15 @@ export const App: React.FC = () => {
         features={features}
         onImportData={handleImportData}
         onResetDemo={handleResetDemo}
+      />
+
+      {/* 高清标绘成果简报图导出预览弹窗 */}
+      <ExportImageModal
+        isOpen={isExportImageModalOpen}
+        onClose={() => setIsExportImageModalOpen(false)}
+        imageUrl={exportImageDataUrl}
+        isLoading={isExportingImage}
+        onNotify={showToast}
       />
 
       {/* 7. 全国 POI 地名/地址检索抽屉 */}

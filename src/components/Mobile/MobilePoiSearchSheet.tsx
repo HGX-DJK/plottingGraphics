@@ -24,7 +24,12 @@ import {
   AmapPoiItem,
 } from '../../services/amapSearchService';
 import { PlotFeature, PlotLayer } from '../../types';
-import { formatDistance, formatCoordinates } from '../../utils/geoUtils';
+import {
+  formatDistance,
+  formatCoordinates,
+  parseCoordinateInput,
+  calculateSphericalDistance,
+} from '../../utils/geoUtils';
 import { copyToClipboard } from '../../utils/uiUtils';
 
 interface MobilePoiSearchSheetProps {
@@ -80,6 +85,11 @@ export const MobilePoiSearchSheet: React.FC<MobilePoiSearchSheetProps> = ({
 
   // 坐标参考基准点 (优先使用 GPS，其次使用地图中心)
   const referenceCoord = userGpsCoord || currentCenter;
+
+  // 智能坐标识别解析 (当用户输入或粘贴 DD / DMS 坐标时自动识别并免网直达)
+  const parsedCoord = useMemo(() => {
+    return parseCoordinateInput(keyword);
+  }, [keyword]);
 
   // 打开时加载历史与自动对焦
   useEffect(() => {
@@ -315,6 +325,66 @@ export const MobilePoiSearchSheet: React.FC<MobilePoiSearchSheetProps> = ({
             {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <span>搜索</span>}
           </button>
         </div>
+
+        {/* 智能坐标精准解析卡片 (当粘贴经纬度时直接识别，免联网直达定位与存为要素) */}
+        {parsedCoord && (
+          <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border-2 border-blue-500/80 shadow-md flex items-center justify-between gap-2 animate-in fade-in zoom-in-95 duration-150">
+            <div className="min-w-0 flex-1 pr-1">
+              <div className="flex items-center gap-1.5 font-bold text-xs text-blue-700 dark:text-blue-300">
+                <Compass className="w-4 h-4 text-blue-600 dark:text-blue-400 animate-spin-slow shrink-0" />
+                <span>智能识别精确坐标 (无需联网直接定位)</span>
+              </div>
+              <div className="font-mono text-sm font-black text-slate-900 dark:text-white mt-1 tracking-tight truncate">
+                {parsedCoord.formattedDD}
+              </div>
+              <div className="text-[11px] text-slate-500 dark:text-gray-400 font-mono mt-0.5 truncate">
+                {parsedCoord.formattedDMS}
+              </div>
+              <div className="text-[10px] text-blue-600 dark:text-blue-400 font-medium mt-1">
+                距当前位置约 {formatDistance(calculateSphericalDistance(referenceCoord, parsedCoord.coord))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5 shrink-0">
+              <button
+                onClick={() => {
+                  onSelectLocation(
+                    parsedCoord.coord,
+                    `坐标点 [${parsedCoord.coord[0].toFixed(4)}, ${parsedCoord.coord[1].toFixed(4)}]`,
+                    parsedCoord.formattedDMS
+                  );
+                  onClose();
+                }}
+                className="flex items-center justify-center gap-1 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/30 transition active:scale-95 cursor-pointer"
+              >
+                <Navigation className="w-3.5 h-3.5" />
+                <span>直飞定位</span>
+              </button>
+
+              {onSaveAsFeature && (
+                <button
+                  onClick={(e) => {
+                    handleSaveAsPlotFeature(
+                      {
+                        id: `coord-${Date.now()}`,
+                        name: `坐标点_${parsedCoord.coord[0].toFixed(4)}_${parsedCoord.coord[1].toFixed(4)}`,
+                        address: parsedCoord.formattedDMS,
+                        location: parsedCoord.coord,
+                        source: 'local',
+                        type: '经纬度直达点',
+                      },
+                      e
+                    );
+                  }}
+                  className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700 text-[11px] font-semibold transition active:scale-95 cursor-pointer shadow-sm hover:bg-blue-50 dark:hover:bg-gray-700"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>存为要素</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* 接口报错提示 */}
         {errorMessage && (

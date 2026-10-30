@@ -47,6 +47,118 @@ export function formatCoordinates(coords: [number, number], format: CoordinateFo
 }
 
 /**
+ * 智能坐标字符串解析器
+ * 支持自动识别：十进制度 (DD)、度分秒 (DMS)、中英文标点、经纬度顺序自动校准
+ * @returns 标准 [lng, lat] 坐标与识别格式，若无法解析则返回 null
+ */
+export function parseCoordinateInput(
+  rawInput: string
+): {
+  coord: [number, number];
+  formattedDD: string;
+  formattedDMS: string;
+  sourceText: string;
+} | null {
+  if (!rawInput || typeof rawInput !== 'string') return null;
+  const input = rawInput.trim();
+  if (input.length < 5) return null;
+
+  // 1. 尝试匹配度分秒 (DMS) 格式，如 121°28'25.3"E, 31°13'49.4"N 或 31°13'49"N 121°28'25"E
+  const dmsRegex =
+    /([0-9]{1,3})[°度]\s*([0-9]{1,2})['分′]\s*([0-9]{1,2}(?:\.[0-9]+)?)?["秒″]?\s*([NSEW东西南北])?/gi;
+  const dmsMatches = [...input.matchAll(dmsRegex)];
+
+  if (dmsMatches.length >= 2) {
+    const parsedList: { val: number; dir?: string }[] = [];
+    for (let i = 0; i < 2; i++) {
+      const m = dmsMatches[i];
+      const deg = parseFloat(m[1]);
+      const min = parseFloat(m[2]);
+      const sec = m[3] ? parseFloat(m[3]) : 0;
+      let dir = m[4]?.toUpperCase();
+      let decimal = deg + min / 60 + sec / 3600;
+
+      if (dir === 'S' || dir === '南' || dir === 'W' || dir === '西') {
+        decimal = -decimal;
+      }
+      parsedList.push({ val: decimal, dir });
+    }
+
+    let lng = parsedList[0].val;
+    let lat = parsedList[1].val;
+
+    // 根据方向字母或中国地理范围自动判断经纬度顺序
+    const firstDir = parsedList[0].dir;
+    const secondDir = parsedList[1].dir;
+    if (firstDir === 'N' || firstDir === '北' || firstDir === 'S' || firstDir === '南') {
+      // 第一个是纬度，第二个是经度，调换顺序
+      lat = parsedList[0].val;
+      lng = parsedList[1].val;
+    } else if (
+      !firstDir &&
+      !secondDir &&
+      lat > 70 &&
+      lat <= 140 &&
+      lng >= 3 &&
+      lng <= 55
+    ) {
+      // 常见颠倒输入：如 31°..., 121°...
+      const temp = lng;
+      lng = lat;
+      lat = temp;
+    }
+
+    if (lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90) {
+      const coord: [number, number] = [Number(lng.toFixed(6)), Number(lat.toFixed(6))];
+      return {
+        coord,
+        formattedDD: `${coord[0].toFixed(6)}° E, ${coord[1].toFixed(6)}° N`,
+        formattedDMS: `${toDMS(coord[0], true)}, ${toDMS(coord[1], false)}`,
+        sourceText: input,
+      };
+    }
+  }
+
+  // 2. 尝试匹配十进制度数 (DD) 格式
+  // 例如: "121.4737, 31.2304", "121.4737 31.2304", "31.2304, 121.4737", "E121.47, N31.23"
+  const cleaned = input
+    .replace(/[，;；]/g, ',')
+    .replace(/[°东西南北NSEW]/gi, ' ')
+    .trim();
+
+  // 寻找两个浮点数
+  const numbers = cleaned.match(/-?[0-9]{1,3}\.[0-9]{2,10}/g);
+  if (numbers && numbers.length >= 2) {
+    let num1 = parseFloat(numbers[0]);
+    let num2 = parseFloat(numbers[1]);
+
+    if (!isNaN(num1) && !isNaN(num2)) {
+      let lng = num1;
+      let lat = num2;
+
+      // 智能识别：如果是中国范围，经度一般在 70~140，纬度在 3~55
+      // 若出现 31.2304, 121.4737 这种常见 Lat-Lng 顺序，自动矫正为 [Lng, Lat]
+      if (num1 >= 3 && num1 <= 55 && num2 >= 70 && num2 <= 140) {
+        lng = num2;
+        lat = num1;
+      }
+
+      if (lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90) {
+        const coord: [number, number] = [Number(lng.toFixed(6)), Number(lat.toFixed(6))];
+        return {
+          coord,
+          formattedDD: `${coord[0].toFixed(6)}° E, ${coord[1].toFixed(6)}° N`,
+          formattedDMS: `${toDMS(coord[0], true)}, ${toDMS(coord[1], false)}`,
+          sourceText: input,
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * 计算两点间的真北方位角 (Azimuth / Bearing)
  * 返回 [0, 360) 角度与工程测量方位描述 (如 北偏东 45.2°)
  */

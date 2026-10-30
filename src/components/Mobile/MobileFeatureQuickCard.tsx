@@ -15,6 +15,7 @@ import {
   Type,
   Pencil,
   Sparkles,
+  Move,
 } from 'lucide-react';
 import { formatDistance, calculateAzimuth } from '../../utils/geoUtils';
 import { ConfirmModal } from '../Modals/ConfirmModal';
@@ -24,6 +25,7 @@ interface MobileFeatureQuickCardProps {
   layer: PlotLayer | undefined;
   onFocus: () => void;
   onOpenProperties: () => void;
+  onEditVertices?: () => void;
   onDelete: () => void;
   onClose: () => void;
 }
@@ -33,6 +35,7 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
   layer,
   onFocus,
   onOpenProperties,
+  onEditVertices,
   onDelete,
   onClose,
 }) => {
@@ -161,6 +164,19 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
             <Sliders className="w-3.5 h-3.5" />
             <span>属性</span>
           </button>
+
+          {/* 微调顶点 (用于多边形、折线、军标箭头、点位等二次调整) */}
+          {onEditVertices && (
+            <button
+              onClick={onEditVertices}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-md shadow-amber-500/30 active:scale-95 transition"
+              title="微调控制顶点"
+              aria-label="进入顶点拖拽微调模式"
+            >
+              <Move className="w-3.5 h-3.5" />
+              <span>微调</span>
+            </button>
+          )}
 
           {/* 快捷删除 */}
           <button

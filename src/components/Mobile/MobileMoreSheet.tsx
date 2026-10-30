@@ -14,6 +14,7 @@ import {
   SunMedium,
   CircleUser,
   Search,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { MobileBottomSheet } from './MobileBottomSheet';
 import { ConfirmModal } from '../Modals/ConfirmModal';
@@ -25,6 +26,7 @@ interface MobileMoreSheetProps {
   basemap: BasemapType;
   onChangeBasemap: (mapType: BasemapType) => void;
   onOpenImportExport: () => void;
+  onExportPoster?: () => void;
   onOpenSearch?: () => void;
   onResetDemo: () => void;
   onLogout: () => void;
@@ -39,6 +41,7 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
   basemap,
   onChangeBasemap,
   onOpenImportExport,
+  onExportPoster,
   onOpenSearch,
   onResetDemo,
   onLogout,
@@ -187,12 +190,33 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
           </div>
         )}
 
-        {/* 数据导入与导出 */}
-        <div>
+        {/* 数据导入与导出 / 高清成果大图 */}
+        <div className="space-y-2">
           <label className="block text-slate-600 dark:text-gray-400 font-semibold mb-2 flex items-center gap-1.5">
             <FolderInput className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-            <span>标绘工程数据</span>
+            <span>标绘成果与工程数据</span>
           </label>
+
+          {/* 生成高清标绘成果简报图 */}
+          {onExportPoster && (
+            <button
+              onClick={() => {
+                onClose();
+                onExportPoster();
+              }}
+              className="w-full flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border border-blue-200 dark:border-blue-800/60 active:bg-blue-100 dark:active:bg-blue-900/40 transition text-left cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <ImageIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <div>
+                  <div className="font-semibold text-slate-800 dark:text-gray-200">生成高清标绘成果简报大图</div>
+                  <div className="text-[10px] text-slate-500 dark:text-gray-400">自动合成工程标题、工作图层、指北针与时间水印</div>
+                </div>
+              </div>
+              <span className="text-[11px] text-blue-600 dark:text-blue-400 font-bold shrink-0">导出大图 →</span>
+            </button>
+          )}
+
           <button
             onClick={() => {
               onClose();

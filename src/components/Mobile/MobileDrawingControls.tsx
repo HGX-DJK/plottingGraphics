@@ -20,6 +20,7 @@ import {
   SlidersHorizontal,
   Sun,
   Moon,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { formatDistance } from '../../utils/geoUtils';
 
@@ -47,6 +48,7 @@ interface MobileDrawingControlsProps {
   onToggleMeasureDistance: () => void;
   onToggleMeasureArea: () => void;
   onLocateGPS?: () => void;
+  onExportPoster?: () => void;
   hasSelectedFeature?: boolean;
 }
 
@@ -74,6 +76,7 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
   onToggleMeasureDistance,
   onToggleMeasureArea,
   onLocateGPS,
+  onExportPoster,
   hasSelectedFeature = false,
 }) => {
   const getToolDisplayName = (tool: string) => {
@@ -475,6 +478,22 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
               <Crosshair className="w-4 h-4 shrink-0" />
               <span className="text-xs font-semibold truncate">复位全景</span>
             </button>
+
+            {onExportPoster && (
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMoreToolsOpen(false);
+                  onExportPoster();
+                }}
+                className="w-full flex items-center gap-2.5 h-11 px-3 text-left text-blue-600 dark:text-blue-400 active:bg-blue-50 dark:active:bg-blue-950/40 transition border-t border-slate-200/70 dark:border-white/10"
+                title="导出高清标绘成果大图"
+                aria-label="导出高清标绘成果大图"
+              >
+                <ImageIcon className="w-4 h-4 shrink-0" />
+                <span className="text-xs font-semibold truncate">导出成果大图</span>
+              </button>
+            )}
 
             {onToggleTheme && (
               <button

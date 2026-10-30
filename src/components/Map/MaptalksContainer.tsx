@@ -32,6 +32,9 @@ export interface MaptalksContainerRef {
   focusFeature: (target: string | PlotFeature) => void;
   flyToLocation: (coord: [number, number], title?: string, subtitle?: string, zoom?: number) => void;
   clearSearchMarker: () => void;
+  captureMapImage: () => Promise<string>;
+  startVertexEdit: (featureId: string, onUpdateCoords: (coords: [number, number][]) => void) => void;
+  stopVertexEdit: () => void;
 }
 
 interface MaptalksContainerProps {
@@ -388,6 +391,132 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         if (!map) return;
         const searchLayer = map.getLayer('system-search-marker');
         if (searchLayer) searchLayer.clear();
+      },
+      captureMapImage: async (): Promise<string> => {
+        const map = mapInstanceRef.current;
+        if (!map) throw new Error('地图尚未初始化');
+
+        // 优先使用 MapTalks 原生 toDataURL 导出
+        if (typeof (map as any).toDataURL === 'function') {
+          try {
+            const dataUrl = (map as any).toDataURL({ mimeType: 'image/png', save: false });
+            if (dataUrl && dataUrl.startsWith('data:image/')) {
+              return dataUrl;
+            }
+          } catch (err) {
+            console.warn('MapTalks toDataURL fallback to canvas:', err);
+          }
+        }
+
+        // 兜底方案：直接捕获容器内的 WebGL / 2D Canvas
+        const container = mapContainerRef.current;
+        const canvas = container?.querySelector('canvas');
+        if (canvas) {
+          return canvas.toDataURL('image/png');
+        }
+        throw new Error('未检测到可用的地图画布');
+      },
+      startVertexEdit: (featureId: string, onUpdateCoords: (coords: [number, number][]) => void) => {
+        const map = mapInstanceRef.current;
+        const maptalks = (window as any).maptalks;
+        if (!map || !maptalks) return;
+
+        const targetFeat = featuresRef.current.find((f) => f.id === featureId);
+        if (!targetFeat || !targetFeat.coordinates || targetFeat.coordinates.length === 0) return;
+
+        // 获取或创建顶点交互控制层
+        let vertexLayer = map.getLayer('system-vertex-handles');
+        if (!vertexLayer) {
+          vertexLayer = new maptalks.VectorLayer('system-vertex-handles', [], {
+            zIndex: 1005,
+            enableAltitude: true,
+          }).addTo(map);
+        }
+        vertexLayer.clear();
+
+        // 拷贝当前要素的坐标副本
+        const currentCoords: [number, number][] = targetFeat.coordinates.map((c) => [c[0], c[1]]);
+
+        // 为每一个拐点/控制点添加高对比度、带编号的可拖拽把手
+        currentCoords.forEach((coord, idx) => {
+          const handleMarker = new maptalks.Marker(coord, {
+            id: `vertex-handle-${idx}`,
+            draggable: true,
+            cursor: 'move',
+            symbol: [
+              {
+                markerType: 'ellipse',
+                markerWidth: 30,
+                markerHeight: 30,
+                markerFill: '#2563eb',
+                markerFillOpacity: 0.95,
+                markerLineColor: '#ffffff',
+                markerLineWidth: 3,
+                markerDx: 0,
+                markerDy: 0,
+              },
+              {
+                textName: String(idx + 1),
+                textSize: 12,
+                textFill: '#ffffff',
+                textWeight: 'bold',
+                textHaloFill: '#1d4ed8',
+                textHaloRadius: 1.5,
+                textDx: 0,
+                textDy: 0,
+              },
+            ],
+          });
+
+          // 拖拽开始：禁用地图漫游以保证触控拖拽极其精准
+          handleMarker.on('dragstart', () => {
+            map.config('draggable', false);
+          });
+
+          // 拖拽中：实时更新把手坐标并重绘几何体
+          handleMarker.on('dragging', (e: any) => {
+            if (!e.coordinate) return;
+            const newPt: [number, number] = [
+              Number(e.coordinate.x.toFixed(6)),
+              Number(e.coordinate.y.toFixed(6)),
+            ];
+            currentCoords[idx] = newPt;
+
+            // 实时重绘该要素所属图层中的几何体
+            const vecLayer = map.getLayer(targetFeat.layerId);
+            if (vecLayer) {
+              const oldGeom = vecLayer.getGeometryById
+                ? vecLayer.getGeometryById(targetFeat.id)
+                : null;
+              if (oldGeom) {
+                vecLayer.removeGeometry(oldGeom);
+              }
+              const previewFeat = { ...targetFeat, coordinates: [...currentCoords] };
+              const updatedGeom = createGeometryFromFeature(maptalks, previewFeat, true);
+              if (updatedGeom) {
+                vecLayer.addGeometry(updatedGeom);
+              }
+            }
+
+            onUpdateCoords([...currentCoords]);
+          });
+
+          // 拖拽结束：恢复地图漫游拖拽
+          handleMarker.on('dragend', () => {
+            map.config('draggable', true);
+          });
+
+          vertexLayer.addGeometry(handleMarker);
+        });
+      },
+      stopVertexEdit: () => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
+        const vertexLayer = map.getLayer('system-vertex-handles');
+        if (vertexLayer) {
+          vertexLayer.clear();
+        }
+        map.config('draggable', true);
       },
     }));
 

@@ -374,3 +374,71 @@ export function downloadFile(filename: string, content: string, contentType = 'a
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+// ==========================================
+// 坐标系转换 (高德 GCJ-02 火星坐标 <-> WGS-84 标准坐标)
+// 消除国内地图服务与标准 GIS 底图之间约 300m~500m 的系统偏差
+// ==========================================
+
+const GCJ_PI = Math.PI;
+const GCJ_A = 6378245.0; // 克拉索夫斯基椭球体长半轴
+const GCJ_EE = 0.00669342162296594323; // 第一偏心率平方
+
+function transformLat(lng: number, lat: number): number {
+  let ret = -100.0 + 2.0 * lng + 3.0 * lat + 0.2 * lat * lat + 0.1 * lng * lat + 0.2 * Math.sqrt(Math.abs(lng));
+  ret += ((20.0 * Math.sin(6.0 * lng * GCJ_PI) + 20.0 * Math.sin(2.0 * lng * GCJ_PI)) * 2.0) / 3.0;
+  ret += ((20.0 * Math.sin(lat * GCJ_PI) + 40.0 * Math.sin((lat / 3.0) * GCJ_PI)) * 2.0) / 3.0;
+  ret += ((160.0 * Math.sin((lat / 12.0) * GCJ_PI) + 320 * Math.sin((lat * GCJ_PI) / 30.0)) * 2.0) / 3.0;
+  return ret;
+}
+
+function transformLon(lng: number, lat: number): number {
+  let ret = 300.0 + lng + 2.0 * lat + 0.1 * lng * lng + 0.1 * lng * lat + 0.1 * Math.sqrt(Math.abs(lng));
+  ret += ((20.0 * Math.sin(6.0 * lng * GCJ_PI) + 20.0 * Math.sin(2.0 * lng * GCJ_PI)) * 2.0) / 3.0;
+  ret += ((20.0 * Math.sin(lng * GCJ_PI) + 40.0 * Math.sin((lng / 3.0) * GCJ_PI)) * 2.0) / 3.0;
+  ret += ((150.0 * Math.sin((lng / 12.0) * GCJ_PI) + 300.0 * Math.sin((lng / 30.0) * GCJ_PI)) * 2.0) / 3.0;
+  return ret;
+}
+
+function isOutOfChina(lng: number, lat: number): boolean {
+  return lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271;
+}
+
+/**
+ * GCJ-02 (高德/腾讯火星坐标) 转换为 WGS-84 (标准 GPS / GIS 坐标)
+ * 精度可达 1-2 米，用于高德搜索返回点位在 MapTalks 底图上的精准对齐
+ */
+export function gcj02towgs84(lng: number, lat: number): [number, number] {
+  if (isOutOfChina(lng, lat)) {
+    return [lng, lat];
+  }
+  let dLat = transformLat(lng - 105.0, lat - 35.0);
+  let dLon = transformLon(lng - 105.0, lat - 35.0);
+  const radLat = (lat / 180.0) * GCJ_PI;
+  let magic = Math.sin(radLat);
+  magic = 1 - GCJ_EE * magic * magic;
+  const sqrtMagic = Math.sqrt(magic);
+  dLat = (dLat * 180.0) / (((GCJ_A * (1 - GCJ_EE)) / (magic * sqrtMagic)) * GCJ_PI);
+  dLon = (dLon * 180.0) / ((GCJ_A / sqrtMagic) * Math.cos(radLat) * GCJ_PI);
+  const mgLat = lat + dLat;
+  const mgLon = lng + dLon;
+  return [Number((lng * 2 - mgLon).toFixed(7)), Number((lat * 2 - mgLat).toFixed(7))];
+}
+
+/**
+ * WGS-84 (标准 GPS 坐标) 转换为 GCJ-02 (高德/火星坐标)
+ */
+export function wgs84togcj02(lng: number, lat: number): [number, number] {
+  if (isOutOfChina(lng, lat)) {
+    return [lng, lat];
+  }
+  let dLat = transformLat(lng - 105.0, lat - 35.0);
+  let dLon = transformLon(lng - 105.0, lat - 35.0);
+  const radLat = (lat / 180.0) * GCJ_PI;
+  let magic = Math.sin(radLat);
+  magic = 1 - GCJ_EE * magic * magic;
+  const sqrtMagic = Math.sqrt(magic);
+  dLat = (dLat * 180.0) / (((GCJ_A * (1 - GCJ_EE)) / (magic * sqrtMagic)) * GCJ_PI);
+  dLon = (dLon * 180.0) / ((GCJ_A / sqrtMagic) * Math.cos(radLat) * GCJ_PI);
+  return [Number((lng + dLon).toFixed(7)), Number((lat + dLat).toFixed(7))];
+}

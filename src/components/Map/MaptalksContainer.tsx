@@ -30,6 +30,8 @@ export interface MaptalksContainerRef {
   clearMeasure: () => void;
   locateUser: (coord: [number, number]) => void;
   focusFeature: (target: string | PlotFeature) => void;
+  flyToLocation: (coord: [number, number], title?: string, subtitle?: string, zoom?: number) => void;
+  clearSearchMarker: () => void;
 }
 
 interface MaptalksContainerProps {
@@ -306,6 +308,86 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         if (feat) {
           focusFeatureOnMap(feat);
         }
+      },
+      flyToLocation: (coord: [number, number], title?: string, subtitle?: string, zoom = 16) => {
+        const map = mapInstanceRef.current;
+        const maptalks = (window as any).maptalks;
+        if (!map || !maptalks) return;
+
+        map.animateTo(
+          {
+            center: coord,
+            zoom,
+          },
+          { duration: 650 }
+        );
+
+        let searchLayer = map.getLayer('system-search-marker');
+        if (!searchLayer) {
+          searchLayer = new maptalks.VectorLayer('system-search-marker', [], { zIndex: 1002 }).addTo(map);
+        }
+        searchLayer.clear();
+
+        // 1. 动态水波光环底座
+        const halo = new maptalks.Marker(coord, {
+          symbol: [
+            {
+              markerType: 'ellipse',
+              markerWidth: 44,
+              markerHeight: 44,
+              markerFill: '#ef4444',
+              markerFillOpacity: 0.22,
+              markerLineColor: '#f87171',
+              markerLineWidth: 1.5,
+            },
+            {
+              markerType: 'ellipse',
+              markerWidth: 16,
+              markerHeight: 16,
+              markerFill: '#dc2626',
+              markerLineColor: '#ffffff',
+              markerLineWidth: 2.5,
+            },
+          ],
+        });
+
+        // 2. 悬浮地标指示卡片 (标题 + 地址/坐标)
+        if (title) {
+          const label = new maptalks.Marker(coord, {
+            symbol: [
+              {
+                textName: title,
+                textSize: 12,
+                textFill: '#ffffff',
+                textWeight: 'bold',
+                textHaloFill: '#1e293b',
+                textHaloRadius: 3,
+                textDy: -24,
+              },
+              ...(subtitle
+                ? [
+                    {
+                      textName: subtitle.length > 22 ? subtitle.slice(0, 20) + '...' : subtitle,
+                      textSize: 10,
+                      textFill: '#cbd5e1',
+                      textHaloFill: '#0f172a',
+                      textHaloRadius: 2,
+                      textDy: -8,
+                    },
+                  ]
+                : []),
+            ],
+          });
+          searchLayer.addGeometry([halo, label]);
+        } else {
+          searchLayer.addGeometry(halo);
+        }
+      },
+      clearSearchMarker: () => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
+        const searchLayer = map.getLayer('system-search-marker');
+        if (searchLayer) searchLayer.clear();
       },
     }));
 

@@ -1,13 +1,14 @@
 import React from 'react';
 import { User, PlotLayer } from '../../types';
 import { ThemeMode } from '../../services/themeService';
-import { ChevronDown, Sun, Moon } from 'lucide-react';
+import { ChevronDown, Sun, Moon, Search } from 'lucide-react';
 
 interface MobileHeaderProps {
   currentUser: User | null;
   activeLayer: PlotLayer | undefined;
   onOpenLayers: () => void;
   onOpenMore: () => void;
+  onOpenSearch?: () => void;
   theme?: ThemeMode;
   onToggleTheme?: () => void;
 }
@@ -17,14 +18,13 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
   activeLayer,
   onOpenLayers,
   onOpenMore,
+  onOpenSearch,
   theme = 'dark',
   onToggleTheme,
 }) => {
   return (
     <header className="absolute top-0 left-0 right-0 z-30 pointer-events-none px-3 pt-[max(env(safe-area-inset-top),12px)] select-none">
-      {/* 顶栏合并为单一胶囊：左区=当前工作图层，右区=主题切换 + 当前身份
-          统一 44px 高度与内边距，避免左右两块高低不齐；图层名占据弹性空间，
-          既不会过早截断，也不会在中间留下空洞。 */}
+      {/* 顶栏合并为单一胶囊：左区=当前工作图层，中区=全国地名检索，右区=主题切换 + 当前身份 */}
       <div className="pointer-events-auto flex items-center gap-1 h-11 pl-1 pr-1 rounded-full bg-white/90 dark:bg-gray-950/90 backdrop-blur-xl border border-slate-200/90 dark:border-white/10 shadow-lg shadow-slate-900/5 dark:shadow-black/30">
         {/* 左区：当前工作图层切换 */}
         <button
@@ -44,8 +44,19 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
           </span>
         </button>
 
-        {/* 右区：主题切换 + 当前身份 */}
+        {/* 右区：地名检索 + 主题切换 + 当前身份 */}
         <div className="flex items-center gap-0.5 shrink-0">
+          {onOpenSearch && (
+            <button
+              onClick={onOpenSearch}
+              aria-label="搜索全国地名与地址"
+              className="w-8 h-8 grid place-items-center rounded-full hover:bg-slate-100 dark:hover:bg-gray-800/80 active:scale-90 transition text-slate-600 dark:text-gray-300"
+              title="搜索全国地名/地址"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+          )}
+
           {onToggleTheme && (
             <button
               onClick={onToggleTheme}

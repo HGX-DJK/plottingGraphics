@@ -21,6 +21,8 @@ import { MobileLoginView } from './components/Mobile/MobileLoginView';
 import { NewLayerModal } from './components/Modals/NewLayerModal';
 import { ImportExportModal } from './components/Modals/ImportExportModal';
 import { ClearFeaturesModal } from './components/Modals/ClearFeaturesModal';
+import { MobilePoiSearchSheet } from './components/Mobile/MobilePoiSearchSheet';
+import { AmapPoiItem } from './services/amapSearchService';
 import { Smartphone, Monitor, Compass, Copy } from 'lucide-react';
 import { CoordinateFormat, formatCoordinates } from './utils/geoUtils';
 import { ThemeMode, themeService } from './services/themeService';
@@ -235,6 +237,39 @@ export const App: React.FC = () => {
     setDrawingPointsCount(0);
   };
 
+  // 8. 高德全国 POI 检索状态与基准定位
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [userGpsCoord, setUserGpsCoord] = useState<[number, number] | null>(null);
+
+  // 定位飞跃至检索地点
+  const handleSelectPoiLocation = (coord: [number, number], title: string, subtitle: string) => {
+    mapRef.current?.flyToLocation(coord, title, subtitle, 16.5);
+    showToast(`📍 已精准定位至: ${title}`);
+  };
+
+  // 将搜索到的 POI 一键保存为当前图层的标绘点要素
+  const handleSavePoiAsFeature = (poi: AmapPoiItem) => {
+    handleCreateFeature({
+      name: poi.name,
+      type: 'marker',
+      layerId: activeLayerId,
+      coordinates: [poi.location],
+      properties: {
+        strokeColor: activeLayer?.color || '#3b82f6',
+        strokeWidth: 2,
+        strokeDasharray: 'solid',
+        fillColor: activeLayer?.color || '#3b82f6',
+        fillOpacity: 0.9,
+        notes: poi.address,
+        customAttributes: {
+          'POI类型': poi.type || '地理地标',
+          '所属区域': poi.district || '',
+          '数据源': '高德全国POI',
+        },
+      },
+    });
+  };
+
   // 设备 GPS 实时定位
   const handleLocateGPS = () => {
     if (!navigator.geolocation) {
@@ -245,10 +280,12 @@ export const App: React.FC = () => {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { longitude, latitude } = pos.coords;
+        setUserGpsCoord([longitude, latitude]);
         mapRef.current?.locateUser([longitude, latitude]);
         showToast(`✓ 已精准定位当前设备: ${longitude.toFixed(4)}, ${latitude.toFixed(4)}`);
       },
       () => {
+        setUserGpsCoord([121.4737, 31.2304]);
         mapRef.current?.locateUser([121.4737, 31.2304]);
         showToast('已定位至上海项目基准工区 [121.4737, 31.2304]');
       },
@@ -319,6 +356,7 @@ export const App: React.FC = () => {
         activeLayer={activeLayer}
         onOpenLayers={() => setActiveTab('layers')}
         onOpenMore={() => setActiveTab('more')}
+        onOpenSearch={() => setIsSearchOpen(true)}
         theme={theme}
         onToggleTheme={handleToggleTheme}
       />
@@ -550,6 +588,10 @@ export const App: React.FC = () => {
           setActiveTab(null);
           setIsImportExportModalOpen(true);
         }}
+        onOpenSearch={() => {
+          setActiveTab(null);
+          setIsSearchOpen(true);
+        }}
         onResetDemo={handleResetDemo}
         onLogout={handleLogout}
         theme={theme}
@@ -582,6 +624,20 @@ export const App: React.FC = () => {
         features={features}
         onImportData={handleImportData}
         onResetDemo={handleResetDemo}
+      />
+
+      {/* 7. 全国 POI 地名/地址检索抽屉 */}
+      <MobilePoiSearchSheet
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        currentCenter={cursorCoords}
+        userGpsCoord={userGpsCoord}
+        activeLayer={activeLayer}
+        features={features}
+        layers={layers}
+        onSelectLocation={handleSelectPoiLocation}
+        onSaveAsFeature={handleSavePoiAsFeature}
+        onNotify={showToast}
       />
     </div>
   );

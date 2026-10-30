@@ -13,6 +13,7 @@ import {
   Moon,
   SunMedium,
   CircleUser,
+  Search,
 } from 'lucide-react';
 import { MobileBottomSheet } from './MobileBottomSheet';
 import { ConfirmModal } from '../Modals/ConfirmModal';
@@ -24,6 +25,7 @@ interface MobileMoreSheetProps {
   basemap: BasemapType;
   onChangeBasemap: (mapType: BasemapType) => void;
   onOpenImportExport: () => void;
+  onOpenSearch?: () => void;
   onResetDemo: () => void;
   onLogout: () => void;
   theme?: ThemeMode;
@@ -37,6 +39,7 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
   basemap,
   onChangeBasemap,
   onOpenImportExport,
+  onOpenSearch,
   onResetDemo,
   onLogout,
   theme = 'dark',
@@ -157,6 +160,32 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
             ))}
           </div>
         </div>
+
+        {/* 全国地名与地址搜索 */}
+        {onOpenSearch && (
+          <div>
+            <label className="block text-slate-600 dark:text-gray-400 font-semibold mb-2 flex items-center gap-1.5">
+              <Search className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span>快速定位与地名检索</span>
+            </label>
+            <button
+              onClick={() => {
+                onClose();
+                onOpenSearch();
+              }}
+              className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-gray-950 border border-slate-200 dark:border-gray-800 active:bg-slate-100 dark:active:bg-gray-900 transition"
+            >
+              <div className="flex items-center gap-2.5">
+                <Search className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <div className="text-left">
+                  <div className="font-semibold text-slate-800 dark:text-gray-200">全国地名/POI 地址检索</div>
+                  <div className="text-[10px] text-slate-400 dark:text-gray-500">基于高德地理服务快速定位目标工区</div>
+                </div>
+              </div>
+              <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">打开搜索 →</span>
+            </button>
+          </div>
+        )}
 
         {/* 数据导入与导出 */}
         <div>

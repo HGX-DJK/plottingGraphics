@@ -37,29 +37,42 @@ export const ExportImageModal: React.FC<ExportImageModalProps> = ({
 
   if (!isOpen) return null;
 
-  // 下载保存图片 (兼容移动端 Android / iOS 原生分享存相册与 PC 浏览器直接下载)
+  // 下载保存图片 (优先使用 Android 原生相册保存接口，免去权限阻碍)
   const handleDownload = async () => {
     if (!imageUrl) return;
     setIsProcessing(true);
-    const filename = `标绘成果简报_${Date.now()}.png`;
+    const filename = `标绘成果专题图_${Date.now()}.png`;
 
     try {
+      // 1. Android 原生环境：优先调用底层 MediaStore 写入系统图库/相册
+      if (typeof window !== 'undefined' && (window as any).AndroidNative?.saveImageToGallery) {
+        try {
+          const success = (window as any).AndroidNative.saveImageToGallery(imageUrl, filename);
+          if (success) {
+            onNotify?.('✓ 成果专题图已成功保存至手机系统相册/图库！');
+            setIsProcessing(false);
+            return;
+          }
+        } catch (nativeErr) {
+          console.warn('Native saveImageToGallery failed, falling back:', nativeErr);
+        }
+      }
+
       const blob = dataURLtoBlob(imageUrl);
       const file = new File([blob], filename, { type: 'image/png' });
 
-      // 1. 如果移动端支持 Web Share API (Android / iOS 标准推荐：可直接发送微信好友或存入相册)
+      // 2. 如果移动端支持 Web Share API (Android / iOS 标准推荐：可直接发送微信好友或存入相册)
       if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({
             files: [file],
-            title: '标绘成果简报',
-            text: '现场空间地理协同标绘成果简报图',
+            title: '标绘成果专题图',
+            text: '现场空间地理协同标绘成果专题图',
           });
           onNotify?.('✓ 成果图已成功分享/保存');
           setIsProcessing(false);
           return;
         } catch (shareErr: any) {
-          // 用户若点击了分享遮罩空白处取消，无需提示报错
           if (shareErr.name === 'AbortError') {
             setIsProcessing(false);
             return;
@@ -67,7 +80,7 @@ export const ExportImageModal: React.FC<ExportImageModalProps> = ({
         }
       }
 
-      // 2. 浏览器标准二进制 Blob 下载触发
+      // 3. 浏览器标准二进制 Blob 下载触发
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
@@ -86,7 +99,6 @@ export const ExportImageModal: React.FC<ExportImageModalProps> = ({
       onNotify?.(`✓ 成果图已成功保存: ${filename}`);
     } catch (err) {
       console.error('Download image error:', err);
-      // 3. 兜底方案：尝试通过 DataURL 直接触发
       try {
         const a = document.createElement('a');
         a.href = imageUrl;
@@ -108,15 +120,36 @@ export const ExportImageModal: React.FC<ExportImageModalProps> = ({
     }
   };
 
-  // 复制图片到剪贴板
+  // 微信发送 / 复制图片
   const handleCopyImage = async () => {
     if (!imageUrl) return;
     setIsProcessing(true);
+    const filename = `标绘成果专题图_${Date.now()}.png`;
 
     try {
+      // 1. Android 原生环境：直接调起系统分享，支持 1 秒发微信好友/微信朋友圈/QQ/钉钉
+      if (typeof window !== 'undefined' && (window as any).AndroidNative?.shareImage) {
+        try {
+          const success = (window as any).AndroidNative.shareImage(
+            imageUrl,
+            filename,
+            '发送标绘成果专题图'
+          );
+          if (success) {
+            setCopied(true);
+            onNotify?.('✓ 已唤起系统分享面板，可直接发送微信好友或群聊！');
+            setTimeout(() => setCopied(false), 2500);
+            setIsProcessing(false);
+            return;
+          }
+        } catch (nativeShareErr) {
+          console.warn('Native shareImage failed, falling back:', nativeShareErr);
+        }
+      }
+
       const blob = dataURLtoBlob(imageUrl);
 
-      // 1. 尝试使用 ClipboardItem 写入剪贴板 (PC 端 Chrome / Edge / Safari 支持良好)
+      // 2. PC 端浏览器尝试写入二进制图片到系统剪贴板
       if (
         typeof window !== 'undefined' &&
         (window as any).ClipboardItem &&
@@ -139,18 +172,17 @@ export const ExportImageModal: React.FC<ExportImageModalProps> = ({
         }
       }
 
-      // 2. 移动端降级：调用系统原生分享面板 (直接微信发送或存相册)
-      const filename = `标绘成果简报_${Date.now()}.png`;
+      // 3. Web Share API 降级
       const file = new File([blob], filename, { type: 'image/png' });
       if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({
             files: [file],
-            title: '标绘成果简报',
-            text: '现场空间地理协同标绘成果简报图',
+            title: '标绘成果专题图',
+            text: '现场空间地理协同标绘成果专题图',
           });
           setCopied(true);
-          onNotify?.('✓ 已唤起系统分享面板，可直接发送至微信朋友');
+          onNotify?.('✓ 已唤起系统分享面板，可直接发送微信');
           setTimeout(() => setCopied(false), 2500);
           setIsProcessing(false);
           return;
@@ -162,7 +194,7 @@ export const ExportImageModal: React.FC<ExportImageModalProps> = ({
         }
       }
 
-      // 3. 移动端友好提示
+      // 4. 移动端友好提示
       onNotify?.('💡 提示：移动端请长按上方图片，选择「保存到相册」或「发送给微信朋友」');
     } catch (err: any) {
       console.error('Copy image error:', err);
@@ -244,22 +276,28 @@ export const ExportImageModal: React.FC<ExportImageModalProps> = ({
             onClick={handleCopyImage}
             disabled={!imageUrl || isLoading || isProcessing}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 disabled:opacity-40 text-xs font-bold transition active:scale-95 shadow-sm cursor-pointer"
+            title="调起微信发送或复制图片"
           >
-            {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-            <span>{copied ? '已复制' : '复制图片'}</span>
+            {copied ? (
+              <Check className="w-4 h-4 text-emerald-500" />
+            ) : (
+              <Share2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            )}
+            <span>{copied ? '已调起发送' : '微信分享 / 复制'}</span>
           </button>
 
           <button
             onClick={handleDownload}
             disabled={!imageUrl || isLoading || isProcessing}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-95 text-white disabled:opacity-40 text-xs font-bold shadow-md shadow-blue-500/25 transition active:scale-95 cursor-pointer"
+            title="直接保存至手机系统相册/图库"
           >
             {isProcessing ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <Download className="w-4 h-4" />
             )}
-            <span>下载保存图片</span>
+            <span>保存到系统相册</span>
           </button>
         </div>
       </div>

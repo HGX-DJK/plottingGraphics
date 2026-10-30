@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { User, BasemapType } from '../../types';
 import { ThemeMode } from '../../services/themeService';
 import {
-  MoreHorizontal,
   Globe2,
   FolderInput,
   RefreshCw,
@@ -13,6 +12,7 @@ import {
   Sun,
   Moon,
   SunMedium,
+  CircleUser,
 } from 'lucide-react';
 import { MobileBottomSheet } from './MobileBottomSheet';
 import { ConfirmModal } from '../Modals/ConfirmModal';
@@ -54,8 +54,8 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
     <MobileBottomSheet
       isOpen={isOpen}
       onClose={onClose}
-      title="控制中心与设置"
-      icon={<MoreHorizontal className="w-4 h-4" />}
+      title="我的"
+      icon={<CircleUser className="w-4 h-4" />}
     >
       <div className="space-y-4 pb-4 text-xs">
         {/* 用户信息卡片 */}

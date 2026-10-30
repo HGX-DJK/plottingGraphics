@@ -536,7 +536,7 @@ export const App: React.FC = () => {
         onDeleteFeature={handleDeleteFeature}
       />
 
-      {/* 更多与控制中心抽屉 */}
+      {/* 「我的」面板抽屉 (账号资料 / 偏好设置 / 数据管理) */}
       <MobileMoreSheet
         isOpen={activeTab === 'more'}
         onClose={() => setActiveTab(null)}

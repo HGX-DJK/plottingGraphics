@@ -4,7 +4,7 @@ import {
   PenTool,
   ListFilter,
   Sliders,
-  MoreHorizontal,
+  CircleUser,
 } from 'lucide-react';
 
 export type MobileTab = 'layers' | 'plot' | 'features' | 'properties' | 'more' | null;
@@ -132,18 +132,18 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
           <span className="text-[10px] mt-1">属性</span>
         </button>
 
-        {/* 5. 更多与设置 */}
+        {/* 5. 我的 (个人中心与偏好设置) */}
         <button
           onClick={() => onSelectTab(activeTab === 'more' ? null : 'more')}
-          aria-label="更多与设置"
+          aria-label="我的"
           aria-pressed={activeTab === 'more'}
           className={`flex-1 flex flex-col items-center justify-center py-1 transition relative min-h-[44px] ${
             activeTab === 'more' ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-500 dark:text-gray-400'
           }`}
         >
           <ActiveIndicator show={activeTab === 'more'} />
-          <MoreHorizontal className="w-5 h-5" />
-          <span className="text-[10px] mt-1">更多</span>
+          <CircleUser className="w-5 h-5" />
+          <span className="text-[10px] mt-1">我的</span>
         </button>
       </div>
     </nav>

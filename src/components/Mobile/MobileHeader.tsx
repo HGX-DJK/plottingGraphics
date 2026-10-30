@@ -60,7 +60,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
 
           <button
             onClick={onOpenMore}
-            aria-label="打开控制中心与设置"
+            aria-label="打开我的面板"
             className="flex items-center gap-1.5 h-9 pl-1 pr-2.5 rounded-full hover:bg-slate-100 dark:hover:bg-gray-800/80 active:scale-95 transition"
           >
             {/* 头像徽章：用中性圆形托底，避免彩色 emoji 散落在界面中显得突兀 */}

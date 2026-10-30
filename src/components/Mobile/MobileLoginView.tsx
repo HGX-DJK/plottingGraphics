@@ -110,22 +110,18 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
 
       {/* 主体居中登录卡片容器 */}
       <div className="max-w-sm w-full mx-auto my-auto flex flex-col justify-center gap-4 sm:gap-5 z-10 py-1">
-        {/* 1. 顶部品牌与系统标题：中文大标题优先，英文字标作为优雅副标题置于下方 */}
+        {/* 1. 顶部品牌与系统标题：中文大标题与副标字徽 */}
         <div className="text-center flex flex-col items-center">
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
             标绘系统
           </h1>
 
-          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 mt-1.5 mb-1.5">
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 mt-1.5">
             <Sparkles className="w-3 h-3 text-blue-600 dark:text-cyan-400" />
             <span className="text-[10px] font-bold text-blue-700 dark:text-cyan-300 tracking-wider font-mono">
               PLOTTING SYSTEM
             </span>
           </div>
-
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            空间地理协同采集与现场态势推演平台
-          </p>
         </div>
 
         {/* 2. 现代清爽双色自适应登录表单卡片 */}
@@ -249,11 +245,6 @@ export const MobileLoginView: React.FC<MobileLoginViewProps> = ({
             </form>
           </div>
         </div>
-      </div>
-
-      {/* 底部版权与环境说明 */}
-      <div className="text-center text-[10px] text-slate-400 dark:text-slate-500 shrink-0">
-        标绘系统 • MapTalks GL
       </div>
     </div>
   );

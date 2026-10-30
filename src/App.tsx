@@ -23,7 +23,7 @@ import { ImportExportModal } from './components/Modals/ImportExportModal';
 import { ClearFeaturesModal } from './components/Modals/ClearFeaturesModal';
 import { MobilePoiSearchSheet } from './components/Mobile/MobilePoiSearchSheet';
 import { AmapPoiItem } from './services/amapSearchService';
-import { Smartphone, Monitor, Compass, Copy } from 'lucide-react';
+import { Smartphone, Monitor, Compass, Copy, ChevronDown } from 'lucide-react';
 import { CoordinateFormat, formatCoordinates } from './utils/geoUtils';
 import { ThemeMode, themeService } from './services/themeService';
 import { copyToClipboard } from './utils/uiUtils';
@@ -350,16 +350,8 @@ export const App: React.FC = () => {
   // 移动端主界面容器渲染
   const renderMobileAppContent = () => (
     <div className="relative w-full h-full flex flex-col bg-slate-100 dark:bg-gray-950 overflow-hidden select-none transition-colors duration-200">
-      {/* 1. 移动端顶部状态与标题栏 */}
-      <MobileHeader
-        currentUser={currentUser}
-        activeLayer={activeLayer}
-        onOpenLayers={() => setActiveTab('layers')}
-        onOpenMore={() => setActiveTab('more')}
-        onOpenSearch={() => setIsSearchOpen(true)}
-        theme={theme}
-        onToggleTheme={handleToggleTheme}
-      />
+      {/* 1. 移动端顶部全局地名检索栏 (高德风格沉浸式搜索) */}
+      <MobileHeader onOpenSearch={() => setIsSearchOpen(true)} />
 
       {/* 标绘与操作反馈 Toast */}
       {toastMessage &&
@@ -430,6 +422,26 @@ export const App: React.FC = () => {
           }}
         />
 
+        {/* 浮动工作图层选择胶囊 (左上角悬浮于搜索栏下方，轻量直观不占顶栏) */}
+        {!drawingTool && (
+          <div
+            className="absolute left-3 z-20 pointer-events-auto flex items-center gap-1.5 h-8 pl-2.5 pr-2 rounded-full bg-white/95 dark:bg-gray-950/95 backdrop-blur-md border border-slate-200/90 dark:border-white/10 shadow-md active:scale-95 transition cursor-pointer select-none max-w-[calc(100%-6rem)]"
+            style={{ top: 'calc(max(env(safe-area-inset-top, 0px), 12px) + 3.25rem)' }}
+            onClick={() => setActiveTab('layers')}
+            title="点击切换工作图层"
+            aria-label={`当前工作图层: ${activeLayer?.name || '默认工作图层'}，点击打开图层面板`}
+          >
+            <span
+              className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm ring-2 ring-black/5 dark:ring-white/20"
+              style={{ backgroundColor: activeLayer?.color || '#3b82f6' }}
+            />
+            <span className="text-[11px] font-bold text-slate-800 dark:text-gray-200 truncate tracking-tight">
+              {activeLayer?.name || '默认工作图层'}
+            </span>
+            <ChevronDown className="w-3 h-3 text-slate-400 dark:text-gray-500 shrink-0 ml-0.5" />
+          </div>
+        )}
+
         {/* 底部左侧：空间经纬度与比例尺徽章 */}
         {!drawingTool && !selectedFeature && (
           <div
@@ -463,6 +475,8 @@ export const App: React.FC = () => {
           enableSnapping={enableSnapping}
           topologyWarning={topologyWarning}
           activeSegment={activeSegment}
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
           hasSelectedFeature={!!selectedFeature && !drawingTool && activeTab !== 'properties'}
           onCancelDrawing={handleCancelDrawing}
           onUndoPoint={() => mapRef.current?.undoPoint()}

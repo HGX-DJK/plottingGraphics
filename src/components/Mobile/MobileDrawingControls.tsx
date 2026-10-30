@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { PlotFeatureType } from '../../types';
+import { ThemeMode } from '../../services/themeService';
 import type { MeasureResult } from '../Map/MaptalksContainer';
 import {
   Plus,
@@ -17,6 +18,8 @@ import {
   Trash2,
   Eraser,
   SlidersHorizontal,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { formatDistance } from '../../utils/geoUtils';
 
@@ -28,6 +31,8 @@ interface MobileDrawingControlsProps {
   topologyWarning?: string | null;
   activeSegment?: { length: number; azimuth: { degrees: number; text: string } } | null;
   measureResult?: MeasureResult | null;
+  theme?: ThemeMode;
+  onToggleTheme?: () => void;
   onCancelDrawing: () => void;
   onUndoPoint?: () => void;
   onFinishDrawing?: () => void;
@@ -53,6 +58,8 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
   topologyWarning,
   activeSegment,
   measureResult = null,
+  theme = 'dark',
+  onToggleTheme,
   onCancelDrawing,
   onUndoPoint,
   onFinishDrawing,
@@ -468,6 +475,28 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
               <Crosshair className="w-4 h-4 shrink-0" />
               <span className="text-xs font-semibold truncate">复位全景</span>
             </button>
+
+            {onToggleTheme && (
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMoreToolsOpen(false);
+                  onToggleTheme();
+                }}
+                className="w-full flex items-center gap-2.5 h-11 px-3 text-left text-slate-700 dark:text-gray-300 active:bg-slate-100 dark:active:bg-gray-800/80 transition border-t border-slate-200/70 dark:border-white/10"
+                title={theme === 'dark' ? '切换为清新浅色模式' : '切换为极夜暗色模式'}
+                aria-label="切换界面明暗风格"
+              >
+                {theme === 'dark' ? (
+                  <Sun className="w-4 h-4 text-amber-500 shrink-0" />
+                ) : (
+                  <Moon className="w-4 h-4 text-indigo-500 shrink-0" />
+                )}
+                <span className="text-xs font-semibold truncate">
+                  {theme === 'dark' ? '切换清新浅色' : '切换极夜暗色'}
+                </span>
+              </button>
+            )}
 
             {onOpenClearFeatures && (
               <button

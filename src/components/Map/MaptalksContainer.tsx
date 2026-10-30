@@ -6,37 +6,18 @@ import React, {
   forwardRef,
 } from 'react';
 import { PlotFeature, PlotLayer, PlotFeatureType, BasemapType } from '../../types';
-import {
-  calculateStraightArrow,
-  calculateAttackArrow,
-  calculatePincerArrow,
-  calculateGatheringPlace,
-  calculateSector,
-} from '../../utils/plotAlgorithms';
-import { createTacticalIcon } from '../../utils/markerIcons';
-import {
-  calculateSphericalDistance,
-  formatDistance,
-  calculateSphericalPolygonArea,
-  calculateLineLength,
-  formatArea,
-  calculateAzimuth,
-  findSnapTarget,
-  checkPolygonSelfIntersection,
-} from '../../utils/geoUtils';
 import { Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { calculateSphericalDistance, calculateAzimuth, findSnapTarget } from '../../utils/geoUtils';
+import { createBaseMapLayer } from './utils/mapBasemap';
+import {
+  createGeometryFromFeature,
+  calculateFeatureBoundsAndCenter,
+  calculateTargetZoom,
+} from './utils/featureGeometry';
+import { useMapMeasurement, MeasureResult } from './hooks/useMapMeasurement';
+import { usePlotDrawing } from './hooks/usePlotDrawing';
 
-/** 空间量算读数结果 (测距 / 测面) */
-export interface MeasureResult {
-  /** 量算类型：distance=测距，area=测面 */
-  kind: 'distance' | 'area';
-  /** 原始量算值 (米 / 平方米) */
-  value: number;
-  /** 格式化后的读数文案 */
-  text: string;
-  /** 已落点数量 */
-  pointCount: number;
-}
+export type { MeasureResult };
 
 export interface MaptalksContainerRef {
   zoomIn: () => void;
@@ -45,9 +26,7 @@ export interface MaptalksContainerRef {
   resetNorth: () => void;
   undoPoint: () => void;
   finishCurrentDrawing: () => void;
-  /** 量算模式：撤回上一个量算点 */
   undoMeasurePoint: () => void;
-  /** 量算模式：清空所有量算点并重测 */
   clearMeasure: () => void;
   locateUser: (coord: [number, number]) => void;
   focusFeature: (target: string | PlotFeature) => void;
@@ -71,79 +50,6 @@ interface MaptalksContainerProps {
   onTopologyWarning?: (msg: string | null) => void;
   onActiveSegmentChange?: (segment: { length: number; azimuth: { degrees: number; text: string } } | null) => void;
   onSnapFeedback?: (snapped: boolean) => void;
-}
-
-/**
- * 构造高画质、免 API Key、零水印的生产级 GIS 底图图层
- * - dark: Esri 极夜深灰底图 (Dark Base + Dark Reference 透明道路注记)
- * - satellite: ArcGIS 全球高清遥感正射影像 + 边界道路地名注记
- * - street: Esri World Street Map 现代高清街道图 (全路网、水系、地标建筑)
- */
-function createBaseMapLayer(maptalks: any, basemap: BasemapType) {
-  const ts = Date.now();
-
-  if (basemap === 'satellite') {
-    if (maptalks.GroupTileLayer) {
-      return new maptalks.GroupTileLayer('base-satellite-' + ts, [
-        new maptalks.TileLayer('sat-img-' + ts, {
-          urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-          crossOrigin: 'anonymous',
-          repeatWorld: true,
-          maxAvailableZoom: 19,
-          attribution: '&copy; Esri World Imagery & MapTalks GL',
-        }),
-        new maptalks.TileLayer('sat-ref-' + ts, {
-          urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-          crossOrigin: 'anonymous',
-          repeatWorld: true,
-          maxAvailableZoom: 19,
-        }),
-      ]);
-    }
-    return new maptalks.TileLayer('base-satellite-' + ts, {
-      urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      crossOrigin: 'anonymous',
-      repeatWorld: true,
-      maxAvailableZoom: 19,
-      attribution: '&copy; Esri World Imagery & MapTalks GL',
-    });
-  }
-
-  if (basemap === 'street') {
-    return new maptalks.TileLayer('base-street-' + ts, {
-      urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-      crossOrigin: 'anonymous',
-      repeatWorld: true,
-      maxAvailableZoom: 19,
-      attribution: '&copy; Esri World Street Map & MapTalks GL',
-    });
-  }
-
-  // 默认暗夜科技 (dark): Esri 极夜深灰底图 + 透明道路注记
-  if (maptalks.GroupTileLayer) {
-    return new maptalks.GroupTileLayer('base-dark-' + ts, [
-      new maptalks.TileLayer('dark-base-' + ts, {
-        urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-        crossOrigin: 'anonymous',
-        repeatWorld: true,
-        maxAvailableZoom: 19,
-        attribution: '&copy; Esri Dark Canvas & MapTalks GL',
-      }),
-      new maptalks.TileLayer('dark-ref-' + ts, {
-        urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
-        crossOrigin: 'anonymous',
-        repeatWorld: true,
-        maxAvailableZoom: 19,
-      }),
-    ]);
-  }
-  return new maptalks.TileLayer('base-dark-' + ts, {
-    urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-    crossOrigin: 'anonymous',
-    repeatWorld: true,
-    maxAvailableZoom: 19,
-    attribution: '&copy; Esri Dark Canvas & MapTalks GL',
-  });
 }
 
 export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContainerProps>(
@@ -175,20 +81,10 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
     const previewLayerRef = useRef<any>(null);
     const measureLayerRef = useRef<any>(null);
 
-    // 检测 MapTalks GL 脚本是否就绪
-    const [maptalksReady, setMaptalksReady] = useState(
-      typeof window !== 'undefined' && !!(window as any).maptalks
-    );
-    // 引擎长时间未就绪（CDN 不可达 / 网络受限）时的失败态，避免永久空转
-    const [maptalksFailed, setMaptalksFailed] = useState(false);
-
-    // 标绘交互中暂存的控制点
-    const [drawingPoints, setDrawingPoints] = useState<[number, number][]>([]);
-    const drawingPointsRef = useRef<[number, number][]>([]);
-    drawingPointsRef.current = drawingPoints;
-
-    const drawingToolRef = useRef(drawingTool);
-    drawingToolRef.current = drawingTool;
+    const [maptalksReady, setMaptalksReady] = useState<boolean>(() => {
+      return typeof window !== 'undefined' && !!(window as any).maptalks;
+    });
+    const [maptalksFailed, setMaptalksFailed] = useState<boolean>(false);
 
     const activeLayerIdRef = useRef(activeLayerId);
     activeLayerIdRef.current = activeLayerId;
@@ -202,20 +98,8 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
     const enableSnappingRef = useRef(enableSnapping);
     enableSnappingRef.current = enableSnapping;
 
-    // 事件回调使用 ref 持有，避免回调标识变化导致几何体被无谓地全量重建。
-    // 之前 onSelectFeature 每次渲染都是新引用，鼠标移动引发的重渲染会连带
-    // 清空并重建全部矢量要素，造成明显卡顿。
     const onSelectFeatureRef = useRef(onSelectFeature);
     onSelectFeatureRef.current = onSelectFeature;
-
-    const onCreateFeatureRef = useRef(onCreateFeature);
-    onCreateFeatureRef.current = onCreateFeature;
-
-    const onCancelDrawingRef = useRef(onCancelDrawing);
-    onCancelDrawingRef.current = onCancelDrawing;
-
-    const onTopologyWarningRef = useRef(onTopologyWarning);
-    onTopologyWarningRef.current = onTopologyWarning;
 
     const onActiveSegmentChangeRef = useRef(onActiveSegmentChange);
     onActiveSegmentChangeRef.current = onActiveSegmentChange;
@@ -223,209 +107,61 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
     const onSnapFeedbackRef = useRef(onSnapFeedback);
     onSnapFeedbackRef.current = onSnapFeedback;
 
-    // 吸附候选顶点始终基于最新要素数据计算，避免使用陈旧闭包
-    const getCandidateVertices = (): [number, number][] => {
-      const currentLayers = layersRef.current;
-      const currentFeatures = featuresRef.current;
-      const visibleLayerIds = new Set(currentLayers.filter((l) => l.visible).map((l) => l.id));
-      const candidates: [number, number][] = [];
-      currentFeatures.forEach((feat) => {
-        if (visibleLayerIds.has(feat.layerId) && feat.coordinates) {
-          feat.coordinates.forEach((c) => candidates.push(c));
-        }
-      });
-      drawingPointsRef.current.forEach((c) => candidates.push(c));
-      return candidates;
-    };
+    // 1. 空间量算引擎 Hook
+    const {
+      measurePointsRef,
+      measureToolRef,
+      isMeasureTool,
+      handleMeasureClick,
+      undoMeasurePoint,
+      clearMeasure,
+    } = useMapMeasurement({
+      drawingTool,
+      measureLayerRef,
+      onMeasureResultChange,
+      onDrawingPointsChange,
+    });
 
-    // 测距暂存点
-    const [measurePoints, setMeasurePoints] = useState<[number, number][]>([]);
-    const measurePointsRef = useRef<[number, number][]>([]);
-    measurePointsRef.current = measurePoints;
+    // 2. 交互标绘引擎 Hook
+    const {
+      drawingPointsRef,
+      setDrawingPoints,
+      getCandidateVertices,
+      finishDrawing,
+      renderPreview,
+      undoPoint,
+      finishCurrentDrawing,
+      clearDrawing,
+    } = usePlotDrawing({
+      mapInstanceRef,
+      previewLayerRef,
+      drawingTool,
+      activeLayerIdRef,
+      layersRef,
+      featuresRef,
+      enableSnappingRef,
+      onCreateFeature,
+      onCancelDrawing,
+      onDrawingPointsChange,
+      onTopologyWarning,
+      onActiveSegmentChange,
+      onSnapFeedback,
+    });
 
-    // 量算读数结果 (测距总长 / 测面面积)，实时回传至 UI 控制条展示
-    const [measureResult, setMeasureResult] = useState<MeasureResult | null>(null);
-
-    // 记录当前量算模式，用于侦测「测距 <-> 测面」切换并清空上一模式的落点
-    const measureToolRef = useRef<'measure-distance' | 'measure-area' | null>(null);
-
-    // 量算回调使用 ref 持有，避免回调标识变化触发量算几何体重绘
-    const onMeasureResultChangeRef = useRef(onMeasureResultChange);
-    onMeasureResultChangeRef.current = onMeasureResultChange;
-
-    // 是否处于空间量算模式 (测距 / 测面)
-    const isMeasureTool =
-      drawingTool === 'measure-distance' || drawingTool === 'measure-area';
-
-    // 向上汇报当前打点数量：量算模式上报量算点，普通标绘上报标绘控制点
-    useEffect(() => {
-      onDrawingPointsChange?.(
-        isMeasureTool ? measurePoints.length : drawingPoints.length
-      );
-    }, [isMeasureTool, measurePoints, drawingPoints, onDrawingPointsChange]);
-
-    // 量算读数结果回传
-    useEffect(() => {
-      onMeasureResultChangeRef.current?.(measureResult);
-    }, [measureResult]);
-
-    /**
-     * 渲染量算几何体并同步读数。
-     * 测距：折线 + 顶点标定 + 终点总长标注；测面：多边形 + 顶点标定 + 中心面积标注。
-     * 顶点标定圆点解决移动端落点无感知的问题。
-     */
-    const renderMeasure = (
-      tool: 'measure-distance' | 'measure-area',
-      pts: [number, number][]
-    ): MeasureResult | null => {
-      const measureLayer = measureLayerRef.current;
-      const maptalks = (window as any).maptalks;
-      if (!measureLayer || !maptalks) return null;
-
-      measureLayer.clear();
-      if (pts.length === 0) return null;
-
-      // 顶点标定圆点 (移动端落点反馈)
-      const vertexMarkers = pts.map(
-        (pt) =>
-          new maptalks.Marker(pt, {
-            symbol: [
-              {
-                markerType: 'ellipse',
-                markerWidth: 10,
-                markerHeight: 10,
-                markerFill: '#ffffff',
-                markerFillOpacity: 1,
-                markerLineColor: tool === 'measure-distance' ? '#f59e0b' : '#10b981',
-                markerLineWidth: 2.5,
-              },
-            ],
-          })
-      );
-
-      if (tool === 'measure-distance') {
-        if (pts.length < 2) {
-          measureLayer.addGeometry(vertexMarkers);
-          return {
-            kind: 'distance',
-            value: 0,
-            text: '至少需要 2 个点',
-            pointCount: pts.length,
-          };
-        }
-
-        let totalDist = 0;
-        for (let i = 0; i < pts.length - 1; i++) {
-          totalDist += calculateSphericalDistance(pts[i], pts[i + 1]);
-        }
-
-        const line = new maptalks.LineString(pts, {
-          symbol: {
-            lineColor: '#f59e0b',
-            lineWidth: 3,
-            lineDasharray: [6, 4],
-          },
-        });
-        const endMarker = new maptalks.Marker(pts[pts.length - 1], {
-          symbol: {
-            textName: `总长: ${formatDistance(totalDist)}`,
-            textSize: 12,
-            textFill: '#fbbf24',
-            textHaloFill: '#111827',
-            textHaloRadius: 3,
-            textDy: -15,
-            textWeight: 'bold',
-          },
-        });
-        measureLayer.addGeometry([line, endMarker, ...vertexMarkers]);
-
-        return {
-          kind: 'distance',
-          value: totalDist,
-          text: formatDistance(totalDist),
-          pointCount: pts.length,
-        };
-      }
-
-      // 测面
-      if (pts.length < 3) {
-        measureLayer.addGeometry(vertexMarkers);
-        return {
-          kind: 'area',
-          value: 0,
-          text: '至少需要 3 个点',
-          pointCount: pts.length,
-        };
-      }
-
-      const area = calculateSphericalPolygonArea(pts);
-      const poly = new maptalks.Polygon([pts], {
-        symbol: {
-          lineColor: '#10b981',
-          lineWidth: 2.5,
-          lineDasharray: [5, 5],
-          polygonFill: '#10b981',
-          polygonOpacity: 0.3,
-        },
-      });
-      const centerMarker = new maptalks.Marker(pts[pts.length - 1], {
-        symbol: {
-          textName: `面积: ${formatArea(area)}`,
-          textSize: 12,
-          textFill: '#34d399',
-          textHaloFill: '#111827',
-          textHaloRadius: 3,
-          textDy: -15,
-          textWeight: 'bold',
-        },
-      });
-      measureLayer.addGeometry([poly, centerMarker, ...vertexMarkers]);
-
-      return {
-        kind: 'area',
-        value: area,
-        text: formatArea(area),
-        pointCount: pts.length,
-      };
-    };
-
-    // 精准聚焦与视口平滑居中 (支持要素对象或要素ID，自适应点/线/面/战术箭头视距)
+    // 精准聚焦与视口居中
     const focusFeatureOnMap = (feat: PlotFeature) => {
       const map = mapInstanceRef.current;
-      if (!map || !feat || !feat.coordinates || feat.coordinates.length === 0) return;
+      if (!map) return;
 
-      let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
-      let sumLng = 0, sumLat = 0;
-      feat.coordinates.forEach(([lng, lat]) => {
-        if (lng < minLng) minLng = lng;
-        if (lng > maxLng) maxLng = lng;
-        if (lat < minLat) minLat = lat;
-        if (lat > maxLat) maxLat = lat;
-        sumLng += lng;
-        sumLat += lat;
-      });
-      const centerLng = sumLng / feat.coordinates.length;
-      const centerLat = sumLat / feat.coordinates.length;
-      const targetCenter: [number, number] = [centerLng, centerLat];
+      const calc = calculateFeatureBoundsAndCenter(feat);
+      if (!calc) return;
 
-      const spanLng = maxLng - minLng;
-      const spanLat = maxLat - minLat;
-      const isSinglePoint = feat.coordinates.length === 1;
-
-      let targetZoom = 15.5;
-      if (isSinglePoint) {
-        targetZoom = Math.max(map.getZoom(), 16);
-      } else if (spanLng > 0.08 || spanLat > 0.08) {
-        targetZoom = 13.5;
-      } else if (spanLng > 0.03 || spanLat > 0.03) {
-        targetZoom = 14.5;
-      } else {
-        targetZoom = Math.max(map.getZoom(), 15.5);
-      }
+      const { center, spanLng, spanLat, isSinglePoint } = calc;
+      const targetZoom = calculateTargetZoom(spanLng, spanLat, isSinglePoint, map.getZoom());
 
       map.animateTo(
         {
-          center: targetCenter,
+          center,
           zoom: targetZoom,
         },
         { duration: 500 }
@@ -439,7 +175,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
           focusLayer = new maptalks.VectorLayer('system-focus-beacon', [], { zIndex: 1001 }).addTo(map);
         }
         focusLayer.clear();
-        const beacon = new maptalks.Marker(targetCenter, {
+        const beacon = new maptalks.Marker(center, {
           symbol: [
             {
               markerType: 'ellipse',
@@ -469,7 +205,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       }
     };
 
-    // 暴露地图控制接口给移动端外部悬浮按钮
+    // 暴露地图控制接口给外部悬浮按钮
     useImperativeHandle(ref, () => ({
       zoomIn: () => {
         mapInstanceRef.current?.zoomIn();
@@ -502,39 +238,13 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
           }
         );
       },
-      undoPoint: () => {
-        if (drawingPointsRef.current.length > 0) {
-          const newPts = drawingPointsRef.current.slice(0, -1);
-          drawingPointsRef.current = newPts;
-          setDrawingPoints(newPts);
-          renderPreview(newPts);
-        }
-      },
-      finishCurrentDrawing: () => {
-        const pts = drawingPointsRef.current;
-        if (pts.length >= 2) {
-          finishDrawing(pts);
-        }
-      },
+      undoPoint,
+      finishCurrentDrawing,
       undoMeasurePoint: () => {
-        const pts = measurePointsRef.current;
-        if (pts.length === 0) return;
-        const newPts = pts.slice(0, -1);
-        measurePointsRef.current = newPts;
-        setMeasurePoints(newPts);
-        setMeasureResult(
-          renderMeasure(
-            drawingToolRef.current === 'measure-area' ? 'measure-area' : 'measure-distance',
-            newPts
-          )
-        );
+        const maptalks = (window as any).maptalks;
+        if (maptalks) undoMeasurePoint(maptalks);
       },
-      clearMeasure: () => {
-        measurePointsRef.current = [];
-        setMeasurePoints([]);
-        setMeasureResult(null);
-        measureLayerRef.current?.clear();
-      },
+      clearMeasure,
       locateUser: (coord: [number, number]) => {
         const map = mapInstanceRef.current;
         const maptalks = (window as any).maptalks;
@@ -599,10 +309,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       },
     }));
 
-    // 1. 检测 window.maptalks 注入状态
-    // 脚本以 async 方式加载（外业弱网环境下 CDN 可能长时间不可达），
-    // 因此除轮询就绪外，额外设置超时阈值：超时后进入失败态并提供重试入口，
-    // 避免用户面对一个永远转圈的空白地图。
+    // 检测 window.maptalks 注入状态
     useEffect(() => {
       if (maptalksReady) return;
       setMaptalksFailed(false);
@@ -627,70 +334,60 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       return () => clearInterval(timer);
     }, [maptalksReady]);
 
-    // 2. 初始化 MapTalks 地图
+    // 初始化 MapTalks 地图实例
     useEffect(() => {
       if (!maptalksReady || !mapContainerRef.current) return;
       if (mapInstanceRef.current) return;
 
       const maptalks = (window as any).maptalks;
-
-      // 创建底图切片层 (免 API Key、零水印的高清底图)
       const baseTileLayer = createBaseMapLayer(maptalks, basemap);
       baseTileLayerRef.current = baseTileLayer;
 
-      // 创建地图实例 (初始坐标设定为中国上海市核心区: 121.4737, 31.2304)
       const map = new maptalks.Map(mapContainerRef.current, {
         center: [121.4737, 31.2304],
         zoom: 12.5,
-        minZoom: 2,
+        minZoom: 3,
         maxZoom: 19,
+        pitch: 0,
+        maxPitch: 70,
+        bearing: 0,
         baseLayer: baseTileLayer,
+        attribution: false,
+        zoomControl: false,
+        scaleControl: false,
         spatialReference: {
           projection: 'EPSG:3857',
         },
-        zoomControl: false, // 禁用原生小按钮，使用移动端大悬浮触控
-        scaleControl: {
-          position: 'bottom-left',
-          maxWidth: 90,
-        },
-        doubleClickZoom: false, // 禁用双击放大，防止移动端连续点触落点时误触发缩放
-        touchZoom: true,
-        touchRotate: true,
       });
-
-      // 绘制过程临时预览图层
-      const previewLayer = new maptalks.VectorLayer('system-draw-preview', [], {
-        zIndex: 999,
-      }).addTo(map);
-      previewLayerRef.current = previewLayer;
-
-      // 测距图层
-      const measureLayer = new maptalks.VectorLayer('system-measure', [], {
-        zIndex: 998,
-      }).addTo(map);
-      measureLayerRef.current = measureLayer;
 
       mapInstanceRef.current = map;
 
-      // 容器尺寸自适应：地图在首帧布局完成前初始化时，画布尺寸可能与容器
-      // 不一致，导致渲染区域偏移（出现大片空白）。这里监听容器尺寸变化并
-      // 主动触发 resize，确保任何进入路径下地图都能完整铺满。
+      // 实时绘制引导预览层
+      const previewLayer = new maptalks.VectorLayer('system-preview', [], {
+        zIndex: 999,
+        enableAltitude: true,
+      }).addTo(map);
+      previewLayerRef.current = previewLayer;
+
+      // 实时测距测面量算层
+      const measureLayer = new maptalks.VectorLayer('system-measure', [], {
+        zIndex: 998,
+        enableAltitude: true,
+      }).addTo(map);
+      measureLayerRef.current = measureLayer;
+
+      // 视口尺寸同步
       const syncMapSize = () => {
-        try {
-          if (!mapInstanceRef.current) return;
-          const el = mapContainerRef.current;
-          if (!el) return;
-          const w = el.clientWidth;
-          const h = el.clientHeight;
-          if (w > 0 && h > 0) {
-            mapInstanceRef.current.resize();
-          }
-        } catch (e) {
-          /* 忽略尺寸同步异常，避免阻断渲染 */
+        if (!mapInstanceRef.current || !mapContainerRef.current) return;
+        const width = mapContainerRef.current.clientWidth;
+        const height = mapContainerRef.current.clientHeight;
+        if (width > 0 && height > 0) {
+          try {
+            mapInstanceRef.current.checkSize();
+          } catch (e) {}
         }
       };
 
-      // 首帧 + 下一帧各同步一次，覆盖登录态切换与设备旋转等布局时序差异
       requestAnimationFrame(() => {
         syncMapSize();
         requestAnimationFrame(syncMapSize);
@@ -710,7 +407,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         }
       });
 
-      // 实时监听地图旋转朝向 (Bearing) 与倾角 (Pitch)
+      // 监听地图旋转朝向 (Bearing) 与倾角 (Pitch)
       const handleMapTransform = () => {
         if (!map) return;
         const b = typeof map.getBearing === 'function' ? map.getBearing() : 0;
@@ -741,7 +438,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       };
     }, [maptalksReady]);
 
-    // 3. 底图切换
+    // 底图切换
     useEffect(() => {
       if (!mapInstanceRef.current || !(window as any).maptalks) return;
       const maptalks = (window as any).maptalks;
@@ -753,7 +450,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       }
     }, [basemap]);
 
-    // 4. 图层同步 (创建/更新/删除 MapTalks VectorLayers)
+    // 图层同步 (创建/更新/删除 MapTalks VectorLayers)
     useEffect(() => {
       const map = mapInstanceRef.current;
       if (!map || !(window as any).maptalks) return;
@@ -788,7 +485,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       });
     }, [layers]);
 
-    // 5. 要素渲染与高亮更新
+    // 要素渲染与高亮更新
     useEffect(() => {
       const map = mapInstanceRef.current;
       if (!map || !(window as any).maptalks) return;
@@ -807,8 +504,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
 
           if (geom) {
             geom.on('click tap', (e: any) => {
-              // 标绘交互模式下，要素不拦截点击，直接交由底图捕获标绘顶点！
-              if (drawingToolRef.current) return;
+              if (drawingTool) return;
               if (e.domEvent) e.domEvent.stopPropagation();
               if (!layer.locked) {
                 onSelectFeatureRef.current(feat.id);
@@ -816,12 +512,12 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
             });
 
             geom.on('mouseover', () => {
-              if (!drawingToolRef.current) {
+              if (!drawingTool) {
                 map.setCursor('pointer');
               }
             });
             geom.on('mouseout', () => {
-              if (!drawingToolRef.current) {
+              if (!drawingTool) {
                 map.setCursor('default');
               }
             });
@@ -830,9 +526,9 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
           }
         });
       });
-    }, [features, layers, selectedFeatureId]);
+    }, [features, layers, selectedFeatureId, drawingTool]);
 
-    // 6. 选中要素时聚焦 (使用 prevSelectedIdRef 避免重复触发与闭包失效)
+    // 选中要素时聚焦
     const prevSelectedIdRef = useRef<string | null>(null);
     useEffect(() => {
       if (!selectedFeatureId) {
@@ -848,248 +544,16 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       }
     }, [selectedFeatureId, features]);
 
-    // 7. 辅助函数：构造 Geometry
-    const createGeometryFromFeature = (maptalks: any, feat: PlotFeature, isSelected: boolean) => {
-      const { type, coordinates, properties } = feat;
-      if (!coordinates || coordinates.length === 0) return null;
-
-      const strokeColor = isSelected ? '#fbbf24' : properties.strokeColor;
-      const strokeWidth = isSelected ? properties.strokeWidth + 2 : properties.strokeWidth;
-      const dash = properties.strokeDasharray === 'dash' ? [8, 6] : null;
-
-      // 专题地物点与调查标号
-      if (type.startsWith('post-') || type.startsWith('point-')) {
-        const iconUrl = createTacticalIcon(type, properties.strokeColor, properties.text);
-        return new maptalks.Marker(coordinates[0], {
-          id: feat.id,
-          symbol: [
-            {
-              markerFile: iconUrl,
-              markerWidth: isSelected ? 46 : 38,
-              markerHeight: isSelected ? 46 : 38,
-              markerDx: 0,
-              markerDy: 0,
-            },
-            {
-              textName: properties.text || feat.name,
-              textSize: properties.textSize || 12,
-              textFill: isSelected ? '#fbbf24' : properties.textColor || '#ffffff',
-              textHaloFill: '#0b1120',
-              textHaloRadius: 3,
-              textDy: 26,
-              textWeight: 'bold',
-            },
-          ],
-        });
-      }
-
-      // 普通点标记
-      if (type === 'marker') {
-        const iconUrl = createTacticalIcon('marker', strokeColor, feat.name);
-        return new maptalks.Marker(coordinates[0], {
-          id: feat.id,
-          symbol: [
-            {
-              markerFile: iconUrl,
-              markerWidth: isSelected ? 40 : 32,
-              markerHeight: isSelected ? 40 : 32,
-              markerDx: 0,
-              markerDy: -6,
-            },
-            {
-              textName: feat.name,
-              textSize: 12,
-              textFill: isSelected ? '#fbbf24' : '#ffffff',
-              textHaloFill: '#000000',
-              textHaloRadius: 2,
-              textDy: 20,
-            },
-          ],
-        });
-      }
-
-      // 纯文字注记
-      if (type === 'text') {
-        return new maptalks.Marker(coordinates[0], {
-          id: feat.id,
-          symbol: {
-            textName: properties.text || feat.name,
-            textSize: properties.textSize || 14,
-            textFill: isSelected ? '#fbbf24' : properties.textColor || '#38bdf8',
-            textHaloFill: '#0f172a',
-            textHaloRadius: 3,
-            textWeight: 'bold',
-          },
-        });
-      }
-
-      // 折线 / 路线 / 自由手绘
-      if (type === 'polyline' || type === 'freehand') {
-        return new maptalks.LineString(coordinates, {
-          id: feat.id,
-          symbol: {
-            lineColor: strokeColor,
-            lineWidth: strokeWidth,
-            lineDasharray: dash,
-            lineOpacity: 0.95,
-          },
-        });
-      }
-
-      // 圆形
-      if (type === 'circle') {
-        const radius = properties.radius || 1200;
-        return new maptalks.Circle(coordinates[0], radius, {
-          id: feat.id,
-          symbol: {
-            lineColor: strokeColor,
-            lineWidth: strokeWidth,
-            lineDasharray: dash,
-            polygonFill: properties.fillColor,
-            polygonOpacity: properties.fillOpacity,
-          },
-        });
-      }
-
-      // 矩形 (根据2个对角点或4个顶点生成)
-      if (type === 'rectangle') {
-        let rectCoords = coordinates;
-        if (coordinates.length === 2) {
-          const [p1, p2] = coordinates;
-          rectCoords = [
-            [p1[0], p1[1]],
-            [p2[0], p1[1]],
-            [p2[0], p2[1]],
-            [p1[0], p2[1]],
-          ];
-        }
-        if (rectCoords.length < 3) return null;
-        return new maptalks.Polygon([rectCoords], {
-          id: feat.id,
-          symbol: {
-            lineColor: strokeColor,
-            lineWidth: strokeWidth,
-            lineDasharray: dash,
-            polygonFill: properties.fillColor,
-            polygonOpacity: properties.fillOpacity,
-          },
-        });
-      }
-
-      // 普通多边形
-      if (type === 'polygon') {
-        if (coordinates.length < 3) return null;
-        return new maptalks.Polygon([coordinates], {
-          id: feat.id,
-          symbol: {
-            lineColor: strokeColor,
-            lineWidth: strokeWidth,
-            lineDasharray: dash,
-            polygonFill: properties.fillColor,
-            polygonOpacity: properties.fillOpacity,
-          },
-        });
-      }
-
-      // 战术军标：直箭头
-      if (type === 'straight-arrow') {
-        const arrowCoords = calculateStraightArrow(coordinates);
-        if (arrowCoords.length < 3) return null;
-        return new maptalks.Polygon([arrowCoords], {
-          id: feat.id,
-          symbol: {
-            lineColor: strokeColor,
-            lineWidth: strokeWidth,
-            polygonFill: properties.fillColor,
-            polygonOpacity: properties.fillOpacity,
-          },
-        });
-      }
-
-      // 战术军标：突击箭头
-      if (type === 'attack-arrow') {
-        const arrowCoords = calculateAttackArrow(coordinates);
-        if (arrowCoords.length < 3) return null;
-        return new maptalks.Polygon([arrowCoords], {
-          id: feat.id,
-          symbol: {
-            lineColor: strokeColor,
-            lineWidth: strokeWidth,
-            polygonFill: properties.fillColor,
-            polygonOpacity: properties.fillOpacity,
-          },
-        });
-      }
-
-      // 战术军标：钳击双箭头
-      if (type === 'pincer-arrow') {
-        const pincerCoords = calculatePincerArrow(coordinates);
-        if (pincerCoords.length < 3) return null;
-        return new maptalks.Polygon([pincerCoords], {
-          id: feat.id,
-          symbol: {
-            lineColor: strokeColor,
-            lineWidth: strokeWidth,
-            polygonFill: properties.fillColor,
-            polygonOpacity: properties.fillOpacity,
-          },
-        });
-      }
-
-      // 战术态势：集结地域
-      if (type === 'gathering-place') {
-        const gatherCoords = calculateGatheringPlace(coordinates);
-        if (gatherCoords.length < 3) return null;
-        return new maptalks.Polygon([gatherCoords], {
-          id: feat.id,
-          symbol: {
-            lineColor: strokeColor,
-            lineWidth: strokeWidth,
-            polygonFill: properties.fillColor,
-            polygonOpacity: properties.fillOpacity,
-          },
-        });
-      }
-
-      // 战术态势：防御警戒扇形
-      if (type === 'sector') {
-        const center = coordinates[0];
-        const edge = coordinates[1] || [center[0] + 0.05, center[1]];
-        const sectorCoords = calculateSector(center, edge, 90);
-        if (sectorCoords.length < 3) return null;
-        return new maptalks.Polygon([sectorCoords], {
-          id: feat.id,
-          symbol: {
-            lineColor: strokeColor,
-            lineWidth: strokeWidth,
-            lineDasharray: dash,
-            polygonFill: properties.fillColor,
-            polygonOpacity: properties.fillOpacity,
-          },
-        });
-      }
-
-      return null;
-    };
-
-    // 8. 交互标绘引擎
+    // 交互标绘与量算事件监听
     useEffect(() => {
       const map = mapInstanceRef.current;
       if (!map || !(window as any).maptalks) return;
       const maptalks = (window as any).maptalks;
-      const previewLayer = previewLayerRef.current;
-      const measureLayer = measureLayerRef.current;
 
       if (!drawingTool) {
-        previewLayer?.clear();
-        measureLayer?.clear();
-        setDrawingPoints([]);
-        setMeasurePoints([]);
-        setMeasureResult(null);
-        measureToolRef.current = null;
+        clearDrawing();
+        clearMeasure();
         map.setCursor('default');
-        onTopologyWarningRef.current?.(null);
-        onActiveSegmentChangeRef.current?.(null);
         return;
       }
 
@@ -1097,26 +561,19 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
 
       // 空间量算模式 (测距与测面)
       if (drawingTool === 'measure-distance' || drawingTool === 'measure-area') {
-        // 量算模式切换 (测距 <-> 测面) 时清空上一模式的落点，避免点位跨模式泄漏
         if (measureToolRef.current !== drawingTool) {
           measureToolRef.current = drawingTool;
-          measurePointsRef.current = [];
-          setMeasurePoints([]);
-          setMeasureResult(null);
-          measureLayer?.clear();
+          clearMeasure();
         }
 
-        const handleMeasureClick = (e: any) => {
+        const onMeasureClick = (e: any) => {
           const coord: [number, number] = [e.coordinate.x, e.coordinate.y];
-          const newPts = [...measurePointsRef.current, coord];
-          measurePointsRef.current = newPts;
-          setMeasurePoints(newPts);
-          setMeasureResult(renderMeasure(drawingTool, newPts));
+          handleMeasureClick(coord, drawingTool, maptalks);
         };
 
-        map.on('click', handleMeasureClick);
+        map.on('click', onMeasureClick);
         return () => {
-          map.off('click', handleMeasureClick);
+          map.off('click', onMeasureClick);
         };
       }
 
@@ -1126,7 +583,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         const existingPts = drawingPointsRef.current;
         let wasSnapped = false;
 
-        // 智能磁吸吸附 (Smart Vertex Snapping)
+        // 智能磁吸吸附
         if (enableSnappingRef.current) {
           const res = typeof map.getResolution === 'function' ? map.getResolution() : 10;
           const thresholdMeters = Math.max(10, res * 22);
@@ -1139,7 +596,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
           }
         }
 
-        // 多边形采集：当已有3个及以上顶点，若再次点击靠近起点，自动闭合完成！
+        // 多边形自动闭合
         if (drawingTool === 'polygon' && existingPts.length >= 3) {
           const distToFirst = calculateSphericalDistance(coord, existingPts[0]);
           const zoom = map.getZoom();
@@ -1190,7 +647,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         }
       };
 
-      // 移动端拖动/指针移动时更新半透明预览与动态方位角
+      // 移动指针时更新半透明预览与动态方位角
       const handleMouseMove = (e: any) => {
         let mouseCoord: [number, number] = [e.coordinate.x, e.coordinate.y];
         let wasSnapped = false;
@@ -1207,362 +664,132 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         }
 
         const pts = drawingPointsRef.current;
-        if (pts.length === 0) return;
+        if (pts.length > 0) {
+          const tempPts: [number, number][] = [...pts, mouseCoord];
+          renderPreview(tempPts, wasSnapped ? mouseCoord : undefined);
 
-        const previewPts = [...pts, mouseCoord];
-        renderPreview(previewPts, wasSnapped ? mouseCoord : undefined);
-
-        // 实时报告当前边段长度与真北方位角
-        const lastPt = pts[pts.length - 1];
-        const segDist = calculateSphericalDistance(lastPt, mouseCoord);
-        const az = calculateAzimuth(lastPt, mouseCoord);
-        onActiveSegmentChangeRef.current?.({ length: segDist, azimuth: az });
+          const lastPt = pts[pts.length - 1];
+          const dist = calculateSphericalDistance(lastPt, mouseCoord);
+          const azimuth = calculateAzimuth(lastPt, mouseCoord);
+          onActiveSegmentChangeRef.current?.({ length: dist, azimuth });
+        }
       };
 
-      // 双击完成
-      const handleDblClick = () => {
+      // 双击完成多边形/折线采集
+      const handleDblClick = (e: any) => {
+        if (e.domEvent) e.domEvent.stopPropagation();
         const pts = drawingPointsRef.current;
-        if ((drawingTool === 'polyline' || drawingTool === 'polygon' || drawingTool === 'freehand') && pts.length >= 2) {
+        if (pts.length >= 2) {
           finishDrawing(pts);
+        }
+      };
+
+      // 自由手绘模式
+      let isFreehandDrawing = false;
+      const handleTouchStart = (e: any) => {
+        if (drawingTool === 'freehand') {
+          isFreehandDrawing = true;
+          const coord: [number, number] = [e.coordinate.x, e.coordinate.y];
+          const pts: [number, number][] = [coord];
+          drawingPointsRef.current = pts;
+          setDrawingPoints(pts);
+        }
+      };
+
+      const handleTouchMove = (e: any) => {
+        if (drawingTool === 'freehand' && isFreehandDrawing) {
+          const coord: [number, number] = [e.coordinate.x, e.coordinate.y];
+          const pts = drawingPointsRef.current;
+          const last = pts[pts.length - 1];
+          if (!last || calculateSphericalDistance(last, coord) > 8) {
+            const newPts: [number, number][] = [...pts, coord];
+            drawingPointsRef.current = newPts;
+            setDrawingPoints(newPts);
+            renderPreview(newPts);
+          }
+        }
+      };
+
+      const handleTouchEnd = () => {
+        if (drawingTool === 'freehand' && isFreehandDrawing) {
+          isFreehandDrawing = false;
+          const pts = drawingPointsRef.current;
+          if (pts.length >= 2) {
+            finishDrawing(pts);
+          }
         }
       };
 
       map.on('click', handleClick);
       map.on('mousemove', handleMouseMove);
       map.on('dblclick', handleDblClick);
+      map.on('mousedown touchstart', handleTouchStart);
+      map.on('touchmove mousemove', handleTouchMove);
+      map.on('mouseup touchend', handleTouchEnd);
 
       return () => {
         map.off('click', handleClick);
         map.off('mousemove', handleMouseMove);
         map.off('dblclick', handleDblClick);
-        onTopologyWarningRef.current?.(null);
-        onActiveSegmentChangeRef.current?.(null);
+        map.off('mousedown touchstart', handleTouchStart);
+        map.off('touchmove mousemove', handleTouchMove);
+        map.off('mouseup touchend', handleTouchEnd);
       };
-    }, [drawingTool]);
-
-    // 完成标绘并落库
-    const finishDrawing = (pts: [number, number][]) => {
-      if (!drawingTool || pts.length === 0) return;
-      previewLayerRef.current?.clear();
-
-      const currentActiveId = activeLayerIdRef.current;
-      const currentLayers = layersRef.current;
-      const activeLayer = currentLayers.find((l) => l.id === currentActiveId) || currentLayers[0];
-      const targetLayerId = activeLayer?.id || currentActiveId;
-      const themeColor = activeLayer?.color || '#3b82f6';
-
-      const defaultNames: Record<string, string> = {
-        'straight-arrow': '规划方向直箭头',
-        'attack-arrow': '空间发展推进轴',
-        'pincer-arrow': '双向分流与汇聚标绘',
-        'gathering-place': '重点管控集结地域',
-        'sector': '探测覆盖扇形区',
-        'polyline': '道路廊道/勘界折线',
-        'polygon': '规划控制地块面',
-        'rectangle': '标准搜索网格(BBox)',
-        'circle': '缓冲区安全半径圈',
-        'marker': '空间地理标定点',
-        'text': '空间地物文字注记',
-        'freehand': '实地踏勘手绘轨迹',
-        'point-survey': '外业控制测量点',
-        'point-station': '生态环境监测站',
-        'point-facility': '市政基础设施点',
-        'point-hazard': '灾害风险隐患点',
-        'point-medical': '应急医疗避难点',
-        'post-command': '综合指挥调度中心',
-        'post-radar': '雷达探测基准站',
-        'post-danger': '重点危险源警示',
-        'post-rescue': '应急物资救助站',
-        'post-airport': '交通枢纽起降场',
-        'post-depot': '物资储备调配库',
-      };
-
-      let calcArea: number | undefined = undefined;
-      let calcLength: number | undefined = undefined;
-
-      if (drawingTool === 'polygon' && pts.length >= 3) {
-        calcArea = calculateSphericalPolygonArea(pts);
-        calcLength = calculateLineLength([...pts, pts[0]]);
-      } else if (drawingTool === 'rectangle' && pts.length >= 2) {
-        const [p1, p2] = pts;
-        const rectCoords: [number, number][] = [
-          [p1[0], p1[1]],
-          [p2[0], p1[1]],
-          [p2[0], p2[1]],
-          [p1[0], p2[1]],
-        ];
-        calcArea = calculateSphericalPolygonArea(rectCoords);
-        calcLength = calculateLineLength([...rectCoords, rectCoords[0]]);
-      } else if (drawingTool === 'circle') {
-        const r = pts.length >= 2 ? calculateSphericalDistance(pts[0], pts[1]) : 1200;
-        calcArea = Math.PI * r * r;
-        calcLength = 2 * Math.PI * r;
-      } else if (drawingTool === 'polyline' || drawingTool === 'freehand') {
-        calcLength = calculateLineLength(pts);
-      }
-
-      const newFeature: Omit<PlotFeature, 'id' | 'createdAt' | 'updatedAt'> = {
-        name: `${defaultNames[drawingTool] || '标绘要素'}_${Date.now().toString().slice(-4)}`,
-        type: drawingTool as PlotFeatureType,
-        layerId: targetLayerId,
-        coordinates: pts,
-        properties: {
-          strokeColor: themeColor,
-          strokeWidth: 3,
-          strokeDasharray: 'solid',
-          fillColor: themeColor,
-          fillOpacity:
-            drawingTool.includes('arrow') ||
-            drawingTool.includes('poly') ||
-            drawingTool === 'gathering-place' ||
-            drawingTool === 'rectangle'
-              ? 0.35
-              : 0.2,
-          text: defaultNames[drawingTool] || '',
-          textColor: '#ffffff',
-          textSize: 13,
-          radius:
-            drawingTool === 'circle' && pts.length >= 2
-              ? Math.round(calculateSphericalDistance(pts[0], pts[1]))
-              : 1200,
-          calculatedArea: calcArea,
-          calculatedLength: calcLength,
-        },
-      };
-
-      onCreateFeatureRef.current(newFeature);
-      setDrawingPoints([]);
-      onTopologyWarningRef.current?.(null);
-      onActiveSegmentChangeRef.current?.(null);
-      onCancelDrawingRef.current();
-    };
-
-    // 渲染半透明预览
-    const renderPreview = (pts: [number, number][], snappedCoord?: [number, number]) => {
-      const previewLayer = previewLayerRef.current;
-      if (!previewLayer || !(window as any).maptalks || !drawingTool) return;
-      const maptalks = (window as any).maptalks;
-
-      previewLayer.clear();
-      if (pts.length === 0) return;
-
-      // 拓扑自相交校验 (多边形简单几何拓扑完整性)
-      let hasTopoError = false;
-      if (drawingTool === 'polygon' && pts.length >= 4) {
-        const topo = checkPolygonSelfIntersection(pts);
-        if (topo.hasIntersection) {
-          hasTopoError = true;
-          onTopologyWarningRef.current?.(topo.message || '⚠️ 存在边线自相交 (不符合GIS拓扑规范)');
-        } else {
-          onTopologyWarningRef.current?.(null);
-        }
-      } else {
-        onTopologyWarningRef.current?.(null);
-      }
-
-      const symbol = {
-        lineColor: hasTopoError ? '#ef4444' : '#f59e0b',
-        lineWidth: hasTopoError ? 3 : 2.5,
-        lineDasharray: hasTopoError ? [4, 4] : [6, 4],
-        polygonFill: hasTopoError ? '#ef4444' : '#f59e0b',
-        polygonOpacity: hasTopoError ? 0.35 : 0.28,
-      };
-
-      // 1. 在每个已采集的控制顶点处绘制醒目的序号标定圆点，解决移动端落点无感知问题
-      pts.forEach((pt, idx) => {
-        const isFirst = idx === 0;
-        const isLast = idx === pts.length - 1;
-        const vertexMarker = new maptalks.Marker(pt, {
-          symbol: [
-            {
-              markerType: 'ellipse',
-              markerWidth: isFirst ? 18 : 14,
-              markerHeight: isFirst ? 18 : 14,
-              markerFill: isFirst ? '#10b981' : isLast ? '#3b82f6' : '#f59e0b',
-              markerLineColor: '#ffffff',
-              markerLineWidth: 2,
-              markerFillOpacity: 0.95,
-            },
-            {
-              textName: isFirst ? '起点' : `#${idx + 1}`,
-              textSize: 10,
-              textFill: '#ffffff',
-              textHaloFill: '#0b1120',
-              textHaloRadius: 2.5,
-              textDy: -15,
-              textWeight: 'bold',
-            },
-          ],
-        });
-        previewLayer.addGeometry(vertexMarker);
-      });
-
-      // 2. 磁吸吸附光圈标定反馈 (CAD / GIS 级磁吸吸附)
-      if (snappedCoord) {
-        const snapMarker = new maptalks.Marker(snappedCoord, {
-          symbol: [
-            {
-              markerType: 'ellipse',
-              markerWidth: 26,
-              markerHeight: 26,
-              markerFill: '#06b6d4',
-              markerFillOpacity: 0.35,
-              markerLineColor: '#22d3ee',
-              markerLineWidth: 2.5,
-            },
-            {
-              textName: '🧲 顶点吸附',
-              textSize: 10,
-              textFill: '#22d3ee',
-              textHaloFill: '#082f49',
-              textHaloRadius: 2.5,
-              textDy: -22,
-              textWeight: 'bold',
-            },
-          ],
-        });
-        previewLayer.addGeometry(snapMarker);
-      }
-
-      // 3. 线段方位角与实时长度动态注记 (CAD / GIS 级工程注记)
-      if (pts.length >= 2) {
-        const pPrev = pts[pts.length - 2];
-        const pCurr = pts[pts.length - 1];
-        const segDist = calculateSphericalDistance(pPrev, pCurr);
-        const az = calculateAzimuth(pPrev, pCurr);
-        const midCoord: [number, number] = [
-          (pPrev[0] + pCurr[0]) / 2,
-          (pPrev[1] + pCurr[1]) / 2,
-        ];
-        const segLabelMarker = new maptalks.Marker(midCoord, {
-          symbol: {
-            textName: `${formatDistance(segDist)} | ${az.degrees}°`,
-            textSize: 10,
-            textFill: hasTopoError ? '#fca5a5' : '#fef08a',
-            textHaloFill: '#1c1917',
-            textHaloRadius: 2.5,
-            textWeight: 'bold',
-          },
-        });
-        previewLayer.addGeometry(segLabelMarker);
-      }
-
-      // 2. 几何图元半透明引导预览
-      if (drawingTool === 'straight-arrow') {
-        if (pts.length >= 2) {
-          const arrowCoords = calculateStraightArrow(pts);
-          if (arrowCoords.length >= 3) {
-            previewLayer.addGeometry(new maptalks.Polygon([arrowCoords], { symbol }));
-          }
-        }
-      } else if (drawingTool === 'attack-arrow') {
-        if (pts.length >= 2) {
-          const arrowCoords = calculateAttackArrow(pts);
-          if (arrowCoords.length >= 3) {
-            previewLayer.addGeometry(new maptalks.Polygon([arrowCoords], { symbol }));
-          } else {
-            previewLayer.addGeometry(new maptalks.LineString(pts, { symbol: { lineColor: '#f59e0b', lineWidth: 2, lineDasharray: [5, 5] } }));
-          }
-        }
-      } else if (drawingTool === 'pincer-arrow') {
-        if (pts.length >= 2) {
-          const pincerCoords = calculatePincerArrow(pts);
-          if (pincerCoords.length >= 3) {
-            previewLayer.addGeometry(new maptalks.Polygon([pincerCoords], { symbol }));
-          } else {
-            previewLayer.addGeometry(new maptalks.LineString(pts, { symbol: { lineColor: '#f59e0b', lineWidth: 2, lineDasharray: [5, 5] } }));
-          }
-        }
-      } else if (drawingTool === 'gathering-place') {
-        if (pts.length >= 2) {
-          const gatherCoords = calculateGatheringPlace(pts);
-          if (gatherCoords.length >= 3) {
-            previewLayer.addGeometry(new maptalks.Polygon([gatherCoords], { symbol }));
-          } else {
-            previewLayer.addGeometry(new maptalks.LineString(pts, { symbol: { lineColor: '#f59e0b', lineWidth: 2, lineDasharray: [5, 5] } }));
-          }
-        }
-      } else if (drawingTool === 'sector') {
-        if (pts.length >= 2) {
-          const sectorCoords = calculateSector(pts[0], pts[1], 90);
-          if (sectorCoords.length >= 3) {
-            previewLayer.addGeometry(new maptalks.Polygon([sectorCoords], { symbol }));
-          }
-        }
-      } else if (drawingTool === 'polyline' || drawingTool === 'freehand') {
-        if (pts.length >= 2) {
-          previewLayer.addGeometry(new maptalks.LineString(pts, { symbol }));
-        }
-      } else if (drawingTool === 'polygon') {
-        if (pts.length >= 3) {
-          previewLayer.addGeometry(new maptalks.Polygon([pts], { symbol }));
-        } else if (pts.length === 2) {
-          previewLayer.addGeometry(new maptalks.LineString(pts, { symbol: { lineColor: '#f59e0b', lineWidth: 2, lineDasharray: [5, 5] } }));
-        }
-      } else if (drawingTool === 'rectangle') {
-        if (pts.length >= 2) {
-          const [p1, p2] = pts;
-          const rectCoords: [number, number][] = [
-            [p1[0], p1[1]],
-            [p2[0], p1[1]],
-            [p2[0], p2[1]],
-            [p1[0], p2[1]],
-          ];
-          previewLayer.addGeometry(new maptalks.Polygon([rectCoords], { symbol }));
-        }
-      } else if (drawingTool === 'circle') {
-        if (pts.length >= 2) {
-          const r = calculateSphericalDistance(pts[0], pts[1]);
-          previewLayer.addGeometry(new maptalks.Circle(pts[0], r, { symbol }));
-        }
-      }
-    };
+    }, [
+      drawingTool,
+      getCandidateVertices,
+      finishDrawing,
+      renderPreview,
+      handleMeasureClick,
+      clearDrawing,
+      clearMeasure,
+      drawingPointsRef,
+      enableSnappingRef,
+      measureToolRef,
+      onActiveSegmentChangeRef,
+      onSnapFeedbackRef,
+      setDrawingPoints,
+    ]);
 
     return (
-      <div className="relative w-full h-full flex-1 overflow-hidden">
-        {/* 脚本加载等待遮罩
-            层级置于 z-20（低于顶栏/底栏的 z-30），确保引擎加载期间应用外壳
-            依然可见可点，用户可以正常切换图层、要素与控制中心。
-            z-index: 20 仅为地图区域内的层叠顺序，不与 Toast(z-65)、抽屉(z-60) 冲突。*/}
-        {!maptalksReady && (
-          <div className="absolute inset-0 z-20 bg-slate-100 dark:bg-gray-950 flex flex-col items-center justify-center gap-3 px-8 text-center text-slate-700 dark:text-gray-300">
-            {maptalksFailed ? (
-              <>
-                <AlertTriangle className="w-8 h-8 text-amber-500" />
-                <div className="text-xs font-bold">地图引擎加载失败</div>
-                <div className="text-[11px] leading-relaxed text-slate-500 dark:text-gray-400 max-w-[17rem]">
-                  无法从 CDN 获取 MapTalks GL 引擎，请检查网络、代理或防火墙设置后重试。
-                </div>
-                <div className="text-[10px] text-slate-400 dark:text-gray-500 font-mono break-all">
-                  https://maptalks.com/api/maptalks-gl.js
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMaptalksFailed(false);
-                    setMaptalksReady(false);
-                    window.location.reload();
-                  }}
-                  aria-label="重新加载地图引擎"
-                  className="mt-1 flex items-center gap-1.5 px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-500 active:scale-95 transition text-white text-xs font-bold shadow-lg"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  重新加载
-                </button>
-              </>
-            ) : (
-              <>
-                <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-                <div className="text-xs font-medium">正在加载 MapTalks GL 移动端引擎...</div>
-                <div className="text-[10px] text-slate-400 dark:text-gray-500 font-mono">https://maptalks.com/api/maptalks-gl.js</div>
-              </>
-            )}
+      <div className="w-full h-full relative select-none">
+        <div ref={mapContainerRef} className="w-full h-full bg-slate-900" />
+
+        {/* 弱网/CDN 不可达时的友好失败态 */}
+        {maptalksFailed && !maptalksReady && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/95 backdrop-blur-md px-6 text-center animate-in fade-in duration-300">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-3 shadow-lg shadow-amber-500/10">
+              <AlertTriangle className="w-7 h-7" />
+            </div>
+            <h3 className="text-base font-bold text-white mb-1">MapTalks GL 核心引擎加载超时</h3>
+            <p className="text-xs text-slate-400 max-w-xs mb-4 leading-relaxed">
+              当前网络环境可能无法访问外部 CDN 资源，请检查移动网络连接或切换 Wi-Fi 后重试。
+            </p>
+            <button
+              onClick={() => {
+                setMaptalksFailed(false);
+                setMaptalksReady(false);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-semibold shadow-lg shadow-blue-600/30 transition-all cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>重新加载地图引擎</span>
+            </button>
           </div>
         )}
 
-        {/* MapTalks 挂载容器 */}
-        <div ref={mapContainerRef} className="w-full h-full bg-slate-100 dark:bg-gray-950" />
+        {/* 首次加载过渡态 */}
+        {!maptalksReady && !maptalksFailed && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm text-white">
+            <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-3" />
+            <span className="text-xs text-slate-300 font-mono tracking-wider">
+              正在初始化 MapTalks GL 空间渲染引擎...
+            </span>
+          </div>
+        )}
       </div>
     );
   }
 );
+
+MaptalksContainer.displayName = 'MaptalksContainer';

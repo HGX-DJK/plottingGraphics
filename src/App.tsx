@@ -1,9 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { User, PlotLayer, PlotFeature, PlotFeatureType, BasemapType } from './types';
+import { User, PlotFeatureType, BasemapType } from './types';
 import { authService } from './services/authService';
 import { storageService, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM } from './services/storageService';
-import { MaptalksContainer, MaptalksContainerRef, MeasureResult } from './components/Map/MaptalksContainer';
+import {
+  MaptalksContainer,
+  MaptalksContainerRef,
+  MeasureResult,
+} from './components/Map/MaptalksContainer';
 import { MobileHeader } from './components/Mobile/MobileHeader';
 import { MobileTabBar, MobileTab } from './components/Mobile/MobileTabBar';
 import { MobilePlottingSheet } from './components/Mobile/MobilePlottingSheet';
@@ -21,18 +25,26 @@ import { Smartphone, Monitor, Compass, Copy } from 'lucide-react';
 import { CoordinateFormat, formatCoordinates } from './utils/geoUtils';
 import { ThemeMode, themeService } from './services/themeService';
 import { copyToClipboard } from './utils/uiUtils';
+import { useToast } from './hooks/useToast';
+import { useLayers } from './hooks/useLayers';
+import { useFeatures } from './hooks/useFeatures';
 
 export const App: React.FC = () => {
   const mapRef = useRef<MaptalksContainerRef>(null);
 
-  // 0. 全局明暗风格主题管理 (支持在登录页、顶部胶囊与控制中心即时切换)
+  // 1. 全局轻量 Toast 反馈
+  const { toastMessage, toastAction, setToastAction, showToast } = useToast();
+
+  // 2. 全局明暗风格主题管理
   const [theme, setTheme] = useState<ThemeMode>(() => themeService.initTheme());
+  const [basemap, setBasemap] = useState<BasemapType>(() =>
+    themeService.getTheme() === 'light' ? 'street' : 'dark'
+  );
 
   const handleToggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
     themeService.setTheme(next);
-    // 浅色模式下底图同步切换为清新街道高对比底图；暗色模式下同步切换为极夜科技底图
     if (next === 'light' && basemap === 'dark') {
       setBasemap('street');
     } else if (next === 'dark' && basemap === 'street') {
@@ -50,31 +62,80 @@ export const App: React.FC = () => {
     }
   };
 
-  // 1. 用户会话管理 (免后端模拟认证)
-  const [currentUser, setCurrentUser] = useState<User | null>(() => authService.getCurrentUser());
-
-  // 2. 标绘图层与要素数据状态 (默认确保仅显示当前激活图层下的要素)
-  const [layers, setLayers] = useState<PlotLayer[]>(() => {
-    const loaded = storageService.loadLayers();
-    const activeId = storageService.getActiveLayerId(loaded);
-    return loaded.map((l) => ({
-      ...l,
-      visible: l.id === activeId,
-    }));
-  });
-  const [features, setFeatures] = useState<PlotFeature[]>(() => storageService.loadFeatures());
-  const [activeLayerId, setActiveLayerId] = useState<string>(() =>
-    storageService.getActiveLayerId(layers)
+  // 3. 用户会话管理
+  const [currentUser, setCurrentUser] = useState<User | null>(() =>
+    authService.getCurrentUser()
   );
 
-  // 3. 移动端 Tab 与交互状态
+  const handleLoginSuccess = (user: User) => {
+    setCurrentUser(user);
+  };
+
+  const handleLogout = () => {
+    authService.logout();
+    setCurrentUser(null);
+    setActiveTab(null);
+  };
+
+  // 4. 核心图层状态管理 Hook
+  const {
+    layers,
+    setLayers,
+    activeLayerId,
+    setActiveLayerId,
+    activeLayer,
+    handleSelectActiveLayer,
+    handleShowOnlyActiveLayer,
+    handleShowAllLayers,
+    handleCreateLayer,
+    handleToggleLayerVisibility,
+    handleToggleLayerLock,
+    handleChangeLayerOpacity,
+    handleDeleteLayer,
+    ensureLayerVisible,
+    resetLayers,
+  } = useLayers({
+    onNotify: showToast,
+    onCascadeDeleteFeatures: (layerId) => handleCascadeDeleteByLayer(layerId),
+  });
+
+  // 5. 核心要素状态管理 Hook
+  const {
+    features,
+    setFeatures,
+    selectedFeatureId,
+    setSelectedFeatureId,
+    selectedFeature,
+    handleCreateFeature,
+    handleUpdateFeature,
+    handleDeleteFeature,
+    handleClearFeatures,
+    handleCascadeDeleteByLayer,
+    handleLocateFeature: locateFeatureHook,
+    resetFeatures,
+  } = useFeatures({
+    onNotify: showToast,
+    layers,
+    onEnsureLayerVisible: ensureLayerVisible,
+    onSelectActiveLayer: handleSelectActiveLayer,
+  });
+
+  // 定位要素便捷委托
+  const handleLocateFeature = (featureId: string) => {
+    locateFeatureHook(
+      featureId,
+      (feat) => mapRef.current?.focusFeature(feat),
+      () => setActiveTab(null)
+    );
+  };
+
+  // 6. 移动端 Tab 与交互状态
   const [activeTab, setActiveTab] = useState<MobileTab>(null);
-  const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
-  const [drawingTool, setDrawingTool] = useState<PlotFeatureType | 'measure-distance' | 'measure-area' | null>(null);
+  const [drawingTool, setDrawingTool] = useState<
+    PlotFeatureType | 'measure-distance' | 'measure-area' | null
+  >(null);
   const [drawingPointsCount, setDrawingPointsCount] = useState<number>(0);
-  // 空间量算读数 (测距总长 / 测面面积)
   const [measureResult, setMeasureResult] = useState<MeasureResult | null>(null);
-  const [basemap, setBasemap] = useState<BasemapType>(() => themeService.getTheme() === 'light' ? 'street' : 'dark');
   const [cursorCoords, setCursorCoords] = useState<[number, number]>(DEFAULT_MAP_CENTER);
   const [zoomLevel, setZoomLevel] = useState<number>(DEFAULT_MAP_ZOOM);
   const [coordinateFormat, setCoordinateFormat] = useState<CoordinateFormat>('DD');
@@ -82,7 +143,10 @@ export const App: React.FC = () => {
   const [pitch, setPitch] = useState<number>(0);
   const [enableSnapping, setEnableSnapping] = useState<boolean>(true);
   const [topologyWarning, setTopologyWarning] = useState<string | null>(null);
-  const [activeSegment, setActiveSegment] = useState<{ length: number; azimuth: { degrees: number; text: string } } | null>(null);
+  const [activeSegment, setActiveSegment] = useState<{
+    length: number;
+    azimuth: { degrees: number; text: string };
+  } | null>(null);
 
   const handleCycleCoordinateFormat = () => {
     setCoordinateFormat((prev) => {
@@ -99,260 +163,34 @@ export const App: React.FC = () => {
     showToast(ok ? `✓ 已复制精确坐标: ${text}` : '复制失败，请检查浏览器剪贴板权限');
   };
 
-  // 4. 模态弹窗状态
+  // 7. 模态弹窗状态
   const [isNewLayerModalOpen, setIsNewLayerModalOpen] = useState(false);
   const [isImportExportModalOpen, setIsImportExportModalOpen] = useState(false);
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
 
-  // 清除地图要素处理
+  // 清除要素
   const handleClearActiveLayer = () => {
-    const count = features.filter((f) => f.layerId === activeLayerId).length;
-    setFeatures((prev) => prev.filter((f) => f.layerId !== activeLayerId));
-    setSelectedFeatureId(null);
-    showToast(`✓ 已清除图层「${activeLayer?.name || '工作图层'}」的 ${count} 个要素`);
+    handleClearFeatures(activeLayerId);
   };
 
   const handleClearAllFeatures = () => {
-    const count = features.length;
-    setFeatures([]);
-    setSelectedFeatureId(null);
-    showToast(`✓ 已清空全地图所有要素 (共 ${count} 个)`);
-  };
-
-  // 5. 电脑端调试时可选开启「真机外框预览」
-  const [deviceFrameMode, setDeviceFrameMode] = useState<boolean>(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  // Toast 内联操作按钮（如删除后的「撤销」）
-  const [toastAction, setToastAction] = useState<{ label: string; onClick: () => void } | null>(null);
-  const toastTimerRef = useRef<number | null>(null);
-  const toastSeqRef = useRef(0);
-
-  const showToast = (msg: string, action?: { label: string; onClick: () => void }) => {
-    // 序号机制：只有最新一条 Toast 的定时器才允许关闭它，避免旧定时器误关新提示
-    const seq = ++toastSeqRef.current;
-    setToastMessage(msg);
-    setToastAction(action ?? null);
-    if (toastTimerRef.current !== null) {
-      window.clearTimeout(toastTimerRef.current);
-    }
-    toastTimerRef.current = window.setTimeout(
-      () => {
-        if (toastSeqRef.current !== seq) return;
-        setToastMessage(null);
-        setToastAction(null);
-      },
-      action ? 6000 : 2800
-    );
-  };
-
-  // 组件卸载时清理 Toast 定时器
-  useEffect(
-    () => () => {
-      if (toastTimerRef.current !== null) {
-        window.clearTimeout(toastTimerRef.current);
-      }
-    },
-    []
-  );
-
-  // 本地 LocalStorage 持久化同步
-  useEffect(() => {
-    storageService.saveLayers(layers);
-  }, [layers]);
-
-  useEffect(() => {
-    storageService.saveFeatures(features);
-  }, [features]);
-
-  useEffect(() => {
-    if (activeLayerId) {
-      storageService.setActiveLayerId(activeLayerId);
-    }
-  }, [activeLayerId]);
-
-  // 用户操作
-  const handleLoginSuccess = (user: User) => {
-    setCurrentUser(user);
-  };
-
-  const handleLogout = () => {
-    authService.logout();
-    setCurrentUser(null);
-    setActiveTab(null);
-  };
-
-  // 切换激活工作图层：核心逻辑，仅显示该图层下要素，自动隐藏其他图层要素
-  const handleSelectActiveLayer = (layerId: string) => {
-    setActiveLayerId(layerId);
-    // 函数式更新中读取最新图层名，避免连续切换时闭包陈旧导致提示错位
-    setLayers((prev) => {
-      const target = prev.find((l) => l.id === layerId);
-      if (target) {
-        showToast(`已切换至「${target.name}」，地图仅显示该图层要素`);
-      }
-      return prev.map((l) => ({
-        ...l,
-        visible: l.id === layerId,
-      }));
-    });
-  };
-
-  // 快捷视图范围控制：仅显示当前工作图层 vs 显示全图层
-  const handleShowOnlyActiveLayer = () => {
-    setLayers((prev) =>
-      prev.map((l) => ({
-        ...l,
-        visible: l.id === activeLayerId,
-      }))
-    );
-    showToast('已切换为仅显示当前图层要素');
-  };
-
-  const handleShowAllLayers = () => {
-    setLayers((prev) =>
-      prev.map((l) => ({
-        ...l,
-        visible: true,
-      }))
-    );
-    showToast('已显示全部图层要素');
-  };
-
-  // 图层操作
-  const handleCreateLayer = (newLayerData: Omit<PlotLayer, 'id' | 'createdAt'>) => {
-    const newLayer: PlotLayer = {
-      ...newLayerData,
-      id: `layer-${Date.now()}`,
-      createdAt: Date.now(),
-      visible: true,
-    };
-    // 新建图层并设为当前显示图层，其余图层自动隐藏
-    const updated = [...layers.map((l) => ({ ...l, visible: false })), newLayer];
-    setLayers(updated);
-    setActiveLayerId(newLayer.id);
-    setActiveTab('layers'); // 自动唤起图层管控抽屉，让用户立即看到新图层
-    showToast(`✓ 已新建并切换至「${newLayer.name}」，地图仅显示该图层要素`);
-  };
-
-  const handleToggleLayerVisibility = (layerId: string) => {
-    setLayers((prev) =>
-      prev.map((l) => (l.id === layerId ? { ...l, visible: !l.visible } : l))
-    );
-  };
-
-  const handleToggleLayerLock = (layerId: string) => {
-    setLayers((prev) =>
-      prev.map((l) => (l.id === layerId ? { ...l, locked: !l.locked } : l))
-    );
-  };
-
-  const handleChangeLayerOpacity = (layerId: string, opacity: number) => {
-    setLayers((prev) =>
-      prev.map((l) => (l.id === layerId ? { ...l, opacity } : l))
-    );
-  };
-
-  const handleDeleteLayer = (layerId: string) => {
-    if (layers.length <= 1) {
-      showToast('至少需要保留一个图层，无法删除当前唯一图层');
-      return;
-    }
-    const updated = layers.filter((l) => l.id !== layerId);
-    setLayers(updated);
-    setFeatures((prev) => prev.filter((f) => f.layerId !== layerId));
-    if (activeLayerId === layerId) {
-      handleSelectActiveLayer(updated[0].id);
-    }
-  };
-
-  // 要素操作
-  const handleCreateFeature = (featureData: Omit<PlotFeature, 'id' | 'createdAt' | 'updatedAt'>) => {
-    // 确保所属图层处于可见状态，避免要素落库后因图层隐藏而看不到
-    setLayers((prev) =>
-      prev.map((l) => (l.id === featureData.layerId && !l.visible ? { ...l, visible: true } : l))
-    );
-
-    const newFeature: PlotFeature = {
-      ...featureData,
-      id: `feat-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    setFeatures((prev) => [...prev, newFeature]);
-    setSelectedFeatureId(newFeature.id);
-    setDrawingTool(null);
-    setMeasureResult(null);
-    setDrawingPointsCount(0);
-    // 使用函数式更新读取最新图层名，避免闭包陈旧导致提示文案错位
-    setLayers((prev) => {
-      const target = prev.find((l) => l.id === featureData.layerId);
-      showToast(`✓ 已在「${target?.name || '指定图层'}」中创建要素 "${newFeature.name}"`);
-      return prev;
-    });
-  };
-
-  const handleUpdateFeature = (updated: PlotFeature) => {
-    setFeatures((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
-  };
-
-  // 精准定位与聚焦要素 (无论图层是否显示，自动点亮图层并飞跃至中心)
-  const handleLocateFeature = (featureId: string) => {
-    const feat = features.find((f) => f.id === featureId);
-    if (!feat) return;
-
-    // 1. 确保该要素所属的图层为可见状态，并设为当前激活图层
-    setLayers((prev) =>
-      prev.map((l) => (l.id === feat.layerId ? { ...l, visible: true } : l))
-    );
-    setActiveLayerId(feat.layerId);
-
-    // 2. 选中该要素
-    setSelectedFeatureId(featureId);
-
-    // 3. 关闭移动端所有抽屉弹层，返回主地图视野
-    setActiveTab(null);
-
-    // 4. 调用地图组件的精准导航聚焦 (直接传入要素对象，避免异步状态未提交时的闭包延迟)
-    mapRef.current?.focusFeature(feat);
-
-    showToast(`📍 已在地图中精准定位: ${feat.name}`);
-  };
-
-  const handleDeleteFeature = (featureId: string) => {
-    const target = features.find((f) => f.id === featureId);
-    if (!target) return;
-    setFeatures((prev) => prev.filter((f) => f.id !== featureId));
-    if (selectedFeatureId === featureId) {
-      setSelectedFeatureId(null);
-    }
-    // 提供撤销入口，避免误触删除后无法找回
-    showToast(`✓ 已删除要素 "${target.name}"`, {
-      label: '撤销',
-      onClick: () => {
-        setFeatures((prev) =>
-          prev.some((f) => f.id === target.id) ? prev : [...prev, target]
-        );
-        showToast(`↩ 已恢复要素 "${target.name}"`);
-      },
-    });
+    handleClearFeatures();
   };
 
   // 导入与重置
-  const handleImportData = (importedLayers: PlotLayer[], importedFeatures: PlotFeature[]) => {
+  const handleImportData = (importedLayers: any[], importedFeatures: any[]) => {
     if (importedLayers.length > 0) {
       const firstId = importedLayers[0].id;
-      // 默认仅激活的第一个图层可见
       const isolated = importedLayers.map((l) => ({
         ...l,
         visible: l.id === firstId,
       }));
-      setLayers(isolated);
-      setActiveLayerId(firstId);
+      resetLayers(isolated, firstId);
     } else {
-      setLayers(importedLayers);
+      resetLayers(importedLayers);
     }
-    setFeatures(importedFeatures);
-    setSelectedFeatureId(null);
+    resetFeatures(importedFeatures);
+    showToast(`✓ 成功导入 ${importedLayers.length} 个图层，${importedFeatures.length} 个要素`);
   };
 
   const handleResetDemo = () => {
@@ -361,14 +199,12 @@ export const App: React.FC = () => {
       ...l,
       visible: idx === 0,
     }));
-    setLayers(isolated);
-    setFeatures(demoFeatures);
-    setActiveLayerId(demoLayers[0].id);
-    setSelectedFeatureId(null);
+    resetLayers(isolated, demoLayers[0].id);
+    resetFeatures(demoFeatures);
     showToast('已恢复初始演示态势，仅显示当前图层要素');
   };
 
-  // 空间量算模式切换 (测距与测面)
+  // 空间量算模式切换
   const handleToggleMeasureDistance = () => {
     if (drawingTool === 'measure-distance') {
       setDrawingTool(null);
@@ -393,7 +229,6 @@ export const App: React.FC = () => {
     setDrawingPointsCount(0);
   };
 
-  // 退出标绘/量算模式：统一复位量算读数
   const handleCancelDrawing = () => {
     setDrawingTool(null);
     setMeasureResult(null);
@@ -414,7 +249,6 @@ export const App: React.FC = () => {
         showToast(`✓ 已精准定位当前设备: ${longitude.toFixed(4)}, ${latitude.toFixed(4)}`);
       },
       () => {
-        // 模拟/基准工区定位兜底 (上海核心区)
         mapRef.current?.locateUser([121.4737, 31.2304]);
         showToast('已定位至上海项目基准工区 [121.4737, 31.2304]');
       },
@@ -422,10 +256,10 @@ export const App: React.FC = () => {
     );
   };
 
-  const activeLayer = layers.find((l) => l.id === activeLayerId) || layers[0];
-  const selectedFeature = features.find((f) => f.id === selectedFeatureId) || null;
+  // 8. 电脑端调试时可选开启「真机外框预览」
+  const [deviceFrameMode, setDeviceFrameMode] = useState<boolean>(false);
 
-  // 未登录时展示移动端登录 (支持真机外框仿真与全屏自适应，双色实时自适应)
+  // 未登录时展示登录界面
   if (!currentUser) {
     if (deviceFrameMode) {
       return (
@@ -479,7 +313,7 @@ export const App: React.FC = () => {
   // 移动端主界面容器渲染
   const renderMobileAppContent = () => (
     <div className="relative w-full h-full flex flex-col bg-slate-100 dark:bg-gray-950 overflow-hidden select-none transition-colors duration-200">
-      {/* 1. 移动端顶部状态与标题栏 (灵动胶囊风格，包含快速主题切换与图层概览) */}
+      {/* 1. 移动端顶部状态与标题栏 */}
       <MobileHeader
         currentUser={currentUser}
         activeLayer={activeLayer}
@@ -489,9 +323,7 @@ export const App: React.FC = () => {
         onToggleTheme={handleToggleTheme}
       />
 
-      {/* 标绘与操作反馈 Toast (底部安全区浮层，不遮挡顶部状态条与刘海区域)
-          高度随当前界面状态自适应，避免与标绘控制条、要素快览卡片重叠
-          通过 Portal 渲染到 body，使其不被抽屉打开时的背景 inert 隔离影响 */}
+      {/* 标绘与操作反馈 Toast */}
       {toastMessage &&
         (typeof document !== 'undefined'
           ? createPortal(
@@ -538,7 +370,12 @@ export const App: React.FC = () => {
           onSelectFeature={(id) => {
             setSelectedFeatureId(id);
           }}
-          onCreateFeature={handleCreateFeature}
+          onCreateFeature={(featData) => {
+            handleCreateFeature(featData);
+            setDrawingTool(null);
+            setMeasureResult(null);
+            setDrawingPointsCount(0);
+          }}
           onCancelDrawing={handleCancelDrawing}
           onCoordinatesChange={(coords, zoom) => {
             setCursorCoords(coords);
@@ -555,64 +392,60 @@ export const App: React.FC = () => {
           }}
         />
 
-        {/* 底部左侧：空间经纬度与比例尺沉浸式徽章 (专业GIS底栏布局，明暗自适应)
-            底部偏移基于安全区计算，避开 TabBar 与 Home Indicator */}
+        {/* 底部左侧：空间经纬度与比例尺徽章 */}
         {!drawingTool && !selectedFeature && (
           <div
             onClick={handleCycleCoordinateFormat}
-            className="absolute left-3 z-10 pointer-events-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white/90 dark:bg-gray-950/90 backdrop-blur-md border border-slate-200/90 dark:border-white/10 shadow-lg text-slate-700 dark:text-gray-300 font-mono text-[10px] active:scale-95 transition cursor-pointer select-none max-w-[calc(100%-60px)]"
-            style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4.25rem)' }}
+            className="absolute bottom-[68px] left-3 z-10 pointer-events-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white/90 dark:bg-gray-950/90 backdrop-blur-md border border-slate-200/90 dark:border-white/10 shadow-lg text-slate-700 dark:text-gray-300 font-mono text-[10px] active:scale-95 transition cursor-pointer select-none max-w-[calc(100%-60px)]"
             title="点击切换坐标系统 (DD / DMS / EPSG:3857)"
           >
             <Compass className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 shrink-0" />
-            <div className="flex items-center gap-1.5 truncate">
-              <span className="font-semibold text-slate-800 dark:text-gray-200 truncate">
-                {formatCoordinates(cursorCoords, coordinateFormat, 4)}
-              </span>
-              <span className="text-slate-300 dark:text-gray-600 shrink-0">|</span>
-              <span className="text-blue-600 dark:text-blue-300 font-bold shrink-0">Z{zoomLevel.toFixed(1)}</span>
-              <span className="px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-600 dark:text-blue-400 text-[9px] font-bold shrink-0">
-                {coordinateFormat === 'DD' ? 'WGS84' : coordinateFormat === 'DMS' ? '度分秒' : '3857米'}
-              </span>
-            </div>
+            <span className="truncate">
+              {formatCoordinates(cursorCoords, coordinateFormat, 4)}
+            </span>
+            <span className="text-[9px] px-1 py-0.5 rounded bg-slate-200/70 dark:bg-white/10 text-slate-600 dark:text-gray-400 shrink-0">
+              {coordinateFormat}
+            </span>
             <button
               onClick={handleCopyCoordinates}
-              className="p-1 rounded-full text-slate-400 dark:text-gray-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800 transition shrink-0 ml-0.5"
-              title="一键复制高精坐标至剪贴板"
-              aria-label="复制当前坐标到剪贴板"
+              className="p-1 hover:text-blue-600 dark:hover:text-blue-400 active:scale-90 transition shrink-0 ml-0.5"
+              title="复制当前经纬度"
             >
-              <Copy className="w-3 h-3" />
+              <Copy className="w-3 h-3 text-slate-400 dark:text-gray-500" />
             </button>
           </div>
         )}
 
-        {/* 3. 移动端悬浮标绘指导与右侧触控按钮 */}
+        {/* 3. 移动端浮动控制面板 (标绘中状态控制条) */}
         <MobileDrawingControls
           drawingTool={drawingTool}
           drawingPointsCount={drawingPointsCount}
           bearing={bearing}
+          measureResult={measureResult}
           enableSnapping={enableSnapping}
           topologyWarning={topologyWarning}
           activeSegment={activeSegment}
-          measureResult={measureResult}
           hasSelectedFeature={!!selectedFeature && !drawingTool && activeTab !== 'properties'}
           onCancelDrawing={handleCancelDrawing}
           onUndoPoint={() => mapRef.current?.undoPoint()}
           onFinishDrawing={() => mapRef.current?.finishCurrentDrawing()}
           onUndoMeasurePoint={() => mapRef.current?.undoMeasurePoint()}
           onClearMeasure={() => mapRef.current?.clearMeasure()}
-          onToggleSnapping={() => setEnableSnapping(!enableSnapping)}
           onZoomIn={() => mapRef.current?.zoomIn()}
           onZoomOut={() => mapRef.current?.zoomOut()}
           onResetView={() => mapRef.current?.resetView()}
           onResetNorth={() => mapRef.current?.resetNorth()}
-          onOpenClearFeatures={() => setIsClearModalOpen(true)}
+          onToggleSnapping={() => {
+            const next = !enableSnapping;
+            setEnableSnapping(next);
+            showToast(next ? '🧲 顶点吸附已开启 (CAD/GIS精度)' : '⚪ 顶点吸附已关闭');
+          }}
           onToggleMeasureDistance={handleToggleMeasureDistance}
           onToggleMeasureArea={handleToggleMeasureArea}
           onLocateGPS={handleLocateGPS}
         />
 
-        {/* 要素快览悬浮卡片 (轻量化交互，触碰要素时不粗暴遮挡主地图) */}
+        {/* 要素快览悬浮卡片 */}
         {selectedFeature && !drawingTool && activeTab !== 'properties' && (
           <MobileFeatureQuickCard
             feature={selectedFeature}
@@ -636,7 +469,7 @@ export const App: React.FC = () => {
       />
 
       {/* 5. 底部滑出抽屉组件群 */}
-      {/* 图层管理抽屉 (GIS 图层与要素树) */}
+      {/* 图层管理抽屉 */}
       <MobileLayerSheet
         isOpen={activeTab === 'layers'}
         onClose={() => setActiveTab(null)}
@@ -665,8 +498,6 @@ export const App: React.FC = () => {
         onSelectTool={(tool) => {
           setDrawingTool(tool);
           setSelectedFeatureId(null);
-          setMeasureResult(null);
-          setDrawingPointsCount(0);
         }}
         activeLayerName={activeLayer?.name || '默认工作图层'}
         activeLayerColor={activeLayer?.color || '#3b82f6'}
@@ -704,28 +535,45 @@ export const App: React.FC = () => {
         onDeleteFeature={handleDeleteFeature}
       />
 
-      {/* 更多与设置抽屉 */}
+      {/* 更多与控制中心抽屉 */}
       <MobileMoreSheet
         isOpen={activeTab === 'more'}
         onClose={() => setActiveTab(null)}
         currentUser={currentUser}
         basemap={basemap}
-        onChangeBasemap={setBasemap}
-        onOpenImportExport={() => setIsImportExportModalOpen(true)}
+        onChangeBasemap={(mb) => {
+          setBasemap(mb);
+          showToast(`底图已切换为「${mb === 'dark' ? '暗夜科技' : mb === 'satellite' ? '遥感卫星' : '现代街道'}」`);
+        }}
+        onOpenImportExport={() => {
+          setActiveTab(null);
+          setIsImportExportModalOpen(true);
+        }}
         onResetDemo={handleResetDemo}
         onLogout={handleLogout}
         theme={theme}
         onSelectTheme={handleSelectTheme}
       />
 
-      {/* 新建图层弹窗 */}
+      {/* 6. 模态弹窗群 */}
       <NewLayerModal
         isOpen={isNewLayerModalOpen}
         onClose={() => setIsNewLayerModalOpen(false)}
         onCreateLayer={handleCreateLayer}
       />
 
-      {/* 工程导入导出弹窗 */}
+      <ClearFeaturesModal
+        isOpen={isClearModalOpen}
+        onClose={() => setIsClearModalOpen(false)}
+        activeLayerName={activeLayer?.name || '当前工作图层'}
+        activeLayerColor={activeLayer?.color || '#3b82f6'}
+        activeLayerFeatureCount={features.filter((f) => f.layerId === activeLayerId).length}
+        totalFeatureCount={features.length}
+        onClearActiveLayer={handleClearActiveLayer}
+        onClearAllFeatures={handleClearAllFeatures}
+        onResetDemo={handleResetDemo}
+      />
+
       <ImportExportModal
         isOpen={isImportExportModalOpen}
         onClose={() => setIsImportExportModalOpen(false)}
@@ -734,30 +582,17 @@ export const App: React.FC = () => {
         onImportData={handleImportData}
         onResetDemo={handleResetDemo}
       />
-
-      {/* 清空地图要素确认弹窗 */}
-      <ClearFeaturesModal
-        isOpen={isClearModalOpen}
-        onClose={() => setIsClearModalOpen(false)}
-        activeLayerName={activeLayer?.name || '默认工作图层'}
-        activeLayerColor={activeLayer?.color || '#3b82f6'}
-        activeLayerFeatureCount={features.filter((f) => f.layerId === activeLayerId).length}
-        totalFeatureCount={features.length}
-        onClearActiveLayer={handleClearActiveLayer}
-        onClearAllFeatures={handleClearAllFeatures}
-        onResetDemo={handleResetDemo}
-      />
     </div>
   );
 
   return (
-    <div className="w-screen h-screen bg-slate-200 dark:bg-gray-950 flex flex-col items-center justify-center overflow-hidden transition-colors duration-200">
-      {/* 顶部微小模式切换器 (方便在电脑端开发和真机调试) */}
-      <div className="fixed top-2 right-2 z-50 hidden md:flex items-center gap-2 px-3 py-1 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border border-slate-300 dark:border-gray-800 rounded-full text-[11px] text-slate-700 dark:text-gray-400">
+    <div className="w-full h-full min-h-screen bg-slate-900 flex items-center justify-center overflow-hidden">
+      {/* 桌面端审查控制条 */}
+      <div className="fixed top-2 right-2 z-50 hidden md:flex items-center gap-2 px-3 py-1 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border border-slate-300 dark:border-gray-800 rounded-full text-[11px] text-slate-700 dark:text-gray-400 shadow-md">
         <button
           onClick={() => setDeviceFrameMode(!deviceFrameMode)}
           className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-white transition"
-          title="切换手机真机外壳仿真模式"
+          title="切换真机外框预览模式"
         >
           {deviceFrameMode ? (
             <>
@@ -774,19 +609,17 @@ export const App: React.FC = () => {
       </div>
 
       {deviceFrameMode ? (
-        /* 📱 手机真机仿真外壳 (专为桌面端直观审查移动端交互打造) */
+        /* 📱 手机真机仿真外壳 */
         <div className="relative w-[390px] h-[844px] max-h-[96vh] rounded-[48px] border-[10px] border-slate-800 dark:border-gray-800 bg-slate-100 dark:bg-gray-950 shadow-2xl shadow-blue-950/30 overflow-hidden flex flex-col ring-1 ring-black/10 dark:ring-white/10">
-          {/* 手机灵动岛与听筒 */}
           <div className="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-6 bg-black rounded-full z-40 flex items-center justify-center">
             <div className="w-2.5 h-2.5 rounded-full bg-gray-900 border border-gray-800 mr-2" />
             <div className="w-2 h-2 rounded-full bg-blue-900/60" />
           </div>
           {renderMobileAppContent()}
-          {/* 底部小黑条 Home Indicator */}
           <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-32 h-1 bg-gray-600 rounded-full z-40" />
         </div>
       ) : (
-        /* 📲 原生 100% 全屏移动端模式 (移动端浏览器或 WebView 下完美全屏贴合) */
+        /* 📲 原生 100% 全屏移动端模式 */
         renderMobileAppContent()
       )}
     </div>

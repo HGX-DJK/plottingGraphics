@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { PlotFeatureType } from '../../types';
 import type { MeasureResult } from '../Map/MaptalksContainer';
 import {
@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Trash2,
   Eraser,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { formatDistance } from '../../utils/geoUtils';
 
@@ -127,6 +128,28 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
   // 量算读数主文案
   const measureReadout = measureResult?.text ?? '—';
   const measureUnitLabel = measureResult?.kind === 'area' ? '量算面积' : '量算总长';
+
+  // 更多工具浮层：把低频与破坏性操作从常驻工具条中收起，保持地图右侧清爽
+  const [moreToolsOpen, setMoreToolsOpen] = useState(false);
+  const toolsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!moreToolsOpen) return;
+    const handlePointerDown = (e: MouseEvent) => {
+      if (toolsRef.current && !toolsRef.current.contains(e.target as Node)) {
+        setMoreToolsOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMoreToolsOpen(false);
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [moreToolsOpen]);
 
   return (
     <>
@@ -375,57 +398,101 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
       )}
 
       {/* 右侧悬浮移动端 GIS 交互工具条
-          分组重排：① 量算（进入测量模式） ② 视图（朝向/定位/缩放） ③ 清理（破坏性操作，单独隔离）
-          配色收敛：常态统一为中性灰，仅「激活态 / 状态偏离 / 破坏性」保留强调色，避免多色图标混杂。 */}
+          常驻只保留高频操作：指南针（仅在地图偏离正北时出现）、GPS 定位、放大、缩小、更多工具。
+          测距 / 测面 / 复位全景 / 清空要素 等低频与破坏性操作收进「更多工具」浮层，
+          既让右侧保持清爽，也顺带让这些功能带上文字标签、更易识别。 */}
       <div
-        className="absolute right-3 z-20 flex flex-col items-end gap-3 transition-all duration-300"
+        ref={toolsRef}
+        className="absolute right-3 z-20 flex flex-col items-end gap-2 transition-all duration-300"
         style={{
           bottom: `calc(env(safe-area-inset-bottom, 0px) + ${
             drawingTool ? '11.5rem' : hasSelectedFeature ? '11.5rem' : '6.5rem'
           })`,
         }}
       >
-        {/* 1. 量算组 (测距 / 测面) —— 模式型工具，放在最上方便于第一时间发现 */}
-        <div className="flex flex-col bg-white/90 dark:bg-gray-950/85 backdrop-blur-xl border border-slate-200/90 dark:border-white/10 rounded-2xl shadow-lg shadow-slate-900/10 dark:shadow-black/40 overflow-hidden">
-          <button
-            onClick={onToggleMeasureDistance}
-            className={`w-11 h-11 flex items-center justify-center transition border-b border-slate-200/80 dark:border-white/10 ${
-              drawingTool === 'measure-distance'
-                ? 'bg-amber-500 text-gray-950 font-bold shadow-inner'
-                : 'text-slate-600 dark:text-gray-300 active:bg-slate-100 dark:active:bg-gray-800/80'
-            }`}
-            title="空间折线测距 (Distance)"
-            aria-label="空间折线测距"
-            aria-pressed={drawingTool === 'measure-distance'}
+        {/* 更多工具浮层：收纳低频与破坏性操作 */}
+        {moreToolsOpen && (
+          <div
+            role="menu"
+            aria-label="更多地图工具"
+            className="absolute right-full mr-2 bottom-0 w-[172px] rounded-2xl bg-white/95 dark:bg-gray-950/95 backdrop-blur-xl border border-slate-200/90 dark:border-white/10 shadow-xl shadow-slate-900/10 dark:shadow-black/40 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
           >
-            <Ruler className="w-[18px] h-[18px]" />
-          </button>
+            <button
+              role="menuitem"
+              onClick={() => {
+                setMoreToolsOpen(false);
+                onToggleMeasureDistance();
+              }}
+              className={`w-full flex items-center gap-2.5 h-11 px-3 text-left transition ${
+                drawingTool === 'measure-distance'
+                  ? 'bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                  : 'text-slate-700 dark:text-gray-300 active:bg-slate-100 dark:active:bg-gray-800/80'
+              }`}
+              title="空间折线测距 (Distance)"
+              aria-label="空间折线测距"
+              aria-pressed={drawingTool === 'measure-distance'}
+            >
+              <Ruler className="w-4 h-4 shrink-0" />
+              <span className="text-xs font-semibold truncate">空间测距</span>
+            </button>
 
-          <button
-            onClick={onToggleMeasureArea}
-            className={`w-11 h-11 flex items-center justify-center transition ${
-              drawingTool === 'measure-area'
-                ? 'bg-emerald-500 text-gray-950 font-bold shadow-inner'
-                : 'text-slate-600 dark:text-gray-300 active:bg-slate-100 dark:active:bg-gray-800/80'
-            }`}
-            title="空间多边形测面 (Area)"
-            aria-label="空间多边形测面"
-            aria-pressed={drawingTool === 'measure-area'}
-          >
-            <Maximize2 className="w-[18px] h-[18px]" />
-          </button>
-        </div>
+            <button
+              role="menuitem"
+              onClick={() => {
+                setMoreToolsOpen(false);
+                onToggleMeasureArea();
+              }}
+              className={`w-full flex items-center gap-2.5 h-11 px-3 text-left transition border-t border-slate-200/70 dark:border-white/10 ${
+                drawingTool === 'measure-area'
+                  ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                  : 'text-slate-700 dark:text-gray-300 active:bg-slate-100 dark:active:bg-gray-800/80'
+              }`}
+              title="空间多边形测面 (Area)"
+              aria-label="空间多边形测面"
+              aria-pressed={drawingTool === 'measure-area'}
+            >
+              <Maximize2 className="w-4 h-4 shrink-0" />
+              <span className="text-xs font-semibold truncate">空间测面</span>
+            </button>
 
-        {/* 2. 视图组 (复位正北 / 全景复位 / GPS 定位 / 缩放) */}
-        <div className="flex flex-col bg-white/90 dark:bg-gray-950/85 backdrop-blur-xl border border-slate-200/90 dark:border-white/10 rounded-2xl shadow-lg shadow-slate-900/10 dark:shadow-black/40 overflow-hidden">
-          {onResetNorth && (
+            <button
+              role="menuitem"
+              onClick={() => {
+                setMoreToolsOpen(false);
+                onResetView();
+              }}
+              className="w-full flex items-center gap-2.5 h-11 px-3 text-left text-slate-700 dark:text-gray-300 active:bg-slate-100 dark:active:bg-gray-800/80 transition border-t border-slate-200/70 dark:border-white/10"
+              title="复位全景范围"
+              aria-label="复位全景范围"
+            >
+              <Crosshair className="w-4 h-4 shrink-0" />
+              <span className="text-xs font-semibold truncate">复位全景</span>
+            </button>
+
+            {onOpenClearFeatures && (
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMoreToolsOpen(false);
+                  onOpenClearFeatures();
+                }}
+                className="w-full flex items-center gap-2.5 h-11 px-3 text-left text-rose-500 dark:text-rose-400 active:bg-rose-50 dark:active:bg-rose-950/40 transition border-t border-slate-200/70 dark:border-white/10"
+                title="清空地图要素 (Clear Features)"
+                aria-label="清空地图要素"
+              >
+                <Trash2 className="w-4 h-4 shrink-0" />
+                <span className="text-xs font-semibold truncate">清空要素</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* 指南针：仅在地图偏离正北时出现，正北朝上时不占常驻位 */}
+        {onResetNorth && Math.abs(bearing) > 0.5 && (
+          <div className="flex flex-col bg-white/90 dark:bg-gray-950/85 backdrop-blur-xl border border-cyan-200/90 dark:border-cyan-500/30 rounded-2xl shadow-lg shadow-slate-900/10 dark:shadow-black/40 overflow-hidden">
             <button
               onClick={onResetNorth}
-              className={`w-11 h-11 flex flex-col items-center justify-center border-b border-slate-200/80 dark:border-white/10 active:bg-slate-100 dark:active:bg-gray-800/80 transition relative ${
-                Math.abs(bearing) > 0.5
-                  ? 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-300 shadow-inner'
-                  : 'text-slate-600 dark:text-gray-300'
-              }`}
+              className="w-11 h-11 flex flex-col items-center justify-center bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-300 active:bg-cyan-100 dark:active:bg-cyan-900/50 transition relative shadow-inner"
               title={`当前地图朝向: ${Math.round(((bearing % 360) + 360) % 360)}° (点击一键复位正北)`}
               aria-label="一键复位正北"
             >
@@ -447,17 +514,11 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
                 </span>
               )}
             </button>
-          )}
+          </div>
+        )}
 
-          <button
-            onClick={onResetView}
-            className="w-11 h-11 flex items-center justify-center text-slate-600 dark:text-gray-300 active:bg-slate-100 dark:active:bg-gray-800/80 border-b border-slate-200/80 dark:border-white/10 transition"
-            title="复位全景范围"
-            aria-label="复位全景范围"
-          >
-            <Crosshair className="w-[18px] h-[18px]" />
-          </button>
-
+        {/* 视图组：GPS 定位 / 放大 / 缩小 */}
+        <div className="flex flex-col bg-white/90 dark:bg-gray-950/85 backdrop-blur-xl border border-slate-200/90 dark:border-white/10 rounded-2xl shadow-lg shadow-slate-900/10 dark:shadow-black/40 overflow-hidden">
           {onLocateGPS && (
             <button
               onClick={onLocateGPS}
@@ -480,30 +541,30 @@ export const MobileDrawingControls: React.FC<MobileDrawingControlsProps> = ({
 
           <button
             onClick={onZoomOut}
-            className={`w-11 h-11 flex items-center justify-center text-slate-600 dark:text-gray-300 active:bg-slate-100 dark:active:bg-gray-800/80 transition ${
-              onOpenClearFeatures ? 'border-b border-slate-200/80 dark:border-white/10' : ''
-            }`}
+            className="w-11 h-11 flex items-center justify-center text-slate-600 dark:text-gray-300 active:bg-slate-100 dark:active:bg-gray-800/80 transition"
             title="缩小"
             aria-label="地图缩小"
           >
             <Minus className="w-[18px] h-[18px]" />
           </button>
-
         </div>
 
-        {/* 3. 清理组 (破坏性操作) —— 独立成卡并加大间距，避免与视图操作误触 */}
-        {onOpenClearFeatures && (
-          <div className="flex flex-col bg-white/90 dark:bg-gray-950/85 backdrop-blur-xl border border-rose-200/90 dark:border-rose-500/30 rounded-2xl shadow-lg shadow-slate-900/10 dark:shadow-black/40 overflow-hidden">
-            <button
-              onClick={onOpenClearFeatures}
-              className="w-11 h-11 flex items-center justify-center text-rose-500 dark:text-rose-400 hover:text-rose-600 dark:hover:text-rose-300 active:bg-rose-50 dark:active:bg-rose-950/40 transition"
-              title="清空地图要素 (Clear Features)"
-              aria-label="清空地图要素"
-            >
-              <Trash2 className="w-[18px] h-[18px]" />
-            </button>
-          </div>
-        )}
+        {/* 更多工具入口 */}
+        <div className="flex flex-col bg-white/90 dark:bg-gray-950/85 backdrop-blur-xl border border-slate-200/90 dark:border-white/10 rounded-2xl shadow-lg shadow-slate-900/10 dark:shadow-black/40 overflow-hidden">
+          <button
+            onClick={() => setMoreToolsOpen((v) => !v)}
+            className={`w-11 h-11 flex items-center justify-center transition ${
+              moreToolsOpen
+                ? 'bg-blue-50 dark:bg-blue-600/20 text-blue-600 dark:text-blue-300'
+                : 'text-slate-600 dark:text-gray-300 active:bg-slate-100 dark:active:bg-gray-800/80'
+            }`}
+            title="更多地图工具"
+            aria-label="更多地图工具"
+            aria-expanded={moreToolsOpen}
+          >
+            <SlidersHorizontal className="w-[18px] h-[18px]" />
+          </button>
+        </div>
       </div>
     </>
   );

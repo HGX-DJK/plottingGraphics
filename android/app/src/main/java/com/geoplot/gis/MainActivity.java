@@ -98,6 +98,72 @@ public class MainActivity extends BridgeActivity {
         }
 
         /**
+         * 将文本内容（JSON / GeoJSON 等）保存至 Android 系统「下载」目录 (MediaStore Downloads)
+         *
+         * 背景：Android WebView 不支持 <a download> 属性触发的 Blob 下载，
+         * 纯前端 downloadFile() 在 App 内点击无任何反应。此方法提供原生落盘能力，
+         * 让「下载 GeoJSON / 下载工程 JSON」在真机上真正生成文件。
+         *
+         * @param content   完整文本内容
+         * @param filename  目标文件名（含扩展名）
+         * @param mimeType  MIME 类型，如 application/json / application/geo+json
+         * @return 是否保存成功
+         */
+        @JavascriptInterface
+        public boolean saveTextToDownloads(String content, String filename, String mimeType) {
+            try {
+                if (content == null || content.isEmpty()) return false;
+                if (filename == null || filename.trim().isEmpty()) return false;
+                if (mimeType == null || mimeType.trim().isEmpty()) {
+                    mimeType = "application/json";
+                }
+                byte[] bytes = content.getBytes("UTF-8");
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    ContentResolver resolver = getContentResolver();
+                    ContentValues contentValues = new ContentValues();
+                    contentValues.put(MediaStore.Downloads.Media.DISPLAY_NAME, filename);
+                    contentValues.put(MediaStore.Downloads.Media.MIME_TYPE, mimeType);
+                    contentValues.put(MediaStore.Downloads.Media.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+                    contentValues.put(MediaStore.Downloads.Media.IS_PENDING, 1);
+
+                    Uri uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues);
+                    if (uri == null) return false;
+
+                    try (OutputStream outputStream = resolver.openOutputStream(uri)) {
+                        if (outputStream != null) {
+                            outputStream.write(bytes);
+                            outputStream.flush();
+                        }
+                    }
+                    contentValues.clear();
+                    contentValues.put(MediaStore.Downloads.Media.IS_PENDING, 0);
+                    resolver.update(uri, contentValues, null, null);
+
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "✓ 已保存至手机「下载」目录: " + filename, Toast.LENGTH_LONG).show());
+                    return true;
+                } else {
+                    // Android 9 及以下：直接写入公共下载目录（需 WRITE_EXTERNAL_STORAGE，已在清单声明）
+                    File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                    if (!downloadsDir.exists()) {
+                        downloadsDir.mkdirs();
+                    }
+                    File target = new File(downloadsDir, filename);
+                    try (FileOutputStream fos = new FileOutputStream(target)) {
+                        fos.write(bytes);
+                        fos.flush();
+                    }
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "✓ 已保存至手机「下载」目录: " + filename, Toast.LENGTH_LONG).show());
+                    return true;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, "保存到下载目录失败: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+            }
+            return false;
+        }
+
+        /**
          * 调起系统原生分享面板，支持一键发送微信好友/微信朋友圈/钉钉/QQ
          */
         @JavascriptInterface

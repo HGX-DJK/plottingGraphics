@@ -98,9 +98,13 @@ MapTalks GL 按官方规范以 `link` + `script` 方式在 `index.html` 中异�
 ### 7. 工程数据互通
 
 - **成果图导出**：合成带工程标题、指北针、图层色标、空间基准与时间戳的高清水印专题图。
-- **工程备份（JSON）**：导出全部图层与要素，含 `spatialReference: EPSG:4326` 元信息。
-- **地理矢量（GeoJSON）**：导出标准 GeoJSON，可直接接入第三方 GIS 平台。
-- **数据导入**：支持备份文件与 GeoJSON 导入。
+- **工程备份（JSON）**：导出图层与要素，含 `spatialReference: EPSG:4326` 元信息，可原样导回。
+- **地理矢量（GeoJSON）**：导出标准 RFC 7946 GeoJSON，可直接接入第三方 GIS 平台；
+  要素的 `properties` 中保留 `layerId` 与 `layerName`，导回本应用时能还原图层分组与名称。
+- **导出范围可选**：导出弹窗提供「当前图层 / 全部图层」切换，并实时显示将要导出的图层数与要素数。
+- **真机下载落盘**：Android 端经原生桥 `AndroidNative.saveTextToDownloads` 写入系统「下载」目录，
+  桌面端依次降级为系统分享面板与 Blob 下载。
+- **数据导入**：支持备份文件与 GeoJSON 导入；带 `layerId` 的 GeoJSON 自动按原图层还原分组。
 - **一键恢复示例工程**：内置规划红线、交通廊道、外业调查、应急防护四组示例图层与要素。
 
 ### 8. 在线 POI 检索
@@ -143,7 +147,7 @@ pnpm run cap:build    # 构建 + 同步，一步到位
 
 ### 构建体积
 
-主包经代码分割后约 **354 kB**（gzip **103 kB**），CSS 约 **79 kB**（gzip **12 kB**），
+主包经代码分割后约 **356 kB**（gzip **103 kB**），CSS 约 **79 kB**（gzip **12 kB**），
 另有 6 个按需加载的懒加载 chunk（导入导出 / POI 检索 / 新建图层 / 成果图预览等低频功能，
 合计约 20 kB gzip）与 1 个共享图标 chunk。
 
@@ -210,6 +214,9 @@ src/
   均已被 `.gitignore` 排除，不参与构建与类型检查，可直接删除。
 - **正式 APK 已关闭 WebView 调试**：调试请在 `capacitor.config.json` 中临时开启
   `webContentsDebuggingEnabled`，发布前务必改回 `false`。
+- **原生桥改动需重编 APK 生效**：`AndroidNative` 桥（如 `saveTextToDownloads`）属原生代码，
+  修改后必须重新执行 `pnpm run cap:build` 并重新安装 APK，仅刷新前端页面不会生效。
+  未重编时前端会自动降级到系统分享面板 / 桌面 Blob 下载，不会静默失败。
 
 ---
 

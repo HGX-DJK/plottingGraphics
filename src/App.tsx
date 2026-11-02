@@ -1031,8 +1031,10 @@ export const App: React.FC = () => {
             onClose={handleCloseImportExportModal}
             layers={layers}
             features={features}
+            activeLayerId={activeLayerId}
             onImportData={handleImportData}
             onResetDemo={handleResetDemo}
+            onNotify={showToast}
           />
         </Suspense>
       )}

@@ -624,9 +624,17 @@ function buildPolygonRing(f: PlotFeature): [number, number][] | null {
  *   Point      : marker / text / point-* / post-*
  *   LineString : polyline / freehand
  *   Polygon    : polygon / rectangle / circle / sector / gathering-place / 各类箭头
+ *
+ * @param features 待导出的要素
+ * @param layers   可选的图层表；提供时会把图层名写入 properties.layerName，
+ *                 使本应用导出的 GeoJSON 导回后能还原图层分组与名称
  */
-export function exportToGeoJSON(features: PlotFeature[]): string {
+export function exportToGeoJSON(features: PlotFeature[], layers?: PlotLayer[]): string {
   const outFeatures: any[] = [];
+  const layerNameMap = new Map<string, string>();
+  if (layers) {
+    for (const l of layers) layerNameMap.set(l.id, l.name);
+  }
 
   for (const f of features) {
     const pts = (f.coordinates || []) as [number, number][];
@@ -674,6 +682,8 @@ export function exportToGeoJSON(features: PlotFeature[]): string {
         name: f.name,
         type: f.type,
         layerId: f.layerId,
+        // 记录图层名称，导回本应用时可还原分组与标题
+        ...(layerNameMap.has(f.layerId) ? { layerName: layerNameMap.get(f.layerId) } : {}),
         ...f.properties,
       },
       geometry: {
@@ -697,18 +707,76 @@ export function exportToGeoJSON(features: PlotFeature[]): string {
 }
 
 /**
- * 触发文件下载
+ * 触发文件下载（跨平台分层降级）
+ *
+ * Android WebView 不支持 <a download> 触发 Blob 下载，纯前端方案在 App 内点击无反应，
+ * 因此按「原生桥 → Web Share 面板 → Blob 下载」的顺序依次尝试：
+ *   1. AndroidNative.saveTextToDownloads：写入系统「下载」目录，真机可用；
+ *   2. navigator.share：调起系统分享面板，用户可选「保存到文件」；
+ *   3. Blob + <a download>：桌面浏览器兜底。
+ *
+ * @returns 各层的结果描述，供调用方给出准确的提示文案
  */
-export function downloadFile(filename: string, content: string, contentType = 'application/json') {
-  const blob = new Blob([content], { type: contentType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+export async function downloadFile(
+  filename: string,
+  content: string,
+  contentType = 'application/json'
+): Promise<{ ok: boolean; method: 'native' | 'share' | 'blob' | 'none'; message: string }> {
+  // 1. Android 原生桥：写入系统下载目录
+  try {
+    const native = (window as any).AndroidNative;
+    if (native && typeof native.saveTextToDownloads === 'function') {
+      const saved = native.saveTextToDownloads(content, filename, contentType);
+      if (saved) {
+        return { ok: true, method: 'native', message: `已保存至手机「下载」目录: ${filename}` };
+      }
+    }
+  } catch (err) {
+    console.warn('[downloadFile] 原生桥调用失败，尝试降级:', err);
+  }
+
+  // 2. Web Share 面板：用户可自行选择「保存到文件」
+  try {
+    const blob = new Blob([content], { type: contentType });
+    const file = new File([blob], filename, { type: contentType });
+    if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: '标绘数据导出',
+        text: filename,
+      });
+      return { ok: true, method: 'share', message: `已调起系统分享面板: ${filename}` };
+    }
+  } catch (err: any) {
+    // 用户取消分享不算失败，继续走 Blob 兜底
+    if (err && err.name === 'AbortError') {
+      return { ok: false, method: 'share', message: '已取消分享' };
+    }
+    console.warn('[downloadFile] 系统分享不可用，尝试降级:', err);
+  }
+
+  // 3. 桌面浏览器兜底：Blob + <a download>
+  try {
+    const blob = new Blob([content], { type: contentType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    // 立即 revoke 会导致部分浏览器下载中断，延后清理
+    setTimeout(() => {
+      try {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch {}
+    }, 1500);
+    return { ok: true, method: 'blob', message: `已开始下载: ${filename}` };
+  } catch (err) {
+    console.error('[downloadFile] 下载失败:', err);
+    return { ok: false, method: 'none', message: '当前环境不支持文件下载，请改用「复制」按钮' };
+  }
 }
 
 // ==========================================

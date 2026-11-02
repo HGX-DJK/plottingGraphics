@@ -32,3 +32,15 @@ android/.idea/
 *.apk
 *.aab
 
+# 已废弃的旧桌面端 UI 存档区（无人引用，不参与构建与类型检查）
+# 如需彻底清理，直接删除 legacy/ 目录即可
+legacy/
+
+# 开发期界面验证截图存档区（约 21.8 MB，不参与构建）
+# 已从仓库根的 shots/ 迁至 .archive/shots/，此处忽略避免再次被跟踪
+.archive/
+shots/
+
+# TypeScript 增量编译缓存
+*.tsbuildinfo
+

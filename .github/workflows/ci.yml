@@ -41,6 +41,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Type check (tsc --noEmit)
+        run: pnpm run typecheck
+
       - name: Build production bundle
         run: pnpm run build
 

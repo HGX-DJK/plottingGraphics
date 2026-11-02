@@ -28,7 +28,7 @@ interface ImportExportModalProps {
   onResetDemo: () => void;
 }
 
-export const ImportExportModal: React.FC<ImportExportModalProps> = ({
+const ImportExportModalBase: React.FC<ImportExportModalProps> = ({
   isOpen,
   onClose,
   layers,
@@ -296,3 +296,9 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
 
   return typeof document !== 'undefined' ? createPortal(modalNode, document.body) : modalNode;
 };
+
+/**
+ * 记忆化包装：上层组件的无关状态变化（如视口中心、缩放级别刷新）
+ * 不再触发本组件整体重渲染，避免移动端无谓的整树 diff 开销。
+ */
+export const ImportExportModal = React.memo(ImportExportModalBase);

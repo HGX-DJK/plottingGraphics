@@ -3,7 +3,32 @@
  * 生成符合通用 GIS 规范、跨平台 100% 兼容的 SVG Base64 Data URI
  */
 
+/**
+ * 图标 Data URI 缓存。
+ *
+ * 每次要素几何重建都会重新调用 createTacticalIcon()，
+ * 而 SVG 拼接 + base64 编码是纯 CPU 开销，同一 (类型, 颜色, 文本) 组合的结果完全一致，
+ * 因此直接缓存结果，避免重复编码。
+ */
+const iconCache = new Map<string, string>();
+
+/** 缓存上限，超出后按插入顺序淘汰最旧条目（防止名称各异的要素导致无限增长） */
+const ICON_CACHE_MAX = 256;
+
+/**
+ * 生成指定类型的 GIS 图标 Data URI。
+ *
+ * @param type  图标类型（point-survey / point-station / point-hazard / point-medical / marker 等）
+ * @param color 主题色
+ * @param text  注记文本（当前各图元内未使用，保留参数以兼容既有调用方）
+ */
 export function createTacticalIcon(type: string, color = '#3b82f6', text = ''): string {
+  const cacheKey = `${type}|${color}|${text}`;
+  const cached = iconCache.get(cacheKey);
+  if (cached !== undefined) {
+    return cached;
+  }
+
   let innerSvg = '';
 
   switch (type) {
@@ -80,14 +105,27 @@ export function createTacticalIcon(type: string, color = '#3b82f6', text = ''): 
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">${innerSvg}</svg>`;
 
+  let dataUri: string;
   try {
     if (typeof window !== 'undefined' && window.btoa) {
       const base64 = window.btoa(unescape(encodeURIComponent(svg)));
-      return `data:image/svg+xml;base64,${base64}`;
+      dataUri = `data:image/svg+xml;base64,${base64}`;
+    } else {
+      dataUri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
     }
   } catch (e) {
     // 降级使用 encodeURIComponent
+    dataUri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   }
 
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  // 写入缓存（Map 按插入顺序迭代，超出上限时淘汰最旧一条）
+  if (iconCache.size >= ICON_CACHE_MAX) {
+    const oldestKey = iconCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      iconCache.delete(oldestKey);
+    }
+  }
+  iconCache.set(cacheKey, dataUri);
+
+  return dataUri;
 }

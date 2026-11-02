@@ -18,7 +18,7 @@ interface MobileTabBarProps {
   isDrawing: boolean;
 }
 
-export const MobileTabBar: React.FC<MobileTabBarProps> = ({
+const MobileTabBarBase: React.FC<MobileTabBarProps> = ({
   activeTab,
   onSelectTab,
   layersCount,
@@ -149,3 +149,9 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
     </nav>
   );
 };
+
+/**
+ * 记忆化包装：上层组件的无关状态变化（如视口中心、缩放级别刷新）
+ * 不再触发本组件整体重渲染，避免移动端无谓的整树 diff 开销。
+ */
+export const MobileTabBar = React.memo(MobileTabBarBase);

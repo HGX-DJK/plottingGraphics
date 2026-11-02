@@ -5,7 +5,7 @@ interface MobileHeaderProps {
   onOpenSearch: () => void;
 }
 
-export const MobileHeader: React.FC<MobileHeaderProps> = ({ onOpenSearch }) => {
+const MobileHeaderBase: React.FC<MobileHeaderProps> = ({ onOpenSearch }) => {
   return (
     <header className="absolute top-0 left-0 right-0 z-30 pointer-events-none px-3 pt-[max(env(safe-area-inset-top),12px)] select-none">
       {/* 沉浸式全局搜索胶囊：全宽、高识别度，点击任意区域立即唤起高德 POI 检索 */}
@@ -32,3 +32,9 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({ onOpenSearch }) => {
     </header>
   );
 };
+
+/**
+ * 记忆化包装：上层组件的无关状态变化（如视口中心、缩放级别刷新）
+ * 不再触发本组件整体重渲染，避免移动端无谓的整树 diff 开销。
+ */
+export const MobileHeader = React.memo(MobileHeaderBase);

@@ -57,7 +57,7 @@ const POPULAR_PRESETS = [
   { name: '广州塔', city: '广州' },
 ];
 
-export const MobilePoiSearchSheet: React.FC<MobilePoiSearchSheetProps> = ({
+const MobilePoiSearchSheetBase: React.FC<MobilePoiSearchSheetProps> = ({
   isOpen,
   onClose,
   currentCenter,
@@ -96,6 +96,10 @@ export const MobilePoiSearchSheet: React.FC<MobilePoiSearchSheetProps> = ({
     if (isOpen) {
       setSearchHistory(amapSearchService.getSearchHistory());
       setCustomKeyInput(amapSearchService.getCustomApiKey());
+      // 未配置 Key 时直接展开配置面板，避免用户面对一个永远无结果的搜索框
+      if (!amapSearchService.hasApiKey()) {
+        setShowKeyConfig(true);
+      }
       setTimeout(() => {
         inputRef.current?.focus();
       }, 150);
@@ -165,9 +169,22 @@ export const MobilePoiSearchSheet: React.FC<MobilePoiSearchSheetProps> = ({
     }
 
     searchTimerRef.current = window.setTimeout(() => {
+      searchTimerRef.current = null;
       executeSearch(val, cityFilter);
     }, 350);
   };
+
+  // 卸载时清理防抖定时器：抽屉改为按需挂载后，关闭即卸载，
+  // 否则挂起的搜索会在抽屉关闭后仍发起一次无意义的网络请求。
+  useEffect(
+    () => () => {
+      if (searchTimerRef.current) {
+        window.clearTimeout(searchTimerRef.current);
+        searchTimerRef.current = null;
+      }
+    },
+    []
+  );
 
   // 点击选择地点 (定位飞跃)
   const handleSelectPoi = (item: AmapPoiItem) => {
@@ -215,7 +232,11 @@ export const MobilePoiSearchSheet: React.FC<MobilePoiSearchSheetProps> = ({
   const handleSaveKey = () => {
     amapSearchService.setCustomApiKey(customKeyInput);
     setShowKeyConfig(false);
-    onNotify?.(customKeyInput.trim() ? '已更新高德 Web 服务 Key' : '已恢复默认高德 Key');
+    onNotify?.(
+      customKeyInput.trim()
+        ? '已更新高德 Web 服务 Key'
+        : '已清除高德 Key，在线地名检索将不可用'
+    );
     if (keyword.trim()) {
       executeSearch(keyword, cityFilter);
     }
@@ -263,12 +284,21 @@ export const MobilePoiSearchSheet: React.FC<MobilePoiSearchSheetProps> = ({
               </a>
             </div>
             <p className="text-slate-600 dark:text-gray-400 text-[11px] leading-relaxed mb-2.5">
-              系统已内置默认通用 Key。如需更高并发或专属调用额度，可在上方高德控制台创建「Web 服务」类型的 Key 并粘贴在此处。
+              本系统不内置任何共享 Key，请自行在
+              <a
+                href="https://console.amap.com/dev/key/app"
+                target="_blank"
+                rel="noreferrer"
+                className="mx-0.5 text-blue-600 dark:text-blue-400 underline hover:opacity-80"
+              >
+                高德开放平台
+              </a>
+              创建「Web 服务」类型的 Key 并粘贴在此处。Key 仅保存在本机浏览器，不会上传。
             </p>
             <div className="flex gap-2">
               <input
                 type="text"
-                placeholder="在此粘贴高德 Web 服务 Key (留空恢复默认)"
+                placeholder="在此粘贴高德 Web 服务 Key"
                 value={customKeyInput}
                 onChange={(e) => setCustomKeyInput(e.target.value)}
                 className="flex-1 px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-700 bg-white dark:bg-gray-900 text-slate-900 dark:text-white font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -611,3 +641,9 @@ export const MobilePoiSearchSheet: React.FC<MobilePoiSearchSheetProps> = ({
     </MobileBottomSheet>
   );
 };
+
+/**
+ * 记忆化包装：上层组件的无关状态变化（如视口中心、缩放级别刷新）
+ * 不再触发本组件整体重渲染，避免移动端无谓的整树 diff 开销。
+ */
+export const MobilePoiSearchSheet = React.memo(MobilePoiSearchSheetBase);

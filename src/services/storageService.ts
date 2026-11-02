@@ -4,6 +4,81 @@ const STORAGE_KEY_LAYERS = 'geoplot_studio_layers_shanghai_v3';
 const STORAGE_KEY_FEATURES = 'geoplot_studio_features_shanghai_v3';
 const STORAGE_KEY_ACTIVE_LAYER = 'geoplot_studio_active_layer_shanghai_v3';
 
+/**
+ * 写入防抖间隔（毫秒）。
+ *
+ * 图层与要素的 JSON.stringify + localStorage.setItem 是同步阻塞操作，
+ * 在要素较多时单次可达数十毫秒。原先每次状态变化都立即落盘，
+ * 连续拖拽滑块 / 逐字编辑属性时会造成明显的掉帧。
+ * 改为防抖合并写入后，密集操作只会触发最后一次落盘。
+ */
+const WRITE_DEBOUNCE_MS = 300;
+
+/** 待落盘的数据：storageKey -> 序列化后的字符串 */
+const pendingWrites = new Map<string, string>();
+/** 待落盘的定时器：storageKey -> 定时器句柄 */
+const writeTimers = new Map<ReturnType<typeof setTimeout>, string>();
+
+function writeNow(key: string, payload: string): void {
+  try {
+    localStorage.setItem(key, payload);
+  } catch (e) {
+    console.error(`Failed to save ${key}`, e);
+  }
+}
+
+/** 登记一次防抖写入，同一 key 的前序写入会被合并 */
+function scheduleWrite(key: string, payload: string): void {
+  pendingWrites.set(key, payload);
+
+  writeTimers.forEach((timerKey, timer) => {
+    if (timerKey === key) {
+      clearTimeout(timer);
+      writeTimers.delete(timer);
+    }
+  });
+
+  const timer = setTimeout(() => {
+    writeTimers.delete(timer);
+    const latest = pendingWrites.get(key);
+    pendingWrites.delete(key);
+    if (latest !== undefined) {
+      writeNow(key, latest);
+    }
+  }, WRITE_DEBOUNCE_MS);
+
+  writeTimers.set(timer, key);
+}
+
+/**
+ * 立即落盘所有待写入内容。
+ *
+ * 防抖写存在「最后一次改动后 300ms 内进程被杀则丢数据」的风险，
+ * 因此在页面隐藏 / 卸载 / App 进入后台时立即冲刷。
+ */
+export function flushStorageWrites(): void {
+  // Map.forEach 回调签名为 (value, key)：此处 value 是 storageKey，key 才是定时器句柄
+  writeTimers.forEach((_storageKey, timer) => clearTimeout(timer));
+  writeTimers.clear();
+
+  pendingWrites.forEach((payload, key) => writeNow(key, payload));
+  pendingWrites.clear();
+}
+
+if (typeof window !== 'undefined') {
+  const flush = () => flushStorageWrites();
+  window.addEventListener('pagehide', flush);
+  window.addEventListener('beforeunload', flush);
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        flush();
+      }
+    });
+  }
+}
+
 // 预设地图中心点 (中国上海市核心区: 人民广场/陆家嘴 121.4737, 31.2304)
 export const DEFAULT_MAP_CENTER: [number, number] = [121.4737, 31.2304];
 export const DEFAULT_MAP_ZOOM = 12.5;
@@ -260,11 +335,7 @@ export const storageService = {
   },
 
   saveLayers(layers: PlotLayer[]): void {
-    try {
-      localStorage.setItem(STORAGE_KEY_LAYERS, JSON.stringify(layers));
-    } catch (e) {
-      console.error('Failed to save layers', e);
-    }
+    scheduleWrite(STORAGE_KEY_LAYERS, JSON.stringify(layers));
   },
 
   loadFeatures(): PlotFeature[] {
@@ -281,11 +352,7 @@ export const storageService = {
   },
 
   saveFeatures(features: PlotFeature[]): void {
-    try {
-      localStorage.setItem(STORAGE_KEY_FEATURES, JSON.stringify(features));
-    } catch (e) {
-      console.error('Failed to save features', e);
-    }
+    scheduleWrite(STORAGE_KEY_FEATURES, JSON.stringify(features));
   },
 
   getActiveLayerId(layers: PlotLayer[]): string {
@@ -301,12 +368,18 @@ export const storageService = {
   },
 
   resetToDefault(): { layers: PlotLayer[]; features: PlotFeature[] } {
+    // 先冲刷掉待写入的旧数据，避免与重置后的内容竞争
+    flushStorageWrites();
+
     localStorage.removeItem(STORAGE_KEY_LAYERS);
     localStorage.removeItem(STORAGE_KEY_FEATURES);
     localStorage.removeItem(STORAGE_KEY_ACTIVE_LAYER);
-    this.saveLayers(INITIAL_LAYERS);
-    this.saveFeatures(INITIAL_FEATURES);
-    this.setActiveLayerId(INITIAL_LAYERS[0].id);
+
+    // 重置必须立即落盘，不走防抖
+    writeNow(STORAGE_KEY_LAYERS, JSON.stringify(INITIAL_LAYERS));
+    writeNow(STORAGE_KEY_FEATURES, JSON.stringify(INITIAL_FEATURES));
+    writeNow(STORAGE_KEY_ACTIVE_LAYER, INITIAL_LAYERS[0].id);
+
     return {
       layers: INITIAL_LAYERS,
       features: INITIAL_FEATURES,

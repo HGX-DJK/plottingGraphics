@@ -34,7 +34,7 @@ interface MobileMoreSheetProps {
   onSelectTheme?: (theme: ThemeMode) => void;
 }
 
-export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
+const MobileMoreSheetBase: React.FC<MobileMoreSheetProps> = ({
   isOpen,
   onClose,
   currentUser,
@@ -269,3 +269,9 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
     </MobileBottomSheet>
   );
 };
+
+/**
+ * 记忆化包装：上层组件的无关状态变化（如视口中心、缩放级别刷新）
+ * 不再触发本组件整体重渲染，避免移动端无谓的整树 diff 开销。
+ */
+export const MobileMoreSheet = React.memo(MobileMoreSheetBase);

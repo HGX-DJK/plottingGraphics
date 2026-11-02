@@ -29,7 +29,7 @@ interface MobilePropertySheetProps {
   onDeleteFeature: (featureId: string) => void;
 }
 
-export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
+const MobilePropertySheetBase: React.FC<MobilePropertySheetProps> = ({
   isOpen,
   onClose,
   feature,
@@ -107,13 +107,23 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
   }, [feature]);
 
   // 组件卸载时清理定时器并提交挂起编辑
+  // 注意：抽屉改为「按需挂载」后，关闭抽屉即触发卸载，
+  // 若不在此处提交最后一次节流中的改动，用户滑块拖动的结果会丢失。
   useEffect(
     () => () => {
       if (commitTimerRef.current !== null) {
         window.clearTimeout(commitTimerRef.current);
         commitTimerRef.current = null;
       }
+      if (pendingRef.current) {
+        pendingRef.current = false;
+        const d = draftRef.current;
+        if (d) onUpdateFeature(d.next);
+      }
     },
+    // onUpdateFeature 在 useFeatures 中是 useCallback([]) 稳定引用，
+    // 挂载时捕获一次即可，无需随渲染变化重挂清理函数。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
@@ -605,3 +615,9 @@ export const MobilePropertySheet: React.FC<MobilePropertySheetProps> = ({
     </MobileBottomSheet>
   );
 };
+
+/**
+ * 记忆化包装：上层组件的无关状态变化（如视口中心、缩放级别刷新）
+ * 不再触发本组件整体重渲染，避免移动端无谓的整树 diff 开销。
+ */
+export const MobilePropertySheet = React.memo(MobilePropertySheetBase);

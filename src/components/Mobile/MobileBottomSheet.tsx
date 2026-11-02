@@ -13,7 +13,7 @@ interface MobileBottomSheetProps {
   headerAction?: React.ReactNode;
 }
 
-export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
+const MobileBottomSheetBase: React.FC<MobileBottomSheetProps> = ({
   isOpen,
   onClose,
   title,
@@ -39,16 +39,29 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
   onCloseRef.current = onClose;
 
   // 关闭动画：先播放离场过渡，再真正卸载，避免抽屉「瞬间消失」
+  const closeTimerRef = useRef<number | null>(null);
   const requestClose = React.useCallback(() => {
     if (isClosingRef.current) return;
     isClosingRef.current = true;
     setIsClosing(true);
-    window.setTimeout(() => {
+    closeTimerRef.current = window.setTimeout(() => {
+      closeTimerRef.current = null;
       isClosingRef.current = false;
       setIsClosing(false);
       onCloseRef.current();
     }, 220);
   }, []);
+
+  // 卸载时清理关闭定时器（抽屉已改为按需挂载，父级可能在其离场动画期间直接卸载）
+  useEffect(
+    () => () => {
+      if (closeTimerRef.current !== null) {
+        window.clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
+    },
+    []
+  );
 
   // 滚动锁 + 焦点陷阱 + 背景隔离 + Esc 关闭
   useEffect(() => {
@@ -201,3 +214,9 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
 
   return typeof document !== 'undefined' ? createPortal(sheetNode, document.body) : sheetNode;
 };
+
+/**
+ * 记忆化包装：上层组件的无关状态变化（如视口中心、缩放级别刷新）
+ * 不再触发本组件整体重渲染，避免移动端无谓的整树 diff 开销。
+ */
+export const MobileBottomSheet = React.memo(MobileBottomSheetBase);

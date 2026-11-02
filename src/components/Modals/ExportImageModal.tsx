@@ -25,7 +25,7 @@ function dataURLtoBlob(dataUrl: string): Blob {
   return new Blob([u8arr], { type: mime });
 }
 
-export const ExportImageModal: React.FC<ExportImageModalProps> = ({
+const ExportImageModalBase: React.FC<ExportImageModalProps> = ({
   isOpen,
   onClose,
   imageUrl,
@@ -306,3 +306,9 @@ export const ExportImageModal: React.FC<ExportImageModalProps> = ({
 
   return typeof document !== 'undefined' ? createPortal(modalNode, document.body) : null;
 };
+
+/**
+ * 记忆化包装：上层组件的无关状态变化（如视口中心、缩放级别刷新）
+ * 不再触发本组件整体重渲染，避免移动端无谓的整树 diff 开销。
+ */
+export const ExportImageModal = React.memo(ExportImageModalBase);

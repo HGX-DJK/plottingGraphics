@@ -96,11 +96,13 @@ export function useFeatures(options: UseFeaturesOptions) {
   // 按图层级联删除要素
   const handleCascadeDeleteByLayer = useCallback((layerId: string) => {
     setFeatures((prev) => prev.filter((f) => f.layerId !== layerId));
-    setSelectedFeatureId((prev) => {
-      // 如果当前选中的要素属于被删除的图层，重置选中态
-      return prev;
-    });
-  }, []);
+    // 选中的要素若随图层被级联删除，必须清空选中态。
+    // 否则 selectedFeatureId 会指向一个已不存在的要素：
+    // selectedFeature 解析为 null，但底栏 hasSelectedFeature 仍为 true，UI 状态自相矛盾。
+    setSelectedFeatureId((prev) =>
+      prev && features.find((f) => f.id === prev && f.layerId === layerId) ? null : prev
+    );
+  }, [features]);
 
   // 精准定位与聚焦要素
   const handleLocateFeature = useCallback(

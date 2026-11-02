@@ -98,6 +98,18 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
     });
     const [maptalksFailed, setMaptalksFailed] = useState<boolean>(false);
 
+    /**
+     * 地图实例是否已创建完成。
+     *
+     * MapTalks GL 以 async 方式从 CDN 注入，引擎就绪时刻晚于本组件挂载时刻。
+     * 而「图层同步」与「要素几何重建」两个 effect 在地图未就绪时只能直接 return，
+     * 若它们的依赖里没有「地图就绪」这一信号，就会在建图完成后永远不再执行，
+     * 导致「已登录状态下直接刷新页面 → 要素全部不渲染」。
+     *
+     * 这里用显式状态把「建图完成」这件事显式广播出去，供上述 effect 依赖。
+     */
+    const [mapReady, setMapReady] = useState<boolean>(false);
+
     const activeLayerIdRef = useRef(activeLayerId);
     activeLayerIdRef.current = activeLayerId;
 
@@ -118,6 +130,26 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
 
     const onSnapFeedbackRef = useRef(onSnapFeedback);
     onSnapFeedbackRef.current = onSnapFeedback;
+
+    const onCoordinatesChangeRef = useRef(onCoordinatesChange);
+    onCoordinatesChangeRef.current = onCoordinatesChange;
+
+    // 绘制工具与图层锁定态以 ref 镜像，供几何体事件回调读取最新值。
+    // 这样切换绘制工具 / 锁定图层时无需重建任何几何体。
+    const drawingToolRef = useRef(drawingTool);
+    drawingToolRef.current = drawingTool;
+
+    const lockedLayerIdsRef = useRef<Set<string>>(new Set());
+    lockedLayerIdsRef.current = new Set(layers.filter((l) => l.locked).map((l) => l.id));
+
+    // 已渲染几何体登记表：增量重建的核心。
+    // 记录每个要素当前挂在地图上的几何体实例，只有内容或选中态真正变化的要素才会被重建。
+    const renderedGeomsRef = useRef<
+      Map<
+        string,
+        { feature: PlotFeature; geom: any; layerId: string; selected: boolean }
+      >
+    >(new Map());
 
     // 1. 空间量算引擎 Hook
     const {
@@ -689,6 +721,19 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
 
       mapInstanceRef.current = map;
 
+      /**
+       * 地图实例一旦重建，此前登记的几何体全部失效。
+       *
+       * renderedGeomsRef 缓存的是「要素 → 挂在地图上的几何体实例」映射，
+       * 而几何体是地图实例的子对象：map.remove() 会连同所有图层与几何体一起销毁。
+       * 若不清空缓存，增量重建会认为「要素内容与选中态都没变 → 复用现有几何体」，
+       * 从而在新地图上什么都不画（表现为：刷新后地图上没有要素）。
+       *
+       * 触发场景：React StrictMode 的 effect 双调用（开发态必现）、
+       * 引擎就绪后重新建图、以及任何导致地图实例被销毁重建的路径。
+       */
+      renderedGeomsRef.current.clear();
+
       // 实时绘制引导预览层
       const previewLayer = new maptalks.VectorLayer('system-preview', [], {
         zIndex: 999,
@@ -727,12 +772,43 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         resizeObserver.observe(mapContainerRef.current);
       }
 
-      // 坐标与缩放变动监听
-      map.on('mousemove touchmove', (e: any) => {
-        if (onCoordinatesChange && e.coordinate) {
-          onCoordinatesChange([e.coordinate.x, e.coordinate.y], map.getZoom());
+      // 视口中心与缩放监听
+      //
+      // 性能修正：原实现监听 mousemove / touchmove，鼠标每移动一帧都会回调上层 setState，
+      // 导致整棵组件树以 ~60fps 重渲染（移动端触控时明显掉帧）。
+      // 现改为监听视口变化 (viewchange) 并做 120ms 节流：
+      //   1) 触发频率从"每帧"降到"每次平移/缩放"，静止时完全静默；
+      //   2) 取值改为地图真实中心点，语义与"视口中心"一致（原先取的是鼠标光标位置）。
+      const VIEW_THROTTLE_MS = 120;
+      let viewThrottleTimer: number | null = null;
+      let lastViewEmit = 0;
+
+      const emitViewState = () => {
+        const center = map.getCenter();
+        if (!center) return;
+        onCoordinatesChangeRef.current?.(
+          [Number(center.x), Number(center.y)],
+          map.getZoom()
+        );
+      };
+
+      const handleViewChange = () => {
+        const now = Date.now();
+        const elapsed = now - lastViewEmit;
+        if (elapsed >= VIEW_THROTTLE_MS) {
+          lastViewEmit = now;
+          emitViewState();
+        } else if (viewThrottleTimer === null) {
+          viewThrottleTimer = window.setTimeout(() => {
+            viewThrottleTimer = null;
+            lastViewEmit = Date.now();
+            emitViewState();
+          }, VIEW_THROTTLE_MS - elapsed);
         }
-      });
+      };
+
+      map.on('viewchange', handleViewChange);
+      emitViewState();
 
       // 监听地图旋转朝向 (Bearing) 与倾角 (Pitch)
       const handleMapTransform = () => {
@@ -764,16 +840,25 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         }
       });
 
+      // 建图完成：广播给依赖地图实例的 effect（图层同步 / 要素几何重建）
+      setMapReady(true);
+
       return () => {
         window.clearTimeout(resizeTimer);
+        if (viewThrottleTimer !== null) {
+          window.clearTimeout(viewThrottleTimer);
+          viewThrottleTimer = null;
+        }
         if (resizeObserver) {
           resizeObserver.disconnect();
           resizeObserver = null;
         }
         if (map) {
+          map.off('viewchange', handleViewChange);
           map.remove();
           mapInstanceRef.current = null;
         }
+        setMapReady(false);
       };
     }, [maptalksReady]);
 
@@ -787,7 +872,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         mapInstanceRef.current.setBaseLayer(newBaseLayer);
         baseTileLayerRef.current = newBaseLayer;
       }
-    }, [basemap]);
+    }, [basemap, mapReady]);
 
     // 图层同步 (创建/更新/删除 MapTalks VectorLayers)
     useEffect(() => {
@@ -822,62 +907,123 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
           map.removeLayer(l);
         }
       });
-    }, [layers]);
+    }, [layers, mapReady]);
 
-    // 要素渲染与高亮更新
+    // 要素渲染与高亮更新（增量重建）
+    //
+    // 性能修正：原实现每次 features / layers / selectedFeatureId / drawingTool 变化都会
+    // vecLayer.clear() 后对"所有图层的所有要素"重新构造几何体（点类要素还要现场拼 SVG
+    // 并 base64 编码）。这意味着：仅是点选一个要素、切换一次绘制工具，都会触发全量重建。
+    //
+    // 现改为按要素粒度增量更新：
+    //   - 要素对象引用未变且选中态未变  → 完全跳过，不碰地图；
+    //   - 只有被编辑过的那个要素        → 移除旧几何体并重建；
+    //   - 只有「旧选中 / 新选中」两项   → 因高亮样式不同而重建；
+    //   - 删除 / 换图层的要素          → 移除旧几何体。
+    // 绘制工具与图层锁定态改由 ref 读取，因此切换工具不再触发任何重建。
     useEffect(() => {
       const map = mapInstanceRef.current;
       if (!map || !(window as any).maptalks) return;
       const maptalks = (window as any).maptalks;
 
-      layers.forEach((layer) => {
-        const vecLayer = map.getLayer(layer.id);
+      const rendered = renderedGeomsRef.current;
+      const aliveIds = new Set<string>();
+
+      const detachGeometry = (geom: any, layerId: string) => {
+        if (!geom) return;
+        const owner = map.getLayer(layerId);
+        try {
+          if (owner && typeof owner.removeGeometry === 'function') {
+            owner.removeGeometry(geom);
+          } else if (typeof geom.remove === 'function') {
+            geom.remove();
+          }
+        } catch (e) {
+          /* 几何体已随图层被移除时忽略 */
+        }
+      };
+
+      features.forEach((feat) => {
+        aliveIds.add(feat.id);
+
+        const isSelected = feat.id === selectedFeatureId;
+        const prev = rendered.get(feat.id);
+        const vecLayer = map.getLayer(feat.layerId);
+        // 要素内容与选中态都没变 → 复用现有几何体，零开销
+        if (
+          prev &&
+          prev.feature === feat &&
+          prev.selected === isSelected &&
+          prev.layerId === feat.layerId &&
+          vecLayer
+        ) {
+          return;
+        }
+
+        // 旧几何体失效（内容变更 / 选中态变更 / 换图层 / 图层已删除）→ 先摘除
+        if (prev) {
+          detachGeometry(prev.geom, prev.layerId);
+          rendered.delete(feat.id);
+        }
+
         if (!vecLayer) return;
 
-        vecLayer.clear();
-        const layerFeatures = features.filter((f) => f.layerId === layer.id);
+        const geom = createGeometryFromFeature(maptalks, feat, isSelected);
 
-        layerFeatures.forEach((feat) => {
-          const isSelected = feat.id === selectedFeatureId;
-          const geom = createGeometryFromFeature(maptalks, feat, isSelected);
-
-          if (geom) {
-            geom.on('click tap', (e: any) => {
-              if (drawingTool) return;
-              // 若当前正处于微调模式，点击要素内部区域同样将选中拐点移动至该点击位置
-              if (activeEditStateRef.current && activeEditStateRef.current.selectedIndex >= 0 && e.coordinate) {
-                if (e.domEvent) e.domEvent.stopPropagation();
-                const targetCoord: [number, number] = [
-                  Number(e.coordinate.x.toFixed(6)),
-                  Number(e.coordinate.y.toFixed(6)),
-                ];
-                activeEditStateRef.current.currentCoords[activeEditStateRef.current.selectedIndex] = targetCoord;
-                updateEditingGeometry();
-                renderEditHandles();
-                return;
-              }
+        if (geom) {
+          geom.on('click tap', (e: any) => {
+            if (drawingToolRef.current) return;
+            // 若当前正处于微调模式，点击要素内部区域同样将选中拐点移动至该点击位置
+            if (activeEditStateRef.current && activeEditStateRef.current.selectedIndex >= 0 && e.coordinate) {
               if (e.domEvent) e.domEvent.stopPropagation();
-              if (!layer.locked) {
-                onSelectFeatureRef.current(feat.id);
-              }
-            });
+              const targetCoord: [number, number] = [
+                Number(e.coordinate.x.toFixed(6)),
+                Number(e.coordinate.y.toFixed(6)),
+              ];
+              activeEditStateRef.current.currentCoords[activeEditStateRef.current.selectedIndex] = targetCoord;
+              updateEditingGeometry();
+              renderEditHandles();
+              return;
+            }
+            if (e.domEvent) e.domEvent.stopPropagation();
+            if (!lockedLayerIdsRef.current.has(feat.layerId)) {
+              onSelectFeatureRef.current(feat.id);
+            }
+          });
 
-            geom.on('mouseover', () => {
-              if (!drawingTool) {
-                map.setCursor('pointer');
-              }
-            });
-            geom.on('mouseout', () => {
-              if (!drawingTool) {
-                map.setCursor('default');
-              }
-            });
+          geom.on('mouseover', () => {
+            if (!drawingToolRef.current) {
+              map.setCursor('pointer');
+            }
+          });
+          geom.on('mouseout', () => {
+            if (!drawingToolRef.current) {
+              map.setCursor('default');
+            }
+          });
 
-            vecLayer.addGeometry(geom);
-          }
-        });
+          vecLayer.addGeometry(geom);
+          rendered.set(feat.id, {
+            feature: feat,
+            geom,
+            layerId: feat.layerId,
+            selected: isSelected,
+          });
+        }
       });
-    }, [features, layers, selectedFeatureId, drawingTool]);
+
+      // 清理已被删除的要素几何体
+      const staleIds: string[] = [];
+      rendered.forEach((_entry, id) => {
+        if (!aliveIds.has(id)) staleIds.push(id);
+      });
+      staleIds.forEach((id) => {
+        const entry = rendered.get(id);
+        if (!entry) return;
+        detachGeometry(entry.geom, entry.layerId);
+        rendered.delete(id);
+      });
+    }, [features, layers, selectedFeatureId, mapReady]);
 
     // 选中要素时聚焦
     const prevSelectedIdRef = useRef<string | null>(null);
@@ -886,6 +1032,8 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         prevSelectedIdRef.current = null;
         return;
       }
+      // 地图尚未就绪时不记录前值，等 mapReady 翻转后自动补一次聚焦
+      if (!mapInstanceRef.current) return;
       if (prevSelectedIdRef.current !== selectedFeatureId) {
         prevSelectedIdRef.current = selectedFeatureId;
         const feat = features.find((f) => f.id === selectedFeatureId);
@@ -893,7 +1041,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
           focusFeatureOnMap(feat);
         }
       }
-    }, [selectedFeatureId, features]);
+    }, [selectedFeatureId, features, mapReady]);
 
     // 交互标绘与量算事件监听
     useEffect(() => {
@@ -1141,6 +1289,7 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       onActiveSegmentChangeRef,
       onSnapFeedbackRef,
       setDrawingPoints,
+      mapReady,
     ]);
 
     return (

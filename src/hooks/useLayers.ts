@@ -31,19 +31,23 @@ export function useLayers(options?: UseLayersOptions) {
   // 切换激活工作图层：仅显示该图层下要素，自动隐藏其他图层要素
   const handleSelectActiveLayer = useCallback(
     (layerId: string) => {
+      // 提示语必须在 setState updater 之外触发。
+      // 原因：React 18 StrictMode 会双调用 updater 函数，并把 updater 视为纯函数，
+      // 若在 updater 内部调用 onNotify，切换图层会弹出两次相同 Toast。
+      const target = layers.find((l) => l.id === layerId);
+      if (target) {
+        onNotify?.(`已切换至「${target.name}」，地图仅显示该图层要素`);
+      }
+
       setActiveLayerId(layerId);
-      setLayers((prev) => {
-        const target = prev.find((l) => l.id === layerId);
-        if (target && onNotify) {
-          onNotify(`已切换至「${target.name}」，地图仅显示该图层要素`);
-        }
-        return prev.map((l) => ({
+      setLayers((prev) =>
+        prev.map((l) => ({
           ...l,
           visible: l.id === layerId,
-        }));
-      });
+        }))
+      );
     },
-    [onNotify]
+    [layers, onNotify]
   );
 
   // 快捷视图范围控制：仅显示当前工作图层 vs 显示全图层

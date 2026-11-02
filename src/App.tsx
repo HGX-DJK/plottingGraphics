@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { User, PlotFeatureType, BasemapType, PlotFeature } from './types';
 import { authService } from './services/authService';
@@ -18,12 +18,28 @@ import { MobileMoreSheet } from './components/Mobile/MobileMoreSheet';
 import { MobileDrawingControls } from './components/Mobile/MobileDrawingControls';
 import { MobileFeatureQuickCard } from './components/Mobile/MobileFeatureQuickCard';
 import { MobileLoginView } from './components/Mobile/MobileLoginView';
-import { NewLayerModal } from './components/Modals/NewLayerModal';
-import { ImportExportModal } from './components/Modals/ImportExportModal';
-import { ClearFeaturesModal } from './components/Modals/ClearFeaturesModal';
-import { ExportImageModal } from './components/Modals/ExportImageModal';
-import { MobilePoiSearchSheet } from './components/Mobile/MobilePoiSearchSheet';
 import { AmapPoiItem } from './services/amapSearchService';
+
+/**
+ * 代码分割：以下组件属于低频功能（POI 检索 / 导入导出 / 新建图层 / 清空确认 / 成果图预览），
+ * 按需异步加载，避免首屏把全部逻辑打进主包（移动端首屏时间与流量双优化）。
+ * 这些模块均为具名导出，故需显式映射为 default 以满足 React.lazy 的签名。
+ */
+const MobilePoiSearchSheet = React.lazy(() =>
+  import('./components/Mobile/MobilePoiSearchSheet').then((m) => ({ default: m.MobilePoiSearchSheet }))
+);
+const NewLayerModal = React.lazy(() =>
+  import('./components/Modals/NewLayerModal').then((m) => ({ default: m.NewLayerModal }))
+);
+const ImportExportModal = React.lazy(() =>
+  import('./components/Modals/ImportExportModal').then((m) => ({ default: m.ImportExportModal }))
+);
+const ClearFeaturesModal = React.lazy(() =>
+  import('./components/Modals/ClearFeaturesModal').then((m) => ({ default: m.ClearFeaturesModal }))
+);
+const ExportImageModal = React.lazy(() =>
+  import('./components/Modals/ExportImageModal').then((m) => ({ default: m.ExportImageModal }))
+);
 import {
   Smartphone,
   Monitor,
@@ -43,7 +59,6 @@ import {
   calculateLineLength,
   calculateSphericalPolygonArea,
 } from './utils/geoUtils';
-import { generateMapPoster } from './utils/mapPosterGenerator';
 import { ThemeMode, themeService } from './services/themeService';
 import { copyToClipboard } from './utils/uiUtils';
 import { useToast } from './hooks/useToast';
@@ -62,7 +77,7 @@ export const App: React.FC = () => {
     themeService.getTheme() === 'light' ? 'street' : 'dark'
   );
 
-  const handleToggleTheme = () => {
+  const handleToggleTheme = useCallback(() => {
     const next = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
     themeService.setTheme(next);
@@ -71,9 +86,9 @@ export const App: React.FC = () => {
     } else if (next === 'dark' && basemap === 'street') {
       setBasemap('dark');
     }
-  };
+  }, [theme, basemap]);
 
-  const handleSelectTheme = (newTheme: ThemeMode) => {
+  const handleSelectTheme = useCallback((newTheme: ThemeMode) => {
     setTheme(newTheme);
     themeService.setTheme(newTheme);
     if (newTheme === 'light' && basemap === 'dark') {
@@ -81,22 +96,22 @@ export const App: React.FC = () => {
     } else if (newTheme === 'dark' && basemap === 'street') {
       setBasemap('dark');
     }
-  };
+  }, [basemap]);
 
   // 3. 用户会话管理
   const [currentUser, setCurrentUser] = useState<User | null>(() =>
     authService.getCurrentUser()
   );
 
-  const handleLoginSuccess = (user: User) => {
+  const handleLoginSuccess = useCallback((user: User) => {
     setCurrentUser(user);
-  };
+  }, []);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     authService.logout();
     setCurrentUser(null);
     setActiveTab(null);
-  };
+  }, []);
 
   // 4. 核心图层状态管理 Hook
   const {
@@ -142,13 +157,16 @@ export const App: React.FC = () => {
   });
 
   // 定位要素便捷委托
-  const handleLocateFeature = (featureId: string) => {
-    locateFeatureHook(
-      featureId,
-      (feat) => mapRef.current?.focusFeature(feat),
-      () => setActiveTab(null)
-    );
-  };
+  const handleLocateFeature = useCallback(
+    (featureId: string) => {
+      locateFeatureHook(
+        featureId,
+        (feat) => mapRef.current?.focusFeature(feat),
+        () => setActiveTab(null)
+      );
+    },
+    [locateFeatureHook]
+  );
 
   // 6. 移动端 Tab 与交互状态
   const [activeTab, setActiveTab] = useState<MobileTab>(null);
@@ -194,38 +212,41 @@ export const App: React.FC = () => {
   const [editingCoords, setEditingCoords] = useState<[number, number][]>([]);
   const [selectedVertexIndex, setSelectedVertexIndex] = useState<number>(0);
 
-  const handleStartVertexEdit = (feat: PlotFeature) => {
-    if (!feat.coordinates || feat.coordinates.length === 0) {
-      showToast('该要素无有效坐标，无法微调顶点');
-      return;
-    }
-    setEditingFeature(feat);
-    setEditingCoords(feat.coordinates);
-    setSelectedVertexIndex(0);
-    setSelectedFeatureId(null);
-    setActiveTab(null);
-    mapRef.current?.startVertexEdit(
-      feat.id,
-      (newCoords) => {
-        setEditingCoords(newCoords);
-      },
-      (idx) => {
-        setSelectedVertexIndex(idx);
+  const handleStartVertexEdit = useCallback(
+    (feat: PlotFeature) => {
+      if (!feat.coordinates || feat.coordinates.length === 0) {
+        showToast('该要素无有效坐标，无法微调顶点');
+        return;
       }
-    );
-    showToast(`已进入「${feat.name}」微调模式：点击地图或方向键可直接移动拐点`);
-  };
+      setEditingFeature(feat);
+      setEditingCoords(feat.coordinates);
+      setSelectedVertexIndex(0);
+      setSelectedFeatureId(null);
+      setActiveTab(null);
+      mapRef.current?.startVertexEdit(
+        feat.id,
+        (newCoords) => {
+          setEditingCoords(newCoords);
+        },
+        (idx) => {
+          setSelectedVertexIndex(idx);
+        }
+      );
+      showToast(`已进入「${feat.name}」微调模式：点击地图或方向键可直接移动拐点`);
+    },
+    [showToast, setSelectedFeatureId]
+  );
 
-  const handleSelectVertex = (idx: number) => {
+  const handleSelectVertex = useCallback((idx: number) => {
     setSelectedVertexIndex(idx);
     mapRef.current?.selectVertex(idx);
-  };
+  }, []);
 
-  const handleNudgeVertex = (dxMeters: number, dyMeters: number) => {
+  const handleNudgeVertex = useCallback((dxMeters: number, dyMeters: number) => {
     mapRef.current?.nudgeSelectedVertex(dxMeters, dyMeters);
-  };
+  }, []);
 
-  const handleSaveVertexEdit = () => {
+  const handleSaveVertexEdit = useCallback(() => {
     if (!editingFeature) return;
 
     let calculatedLength: number | undefined;
@@ -253,22 +274,22 @@ export const App: React.FC = () => {
     mapRef.current?.stopVertexEdit();
     setEditingFeature(null);
     showToast(`✓ 已成功保存「${editingFeature.name}」的顶点修改`);
-  };
+  }, [editingFeature, editingCoords, handleUpdateFeature, showToast]);
 
-  const handleCancelVertexEdit = () => {
+  const handleCancelVertexEdit = useCallback(() => {
     if (!editingFeature) return;
     mapRef.current?.stopVertexEdit();
     handleUpdateFeature(editingFeature); // 恢复原状
     setEditingFeature(null);
     showToast('已取消顶点微调');
-  };
+  }, [editingFeature, handleUpdateFeature, showToast]);
 
   // 9. 高清标绘成果图生成导出状态 (解决领导汇报截屏杂乱痛点)
   const [isExportImageModalOpen, setIsExportImageModalOpen] = useState(false);
   const [exportImageDataUrl, setExportImageDataUrl] = useState<string | null>(null);
   const [isExportingImage, setIsExportingImage] = useState(false);
 
-  const handleOpenExportPoster = async () => {
+  const handleOpenExportPoster = useCallback(async () => {
     setIsExportImageModalOpen(true);
     setIsExportingImage(true);
     setExportImageDataUrl(null);
@@ -279,6 +300,9 @@ export const App: React.FC = () => {
       }
       // 捕获地图原始底图
       const rawDataUrl = await mapRef.current.captureMapImage();
+
+      // 海报合成器按需加载（不进入首屏主包）
+      const { generateMapPoster } = await import('./utils/mapPosterGenerator');
 
       // 合成带工程标题、指北针、图层色标与时间戳的水印成果简报
       const posterDataUrl = await generateMapPoster(rawDataUrl, {
@@ -300,34 +324,37 @@ export const App: React.FC = () => {
     } finally {
       setIsExportingImage(false);
     }
-  };
+  }, [activeLayer, features.length, zoomLevel, cursorCoords, currentUser, showToast]);
 
   // 清除要素
-  const handleClearActiveLayer = () => {
+  const handleClearActiveLayer = useCallback(() => {
     handleClearFeatures(activeLayerId);
-  };
+  }, [handleClearFeatures, activeLayerId]);
 
-  const handleClearAllFeatures = () => {
+  const handleClearAllFeatures = useCallback(() => {
     handleClearFeatures();
-  };
+  }, [handleClearFeatures]);
 
   // 导入与重置
-  const handleImportData = (importedLayers: any[], importedFeatures: any[]) => {
-    if (importedLayers.length > 0) {
-      const firstId = importedLayers[0].id;
-      const isolated = importedLayers.map((l) => ({
-        ...l,
-        visible: l.id === firstId,
-      }));
-      resetLayers(isolated, firstId);
-    } else {
-      resetLayers(importedLayers);
-    }
-    resetFeatures(importedFeatures);
-    showToast(`✓ 成功导入 ${importedLayers.length} 个图层，${importedFeatures.length} 个要素`);
-  };
+  const handleImportData = useCallback(
+    (importedLayers: any[], importedFeatures: any[]) => {
+      if (importedLayers.length > 0) {
+        const firstId = importedLayers[0].id;
+        const isolated = importedLayers.map((l) => ({
+          ...l,
+          visible: l.id === firstId,
+        }));
+        resetLayers(isolated, firstId);
+      } else {
+        resetLayers(importedLayers);
+      }
+      resetFeatures(importedFeatures);
+      showToast(`✓ 成功导入 ${importedLayers.length} 个图层，${importedFeatures.length} 个要素`);
+    },
+    [resetLayers, resetFeatures, showToast]
+  );
 
-  const handleResetDemo = () => {
+  const handleResetDemo = useCallback(() => {
     const { layers: demoLayers, features: demoFeatures } = storageService.resetToDefault();
     const isolated = demoLayers.map((l, idx) => ({
       ...l,
@@ -336,10 +363,10 @@ export const App: React.FC = () => {
     resetLayers(isolated, demoLayers[0].id);
     resetFeatures(demoFeatures);
     showToast('已恢复初始演示态势，仅显示当前图层要素');
-  };
+  }, [resetLayers, resetFeatures, showToast]);
 
   // 空间量算模式切换
-  const handleToggleMeasureDistance = () => {
+  const handleToggleMeasureDistance = useCallback(() => {
     if (drawingTool === 'measure-distance') {
       setDrawingTool(null);
     } else {
@@ -349,9 +376,9 @@ export const App: React.FC = () => {
     }
     setMeasureResult(null);
     setDrawingPointsCount(0);
-  };
+  }, [drawingTool, setSelectedFeatureId]);
 
-  const handleToggleMeasureArea = () => {
+  const handleToggleMeasureArea = useCallback(() => {
     if (drawingTool === 'measure-area') {
       setDrawingTool(null);
     } else {
@@ -361,49 +388,55 @@ export const App: React.FC = () => {
     }
     setMeasureResult(null);
     setDrawingPointsCount(0);
-  };
+  }, [drawingTool, setSelectedFeatureId]);
 
-  const handleCancelDrawing = () => {
+  const handleCancelDrawing = useCallback(() => {
     setDrawingTool(null);
     setMeasureResult(null);
     setDrawingPointsCount(0);
-  };
+  }, []);
 
   // 8. 高德全国 POI 检索状态与基准定位
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [userGpsCoord, setUserGpsCoord] = useState<[number, number] | null>(null);
 
   // 定位飞跃至检索地点
-  const handleSelectPoiLocation = (coord: [number, number], title: string, subtitle: string) => {
-    mapRef.current?.flyToLocation(coord, title, subtitle, 16.5);
-    showToast(`📍 已精准定位至: ${title}`);
-  };
+  const handleSelectPoiLocation = useCallback(
+    (coord: [number, number], title: string, subtitle: string) => {
+      mapRef.current?.flyToLocation(coord, title, subtitle, 16.5);
+      showToast(`📍 已精准定位至: ${title}`);
+    },
+    [showToast]
+  );
 
   // 将搜索到的 POI 一键保存为当前图层的标绘点要素
-  const handleSavePoiAsFeature = (poi: AmapPoiItem) => {
-    handleCreateFeature({
-      name: poi.name,
-      type: 'marker',
-      layerId: activeLayerId,
-      coordinates: [poi.location],
-      properties: {
-        strokeColor: activeLayer?.color || '#3b82f6',
-        strokeWidth: 2,
-        strokeDasharray: 'solid',
-        fillColor: activeLayer?.color || '#3b82f6',
-        fillOpacity: 0.9,
-        notes: poi.address,
-        customAttributes: {
-          'POI类型': poi.type || '地理地标',
-          '所属区域': poi.district || '',
-          '数据源': '高德全国POI',
+  const handleSavePoiAsFeature = useCallback(
+    (poi: AmapPoiItem) => {
+      handleCreateFeature({
+        name: poi.name,
+        type: 'marker',
+        layerId: activeLayerId,
+        coordinates: [poi.location],
+        properties: {
+          strokeColor: activeLayer?.color || '#3b82f6',
+          strokeWidth: 2,
+          strokeDasharray: 'solid',
+          fillColor: activeLayer?.color || '#3b82f6',
+          fillOpacity: 0.9,
+          notes: poi.address,
+          customAttributes: {
+            'POI类型': poi.type || '地理地标',
+            '所属区域': poi.district || '',
+            '数据源': '高德全国POI',
+          },
         },
-      },
-    });
-  };
+      });
+    },
+    [handleCreateFeature, activeLayerId, activeLayer]
+  );
 
   // 设备 GPS 实时定位
-  const handleLocateGPS = () => {
+  const handleLocateGPS = useCallback(() => {
     if (!navigator.geolocation) {
       showToast('当前设备环境不支持 GPS 定位');
       return;
@@ -423,7 +456,126 @@ export const App: React.FC = () => {
       },
       { enableHighAccuracy: true, timeout: 6000 }
     );
-  };
+  }, [showToast]);
+
+  /**
+   * ─────────────────────────────────────────────────────────────
+   * 稳定的回调集合
+   * 下层抽屉 / 弹窗均已包 React.memo，只要传入的 props 引用不变，
+   * 上层任何无关状态变化（如视口中心刷新）都不会让它们重渲染。
+   * 因此这里把原先散落在 JSX 里的内联箭头函数全部提出来并用 useCallback 固定。
+   *
+   * 注意：本段必须位于「未登录提前 return」之前，否则会违反 Hooks 调用顺序规则。
+   * ─────────────────────────────────────────────────────────────
+   */
+  const handleSelectFeatureFromMap = useCallback(
+    (id: string | null) => {
+      setSelectedFeatureId(id);
+    },
+    []
+  );
+
+  const handleCreateFeatureFromMap = useCallback(
+    (featData: Omit<PlotFeature, 'id' | 'createdAt' | 'updatedAt'>) => {
+      handleCreateFeature(featData);
+      setDrawingTool(null);
+      setMeasureResult(null);
+      setDrawingPointsCount(0);
+    },
+    [handleCreateFeature]
+  );
+
+  // 视口中心 / 缩放变化（地图平移缩放时触发，已在地图组件内部做 120ms 节流）
+  const handleViewStateChange = useCallback((coords: [number, number], zoom: number) => {
+    setCursorCoords(coords);
+    setZoomLevel(zoom);
+  }, []);
+
+  const handleSnapFeedback = useCallback(() => {
+    showToast('🧲 已吸附至相邻要素顶点');
+  }, [showToast]);
+
+  const handleBearingChange = useCallback((b: number, p: number) => {
+    setBearing(b);
+    setPitch(p);
+  }, []);
+
+  const handleUndoPoint = useCallback(() => mapRef.current?.undoPoint(), []);
+  const handleFinishDrawing = useCallback(() => mapRef.current?.finishCurrentDrawing(), []);
+  const handleUndoMeasurePoint = useCallback(() => mapRef.current?.undoMeasurePoint(), []);
+  const handleClearMeasure = useCallback(() => mapRef.current?.clearMeasure(), []);
+  const handleZoomIn = useCallback(() => mapRef.current?.zoomIn(), []);
+  const handleZoomOut = useCallback(() => mapRef.current?.zoomOut(), []);
+  const handleResetView = useCallback(() => mapRef.current?.resetView(), []);
+  const handleResetNorth = useCallback(() => mapRef.current?.resetNorth(), []);
+
+  const handleToggleSnapping = useCallback(() => {
+    setEnableSnapping((prev) => {
+      const next = !prev;
+      showToast(next ? '🧲 顶点吸附已开启 (CAD/GIS精度)' : '⚪ 顶点吸附已关闭');
+      return next;
+    });
+  }, [showToast]);
+
+  const handleOpenClearFeatures = useCallback(() => setIsClearModalOpen(true), []);
+  const handleOpenSearch = useCallback(() => setIsSearchOpen(true), []);
+
+  const handleQuickCardFocus = useCallback(() => {
+    if (selectedFeature) handleLocateFeature(selectedFeature.id);
+  }, [selectedFeature, handleLocateFeature]);
+  const handleQuickCardOpenProperties = useCallback(() => setActiveTab('properties'), []);
+  const handleQuickCardEditVertices = useCallback(() => {
+    if (selectedFeature) handleStartVertexEdit(selectedFeature);
+  }, [selectedFeature, handleStartVertexEdit]);
+  const handleQuickCardDelete = useCallback(() => {
+    if (selectedFeature) handleDeleteFeature(selectedFeature.id);
+  }, [selectedFeature, handleDeleteFeature]);
+  const handleQuickCardClose = useCallback(() => setSelectedFeatureId(null), []);
+
+  const handleSelectPlotTool = useCallback(
+    (tool: PlotFeatureType) => {
+      setDrawingTool(tool);
+      setSelectedFeatureId(null);
+    },
+    []
+  );
+
+  const handleChangeBasemap = useCallback(
+    (mb: BasemapType) => {
+      setBasemap(mb);
+      showToast(`底图已切换为「${mb === 'dark' ? '暗夜科技' : mb === 'satellite' ? '遥感卫星' : '现代街道'}」`);
+    },
+    [showToast]
+  );
+
+  const handleOpenImportExport = useCallback(() => {
+    setActiveTab(null);
+    setIsImportExportModalOpen(true);
+  }, []);
+
+  const handleOpenPosterFromMore = useCallback(() => {
+    setActiveTab(null);
+    handleOpenExportPoster();
+  }, [handleOpenExportPoster]);
+
+  const handleOpenSearchFromMore = useCallback(() => {
+    setActiveTab(null);
+    setIsSearchOpen(true);
+  }, []);
+
+  // 抽屉 / 弹窗的开关闭合（统一收敛，保证 props 引用稳定）
+  const handleCloseSheet = useCallback(() => setActiveTab(null), []);
+  const handleStartPlotting = useCallback(() => setActiveTab('plot'), []);
+  const handleClosePropertySheet = useCallback(() => {
+    setActiveTab(null);
+    setSelectedFeatureId(null);
+  }, []);
+  const handleOpenNewLayerModal = useCallback(() => setIsNewLayerModalOpen(true), []);
+  const handleCloseNewLayerModal = useCallback(() => setIsNewLayerModalOpen(false), []);
+  const handleCloseClearModal = useCallback(() => setIsClearModalOpen(false), []);
+  const handleCloseImportExportModal = useCallback(() => setIsImportExportModalOpen(false), []);
+  const handleCloseExportImageModal = useCallback(() => setIsExportImageModalOpen(false), []);
+  const handleCloseSearch = useCallback(() => setIsSearchOpen(false), []);
 
   // 8. 电脑端调试时可选开启「真机外框预览」
   const [deviceFrameMode, setDeviceFrameMode] = useState<boolean>(false);
@@ -483,7 +635,7 @@ export const App: React.FC = () => {
   const renderMobileAppContent = () => (
     <div className="relative w-full h-full flex flex-col bg-slate-100 dark:bg-gray-950 overflow-hidden select-none transition-colors duration-200">
       {/* 1. 移动端顶部全局地名检索栏 (高德风格沉浸式搜索) */}
-      <MobileHeader onOpenSearch={() => setIsSearchOpen(true)} />
+      <MobileHeader onOpenSearch={handleOpenSearch} />
 
       {/* 标绘与操作反馈 Toast */}
       {toastMessage &&
@@ -529,29 +681,16 @@ export const App: React.FC = () => {
           drawingTool={drawingTool}
           basemap={basemap}
           enableSnapping={enableSnapping}
-          onSelectFeature={(id) => {
-            setSelectedFeatureId(id);
-          }}
-          onCreateFeature={(featData) => {
-            handleCreateFeature(featData);
-            setDrawingTool(null);
-            setMeasureResult(null);
-            setDrawingPointsCount(0);
-          }}
+          onSelectFeature={handleSelectFeatureFromMap}
+          onCreateFeature={handleCreateFeatureFromMap}
           onCancelDrawing={handleCancelDrawing}
-          onCoordinatesChange={(coords, zoom) => {
-            setCursorCoords(coords);
-            setZoomLevel(zoom);
-          }}
+          onCoordinatesChange={handleViewStateChange}
           onDrawingPointsChange={setDrawingPointsCount}
           onMeasureResultChange={setMeasureResult}
           onTopologyWarning={setTopologyWarning}
           onActiveSegmentChange={setActiveSegment}
-          onSnapFeedback={() => showToast('🧲 已吸附至相邻要素顶点')}
-          onBearingChange={(b, p) => {
-            setBearing(b);
-            setPitch(p);
-          }}
+          onSnapFeedback={handleSnapFeedback}
+          onBearingChange={handleBearingChange}
         />
 
         {/* 3. 移动端浮动控制面板 (标绘中状态控制条) */}
@@ -567,24 +706,20 @@ export const App: React.FC = () => {
           onToggleTheme={handleToggleTheme}
           hasSelectedFeature={!!selectedFeature && !drawingTool && activeTab !== 'properties'}
           onCancelDrawing={handleCancelDrawing}
-          onUndoPoint={() => mapRef.current?.undoPoint()}
-          onFinishDrawing={() => mapRef.current?.finishCurrentDrawing()}
-          onUndoMeasurePoint={() => mapRef.current?.undoMeasurePoint()}
-          onClearMeasure={() => mapRef.current?.clearMeasure()}
-          onZoomIn={() => mapRef.current?.zoomIn()}
-          onZoomOut={() => mapRef.current?.zoomOut()}
-          onResetView={() => mapRef.current?.resetView()}
-          onResetNorth={() => mapRef.current?.resetNorth()}
-          onToggleSnapping={() => {
-            const next = !enableSnapping;
-            setEnableSnapping(next);
-            showToast(next ? '🧲 顶点吸附已开启 (CAD/GIS精度)' : '⚪ 顶点吸附已关闭');
-          }}
+          onUndoPoint={handleUndoPoint}
+          onFinishDrawing={handleFinishDrawing}
+          onUndoMeasurePoint={handleUndoMeasurePoint}
+          onClearMeasure={handleClearMeasure}
+          onZoomIn={handleZoomIn}
+          onZoomOut={handleZoomOut}
+          onResetView={handleResetView}
+          onResetNorth={handleResetNorth}
+          onToggleSnapping={handleToggleSnapping}
           onToggleMeasureDistance={handleToggleMeasureDistance}
           onToggleMeasureArea={handleToggleMeasureArea}
           onLocateGPS={handleLocateGPS}
           onExportPoster={handleOpenExportPoster}
-          onOpenClearFeatures={() => setIsClearModalOpen(true)}
+          onOpenClearFeatures={handleOpenClearFeatures}
         />
 
         {/* 要素快览悬浮卡片 */}
@@ -592,11 +727,11 @@ export const App: React.FC = () => {
           <MobileFeatureQuickCard
             feature={selectedFeature}
             layer={layers.find((l) => l.id === selectedFeature.layerId)}
-            onFocus={() => handleLocateFeature(selectedFeature.id)}
-            onOpenProperties={() => setActiveTab('properties')}
-            onEditVertices={() => handleStartVertexEdit(selectedFeature)}
-            onDelete={() => handleDeleteFeature(selectedFeature.id)}
-            onClose={() => setSelectedFeatureId(null)}
+            onFocus={handleQuickCardFocus}
+            onOpenProperties={handleQuickCardOpenProperties}
+            onEditVertices={handleQuickCardEditVertices}
+            onDelete={handleQuickCardDelete}
+            onClose={handleQuickCardClose}
           />
         )}
 
@@ -720,151 +855,172 @@ export const App: React.FC = () => {
         isDrawing={!!drawingTool}
       />
 
-      {/* 5. 底部滑出抽屉组件群 */}
+      {/*
+        5. 底部滑出抽屉组件群
+        性能要点：抽屉采用「按需挂载」——关闭时整个组件树不挂载，
+        既避免了 6 个抽屉内部的 features.filter / layers.map 逐帧计算，
+        也让每个抽屉的内部状态（搜索词、展开项等）随关闭自然释放。
+      */}
       {/* 图层管理抽屉 */}
-      <MobileLayerSheet
-        isOpen={activeTab === 'layers'}
-        onClose={() => setActiveTab(null)}
-        layers={layers}
-        features={features}
-        activeLayerId={activeLayerId}
-        onSelectActiveLayer={handleSelectActiveLayer}
-        onToggleVisibility={handleToggleLayerVisibility}
-        onToggleLock={handleToggleLayerLock}
-        onChangeOpacity={handleChangeLayerOpacity}
-        onDeleteLayer={handleDeleteLayer}
-        onOpenNewLayerModal={() => setIsNewLayerModalOpen(true)}
-        onShowOnlyActiveLayer={handleShowOnlyActiveLayer}
-        onShowAllLayers={handleShowAllLayers}
-        onStartPlotting={() => setActiveTab('plot')}
-        onSelectFeature={handleLocateFeature}
-        onLocateFeature={handleLocateFeature}
-        onDeleteFeature={handleDeleteFeature}
-      />
+      {activeTab === 'layers' && (
+        <MobileLayerSheet
+          isOpen
+          onClose={handleCloseSheet}
+          layers={layers}
+          features={features}
+          activeLayerId={activeLayerId}
+          onSelectActiveLayer={handleSelectActiveLayer}
+          onToggleVisibility={handleToggleLayerVisibility}
+          onToggleLock={handleToggleLayerLock}
+          onChangeOpacity={handleChangeLayerOpacity}
+          onDeleteLayer={handleDeleteLayer}
+          onOpenNewLayerModal={handleOpenNewLayerModal}
+          onShowOnlyActiveLayer={handleShowOnlyActiveLayer}
+          onShowAllLayers={handleShowAllLayers}
+          onStartPlotting={handleStartPlotting}
+          onSelectFeature={handleLocateFeature}
+          onLocateFeature={handleLocateFeature}
+          onDeleteFeature={handleDeleteFeature}
+        />
+      )}
 
       {/* 标绘工具箱抽屉 */}
-      <MobilePlottingSheet
-        isOpen={activeTab === 'plot'}
-        onClose={() => setActiveTab(null)}
-        currentDrawingTool={drawingTool as PlotFeatureType}
-        onSelectTool={(tool) => {
-          setDrawingTool(tool);
-          setSelectedFeatureId(null);
-        }}
-        activeLayerName={activeLayer?.name || '默认工作图层'}
-        activeLayerColor={activeLayer?.color || '#3b82f6'}
-        layers={layers}
-        activeLayerId={activeLayerId}
-        onSelectActiveLayer={handleSelectActiveLayer}
-      />
+      {activeTab === 'plot' && (
+        <MobilePlottingSheet
+          isOpen
+          onClose={handleCloseSheet}
+          currentDrawingTool={drawingTool as PlotFeatureType}
+          onSelectTool={handleSelectPlotTool}
+          activeLayerName={activeLayer?.name || '默认工作图层'}
+          activeLayerColor={activeLayer?.color || '#3b82f6'}
+          layers={layers}
+          activeLayerId={activeLayerId}
+          onSelectActiveLayer={handleSelectActiveLayer}
+        />
+      )}
 
       {/* 要素清单抽屉 */}
-      <MobileFeatureListSheet
-        isOpen={activeTab === 'features'}
-        onClose={() => setActiveTab(null)}
-        features={features}
-        layers={layers}
-        activeLayerId={activeLayerId}
-        selectedFeatureId={selectedFeatureId}
-        onSelectFeature={handleLocateFeature}
-        onLocateFeature={handleLocateFeature}
-        onDeleteFeature={handleDeleteFeature}
-        onOpenPlotting={() => setActiveTab('plot')}
-        onOpenClearFeatures={() => setIsClearModalOpen(true)}
-        onSelectActiveLayer={handleSelectActiveLayer}
-      />
+      {activeTab === 'features' && (
+        <MobileFeatureListSheet
+          isOpen
+          onClose={handleCloseSheet}
+          features={features}
+          layers={layers}
+          activeLayerId={activeLayerId}
+          selectedFeatureId={selectedFeatureId}
+          onSelectFeature={handleLocateFeature}
+          onLocateFeature={handleLocateFeature}
+          onDeleteFeature={handleDeleteFeature}
+          onOpenPlotting={handleStartPlotting}
+          onOpenClearFeatures={handleOpenClearFeatures}
+          onSelectActiveLayer={handleSelectActiveLayer}
+        />
+      )}
 
       {/* 选中的要素属性配置抽屉 */}
-      <MobilePropertySheet
-        isOpen={activeTab === 'properties'}
-        onClose={() => {
-          setActiveTab(null);
-          setSelectedFeatureId(null);
-        }}
-        feature={selectedFeature}
-        layers={layers}
-        onUpdateFeature={handleUpdateFeature}
-        onDeleteFeature={handleDeleteFeature}
-      />
+      {activeTab === 'properties' && (
+        <MobilePropertySheet
+          isOpen
+          onClose={handleClosePropertySheet}
+          feature={selectedFeature}
+          layers={layers}
+          onUpdateFeature={handleUpdateFeature}
+          onDeleteFeature={handleDeleteFeature}
+        />
+      )}
 
       {/* 「我的」面板抽屉 (账号资料 / 偏好设置 / 数据管理) */}
-      <MobileMoreSheet
-        isOpen={activeTab === 'more'}
-        onClose={() => setActiveTab(null)}
-        currentUser={currentUser}
-        basemap={basemap}
-        onChangeBasemap={(mb) => {
-          setBasemap(mb);
-          showToast(`底图已切换为「${mb === 'dark' ? '暗夜科技' : mb === 'satellite' ? '遥感卫星' : '现代街道'}」`);
-        }}
-        onOpenImportExport={() => {
-          setActiveTab(null);
-          setIsImportExportModalOpen(true);
-        }}
-        onExportPoster={() => {
-          setActiveTab(null);
-          handleOpenExportPoster();
-        }}
-        onOpenSearch={() => {
-          setActiveTab(null);
-          setIsSearchOpen(true);
-        }}
-        onResetDemo={handleResetDemo}
-        onLogout={handleLogout}
-        theme={theme}
-        onSelectTheme={handleSelectTheme}
-      />
+      {activeTab === 'more' && (
+        <MobileMoreSheet
+          isOpen
+          onClose={handleCloseSheet}
+          currentUser={currentUser}
+          basemap={basemap}
+          onChangeBasemap={handleChangeBasemap}
+          onOpenImportExport={handleOpenImportExport}
+          onExportPoster={handleOpenPosterFromMore}
+          onOpenSearch={handleOpenSearchFromMore}
+          onResetDemo={handleResetDemo}
+          onLogout={handleLogout}
+          theme={theme}
+          onSelectTheme={handleSelectTheme}
+        />
+      )}
 
-      {/* 6. 模态弹窗群 */}
-      <NewLayerModal
-        isOpen={isNewLayerModalOpen}
-        onClose={() => setIsNewLayerModalOpen(false)}
-        onCreateLayer={handleCreateLayer}
-      />
+      {/*
+        6. 模态弹窗群
+        这几个弹窗均为低频功能且体积不小，统一走 React.lazy 按需加载，
+        配合「按需挂载」既避免首屏下载无关代码，也避免关闭时的无效渲染。
+      */}
+      {isNewLayerModalOpen && (
+        <Suspense fallback={null}>
+          <NewLayerModal
+            isOpen
+            onClose={handleCloseNewLayerModal}
+            onCreateLayer={handleCreateLayer}
+          />
+        </Suspense>
+      )}
 
-      <ClearFeaturesModal
-        isOpen={isClearModalOpen}
-        onClose={() => setIsClearModalOpen(false)}
-        activeLayerName={activeLayer?.name || '当前工作图层'}
-        activeLayerColor={activeLayer?.color || '#3b82f6'}
-        activeLayerFeatureCount={features.filter((f) => f.layerId === activeLayerId).length}
-        totalFeatureCount={features.length}
-        onClearActiveLayer={handleClearActiveLayer}
-        onClearAllFeatures={handleClearAllFeatures}
-        onResetDemo={handleResetDemo}
-      />
+      {isClearModalOpen && (
+        <Suspense fallback={null}>
+          <ClearFeaturesModal
+            isOpen
+            onClose={handleCloseClearModal}
+            activeLayerName={activeLayer?.name || '当前工作图层'}
+            activeLayerColor={activeLayer?.color || '#3b82f6'}
+            activeLayerFeatureCount={features.filter((f) => f.layerId === activeLayerId).length}
+            totalFeatureCount={features.length}
+            onClearActiveLayer={handleClearActiveLayer}
+            onClearAllFeatures={handleClearAllFeatures}
+            onResetDemo={handleResetDemo}
+          />
+        </Suspense>
+      )}
 
-      <ImportExportModal
-        isOpen={isImportExportModalOpen}
-        onClose={() => setIsImportExportModalOpen(false)}
-        layers={layers}
-        features={features}
-        onImportData={handleImportData}
-        onResetDemo={handleResetDemo}
-      />
+      {isImportExportModalOpen && (
+        <Suspense fallback={null}>
+          <ImportExportModal
+            isOpen
+            onClose={handleCloseImportExportModal}
+            layers={layers}
+            features={features}
+            onImportData={handleImportData}
+            onResetDemo={handleResetDemo}
+          />
+        </Suspense>
+      )}
 
       {/* 高清标绘成果简报图导出预览弹窗 */}
-      <ExportImageModal
-        isOpen={isExportImageModalOpen}
-        onClose={() => setIsExportImageModalOpen(false)}
-        imageUrl={exportImageDataUrl}
-        isLoading={isExportingImage}
-        onNotify={showToast}
-      />
+      {isExportImageModalOpen && (
+        <Suspense fallback={null}>
+          <ExportImageModal
+            isOpen
+            onClose={handleCloseExportImageModal}
+            imageUrl={exportImageDataUrl}
+            isLoading={isExportingImage}
+            onNotify={showToast}
+          />
+        </Suspense>
+      )}
 
       {/* 7. 全国 POI 地名/地址检索抽屉 */}
-      <MobilePoiSearchSheet
-        isOpen={isSearchOpen}
-        onClose={() => setIsSearchOpen(false)}
-        currentCenter={cursorCoords}
-        userGpsCoord={userGpsCoord}
-        activeLayer={activeLayer}
-        features={features}
-        layers={layers}
-        onSelectLocation={handleSelectPoiLocation}
-        onSaveAsFeature={handleSavePoiAsFeature}
-        onNotify={showToast}
-      />
+      {isSearchOpen && (
+        <Suspense fallback={null}>
+          <MobilePoiSearchSheet
+            isOpen
+            onClose={handleCloseSearch}
+            currentCenter={cursorCoords}
+            userGpsCoord={userGpsCoord}
+            activeLayer={activeLayer}
+            features={features}
+            layers={layers}
+            onSelectLocation={handleSelectPoiLocation}
+            onSaveAsFeature={handleSavePoiAsFeature}
+            onNotify={showToast}
+          />
+        </Suspense>
+      )}
     </div>
   );
 

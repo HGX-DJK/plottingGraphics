@@ -30,7 +30,7 @@ interface MobileFeatureQuickCardProps {
   onClose: () => void;
 }
 
-export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
+const MobileFeatureQuickCardBase: React.FC<MobileFeatureQuickCardProps> = ({
   feature,
   layer,
   onFocus,
@@ -213,3 +213,9 @@ export const MobileFeatureQuickCard: React.FC<MobileFeatureQuickCardProps> = ({
     </div>
   );
 };
+
+/**
+ * 记忆化包装：上层组件的无关状态变化（如视口中心、缩放级别刷新）
+ * 不再触发本组件整体重渲染，避免移动端无谓的整树 diff 开销。
+ */
+export const MobileFeatureQuickCard = React.memo(MobileFeatureQuickCardBase);

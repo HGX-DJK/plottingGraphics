@@ -18,24 +18,44 @@ export interface AmapPoiItem {
 const STORAGE_KEY_AMAP_KEY = 'geoplot_amap_web_key';
 const STORAGE_KEY_SEARCH_HISTORY = 'geoplot_poi_search_history';
 
-// 预设的高德开放平台 Web 服务 Key 备选池 (免去用户初次使用的配置成本)
-const DEFAULT_AMAP_KEYS = [
-  '7df9a0f023e1dc2850f8373b9e436814',
-  '24c96a8470a6c6d048dc0604473dfb42',
-  '23a2688002df2f84b3e8c0db1490226d',
-];
+/**
+ * 关于高德 Key 的说明
+ *
+ * 早期版本在源码中内置了 3 个公开的 Web 服务 Key 作为「开箱即用」默认值。
+ * 这存在明显风险：
+ *   1) 任何拿到构建产物的人都能直接盗用你的调用配额；
+ *   2) 高德控制台会对 Key 的域名/IP 滥用做风控，可能导致正常用户被限流甚至封禁；
+ *   3) 其中 2 个 Key 从未被引用，属于纯粹的死代码。
+ *
+ * 现改为：Key 一律由使用者自行在高德开放平台申请后粘贴配置（保存在本地 localStorage），
+ * 不再随代码分发。未配置时 POI 检索会给出明确提示并降级为「仅本地要素匹配」。
+ */
 
 class AmapSearchService {
   /**
-   * 获取当前生效的高德 Web 服务 Key (优先使用用户自定义 Key)
+   * 获取当前生效的高德 Web 服务 Key (仅用户自配 Key)
+   * @returns 用户配置的 Key；未配置时返回空字符串
    */
   getApiKey(): string {
     const customKey = localStorage.getItem(STORAGE_KEY_AMAP_KEY);
     if (customKey && customKey.trim().length > 10) {
       return customKey.trim();
     }
-    return DEFAULT_AMAP_KEYS[0];
+    return '';
   }
+
+  /**
+   * 是否已具备发起高德在线检索的条件
+   */
+  hasApiKey(): boolean {
+    return this.getApiKey().length > 0;
+  }
+
+  /**
+   * 未配置 Key 时统一使用的提示语
+   */
+  static readonly NO_KEY_MESSAGE =
+    '尚未配置高德 Web 服务 Key，请在「Key 配置」中粘贴你自己的 Key 后再检索';
 
   /**
    * 保存用户自定义的高德 Key
@@ -72,6 +92,9 @@ class AmapSearchService {
     }
 
     const key = this.getApiKey();
+    if (!key) {
+      return { pois: [], error: AmapSearchService.NO_KEY_MESSAGE };
+    }
     const cityParam = city && city !== '全国' ? `&city=${encodeURIComponent(city)}` : '';
     const url = `https://restapi.amap.com/v3/place/text?keywords=${encodeURIComponent(
       query
@@ -154,6 +177,7 @@ class AmapSearchService {
     if (!query) return [];
 
     const key = this.getApiKey();
+    if (!key) return [];
     const cityParam = city && city !== '全国' ? `&city=${encodeURIComponent(city)}` : '';
     const url = `https://restapi.amap.com/v3/assistant/inputtips?keywords=${encodeURIComponent(
       query

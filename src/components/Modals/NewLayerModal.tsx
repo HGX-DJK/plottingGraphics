@@ -20,7 +20,7 @@ const PRESET_COLORS = [
   { name: '地灾隐患', hex: '#f97316' },
 ];
 
-export const NewLayerModal: React.FC<NewLayerModalProps> = ({
+const NewLayerModalBase: React.FC<NewLayerModalProps> = ({
   isOpen,
   onClose,
   onCreateLayer,
@@ -250,3 +250,9 @@ export const NewLayerModal: React.FC<NewLayerModalProps> = ({
 
   return typeof document !== 'undefined' ? createPortal(modalNode, document.body) : modalNode;
 };
+
+/**
+ * 记忆化包装：上层组件的无关状态变化（如视口中心、缩放级别刷新）
+ * 不再触发本组件整体重渲染，避免移动端无谓的整树 diff 开销。
+ */
+export const NewLayerModal = React.memo(NewLayerModalBase);

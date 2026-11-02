@@ -87,7 +87,9 @@ export function useLayers(options?: UseLayersOptions) {
     (newLayerData: Omit<PlotLayer, 'id' | 'createdAt'>) => {
       const newLayer: PlotLayer = {
         ...newLayerData,
-        id: `layer-${Date.now()}`,
+        // 追加随机后缀：仅用 Date.now() 时，同一毫秒内创建两个图层会得到相同 ID，
+        // 后者直接覆盖前者，导致用户新建的图层「凭空消失」。
+        id: `layer-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`,
         createdAt: Date.now(),
         visible: true,
       };

@@ -231,6 +231,32 @@ const ImportExportModalBase: React.FC<ImportExportModalProps> = ({
                 fType = 'polygon';
               }
 
+              /**
+               * 优先用导出时保留的原始控制点还原要素。
+               *
+               * 本应用导出的面类要素，geometry 里放的是「渲染后的真实图形」
+               * （圆=64边多边形、箭头=展开轮廓），而渲染这些要素需要的是
+               * 绘制时的控制点（圆心+半径边点、扇面圆心+边缘点、箭头首尾点）。
+               * 直接拿图形轮廓当控制点，往返一次圆就会以环上某点为圆心、半径回落默认值，
+               * 扇面与集结地域同样错位。因此这里优先取 sourceCoords。
+               *
+               * 第三方 GeoJSON 没有该字段时，仍按几何类型推断，退回原有行为。
+               */
+              const sourceCoords = f.properties?.sourceCoords;
+              const isValidSourceCoords =
+                Array.isArray(sourceCoords) &&
+                sourceCoords.length > 0 &&
+                sourceCoords.every(
+                  (p: any) =>
+                    Array.isArray(p) &&
+                    p.length >= 2 &&
+                    Number.isFinite(Number(p[0])) &&
+                    Number.isFinite(Number(p[1]))
+                );
+              if (isValidSourceCoords) {
+                coords = sourceCoords.map((p: any) => [Number(p[0]), Number(p[1])]);
+              }
+
               const originLayerId = f.properties?.layerId;
               const targetLayerId = hasLayerStructure
                 ? layerIdMap.get(originLayerId) || importedLayers[0].id
@@ -239,6 +265,11 @@ const ImportExportModalBase: React.FC<ImportExportModalProps> = ({
               // 复用导出时的样式，避免导入后配色丢失
               const layerColor =
                 importedLayers.find((l) => l.id === targetLayerId)?.color || '#06b6d4';
+
+              // 保留导出时的圆半径与量算指标，避免往返后丢失
+              const radius = Number(f.properties?.radius);
+              const calculatedArea = Number(f.properties?.calculatedArea);
+              const calculatedLength = Number(f.properties?.calculatedLength);
 
               return {
                 id: `feat-imp-${Date.now()}-${idx}`,
@@ -253,6 +284,25 @@ const ImportExportModalBase: React.FC<ImportExportModalProps> = ({
                   fillColor: f.properties?.fillColor || layerColor,
                   fillOpacity: f.properties?.fillOpacity ?? 0.35,
                   notes: f.properties?.notes || '外部导入数据',
+                  // 文字注记与颜色
+                  ...(typeof f.properties?.text === 'string'
+                    ? { text: f.properties.text }
+                    : {}),
+                  ...(typeof f.properties?.textColor === 'string'
+                    ? { textColor: f.properties.textColor }
+                    : {}),
+                  ...(Number.isFinite(f.properties?.textSize)
+                    ? { textSize: f.properties.textSize }
+                    : {}),
+                  // 圆半径：丢失会导致圆心与半径都还原不准
+                  ...(Number.isFinite(radius) && radius > 0 ? { radius } : {}),
+                  // 空间量算指标
+                  ...(Number.isFinite(calculatedArea) && calculatedArea > 0
+                    ? { calculatedArea }
+                    : {}),
+                  ...(Number.isFinite(calculatedLength) && calculatedLength > 0
+                    ? { calculatedLength }
+                    : {}),
                 },
                 createdAt: Date.now(),
                 updatedAt: Date.now(),

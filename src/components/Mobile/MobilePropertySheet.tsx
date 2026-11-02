@@ -19,6 +19,7 @@ import {
 import { MobileBottomSheet } from './MobileBottomSheet';
 import { ConfirmModal } from '../Modals/ConfirmModal';
 import { formatArea, formatDistance } from '../../utils/geoUtils';
+import { copyToClipboard } from '../../utils/uiUtils';
 
 interface MobilePropertySheetProps {
   isOpen: boolean;
@@ -42,6 +43,18 @@ const MobilePropertySheetBase: React.FC<MobilePropertySheetProps> = ({
   const [showAddAttr, setShowAddAttr] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  // 复制坐标后的「已复制」提示复位定时器，卸载时需清理，避免对已卸载组件 setState
+  const copiedTimerRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (copiedTimerRef.current !== null) {
+        window.clearTimeout(copiedTimerRef.current);
+        copiedTimerRef.current = null;
+      }
+    },
+    []
+  );
 
   /**
    * 属性编辑草稿 + 节流提交。
@@ -70,8 +83,19 @@ const MobilePropertySheetBase: React.FC<MobilePropertySheetProps> = ({
       commitTimerRef.current = null;
       pendingRef.current = false;
       const d = draftRef.current;
-      if (d) onUpdateFeature(d.next);
+      if (d) onUpdateFeature(applyNameFallback(d.next));
     }, 150);
+  };
+
+  /**
+   * 落盘前把空名称替换为可读兜底名。
+   *
+   * 见 normalizeFeatureName 的说明：空名会污染要素清单、地图注记、
+   * 删除确认弹窗与无障碍标签。
+   */
+  const applyNameFallback = (target: PlotFeature): PlotFeature => {
+    const safeName = normalizeFeatureName(target.name, target.type);
+    return safeName === target.name ? target : { ...target, name: safeName };
   };
 
   // 立即提交挂起的编辑（切换/关闭要素前调用，避免丢失最后一次改动）
@@ -83,7 +107,7 @@ const MobilePropertySheetBase: React.FC<MobilePropertySheetProps> = ({
     if (!pendingRef.current) return;
     pendingRef.current = false;
     const d = draftRef.current;
-    if (d) onUpdateFeature(d.next);
+    if (d) onUpdateFeature(applyNameFallback(d.next));
   };
 
   // 外部要素数据变化时同步草稿；切换要素前先提交未落盘的编辑
@@ -118,7 +142,12 @@ const MobilePropertySheetBase: React.FC<MobilePropertySheetProps> = ({
       if (pendingRef.current) {
         pendingRef.current = false;
         const d = draftRef.current;
-        if (d) onUpdateFeature(d.next);
+        if (d) {
+          // 同样走名称兜底，避免卸载时把空名落盘
+          const raw = d.next.name || '';
+          const safeName = raw.trim().length > 0 ? raw.trim() : d.next.type || '未命名要素';
+          onUpdateFeature(safeName === d.next.name ? d.next : { ...d.next, name: safeName });
+        }
       }
     },
     // onUpdateFeature 在 useFeatures 中是 useCallback([]) 稳定引用，
@@ -131,6 +160,20 @@ const MobilePropertySheetBase: React.FC<MobilePropertySheetProps> = ({
 
   // 当前正在编辑的要素快照（优先使用草稿，保证输入框实时跟手）
   const editingFeature = draft && draft.featureId === feature.id ? draft.next : feature;
+
+  /**
+   * 要素名称兜底。
+   *
+   * 名称允许用户清空到空串（输入框需要能跟手地删空），
+   * 但空名会让要素清单出现无名条目、地图注记渲染成空白、
+   * 删除确认弹窗显示为「确定删除要素 "" 吗？」，aria-label 也会失去意义。
+   * 因此落盘前统一兜底为一个可读名称。
+   */
+  const normalizeFeatureName = (name: string, fallback: string): string => {
+    const trimmed = (name || '').trim();
+    if (trimmed.length > 0) return trimmed;
+    return fallback || '未命名要素';
+  };
 
   const handleNameChange = (name: string) => {
     scheduleCommit({
@@ -229,10 +272,20 @@ const MobilePropertySheetBase: React.FC<MobilePropertySheetProps> = ({
                 <span className="text-slate-800 dark:text-gray-200 font-semibold">{pointCoord[1].toFixed(5)}°</span>
               </div>
               <button
-                onClick={() => {
-                  navigator.clipboard.writeText(`${pointCoord[0]},${pointCoord[1]}`);
+                onClick={async () => {
+                  // 统一走 copyToClipboard：其内部含 execCommand 兜底，
+                  // 直接调用 navigator.clipboard.writeText 在非安全上下文
+                  // （部分 WebView / 隐私模式）会抛异常，且没有降级路径。
+                  const ok = await copyToClipboard(`${pointCoord[0]},${pointCoord[1]}`);
+                  if (!ok) return;
                   setCopied(true);
-                  setTimeout(() => setCopied(false), 1500);
+                  if (copiedTimerRef.current !== null) {
+                    window.clearTimeout(copiedTimerRef.current);
+                  }
+                  copiedTimerRef.current = window.setTimeout(() => {
+                    copiedTimerRef.current = null;
+                    setCopied(false);
+                  }, 1500);
                 }}
                 className="p-1 rounded text-slate-400 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition"
                 title="复制坐标"

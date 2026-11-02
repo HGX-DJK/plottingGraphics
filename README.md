@@ -105,6 +105,9 @@ MapTalks GL 按官方规范以 `link` + `script` 方式在 `index.html` 中异�
 - **真机下载落盘**：Android 端经原生桥 `AndroidNative.saveTextToDownloads` 写入系统「下载」目录，
   桌面端依次降级为系统分享面板与 Blob 下载。
 - **数据导入**：支持备份文件与 GeoJSON 导入；带 `layerId` 的 GeoJSON 自动按原图层还原分组。
+- **面类要素往返保真**：圆、扇面、箭头、集结地域的 `geometry` 按 RFC 7946 存的是渲染后的真实图形，
+  同时在 `properties.sourceCoords` 额外保留绘制控制点。导入时优先用控制点还原，
+  避免往返一次后圆心偏移、半径回落默认值。该字段对第三方 GIS 软件无害（标准解析器会忽略）。
 - **一键恢复示例工程**：内置规划红线、交通廊道、外业调查、应急防护四组示例图层与要素。
 
 ### 8. 在线 POI 检索

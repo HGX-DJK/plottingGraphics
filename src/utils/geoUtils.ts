@@ -684,6 +684,21 @@ export function exportToGeoJSON(features: PlotFeature[], layers?: PlotLayer[]): 
         layerId: f.layerId,
         // 记录图层名称，导回本应用时可还原分组与标题
         ...(layerNameMap.has(f.layerId) ? { layerName: layerNameMap.get(f.layerId) } : {}),
+        /**
+         * 保留「原始控制点」。
+         *
+         * geometry 字段按 RFC 7946 必须是渲染出来的真实图形（圆是 64 边多边形、
+         * 箭头是展开后的轮廓），但本应用内部渲染这些要素需要的是绘制时的控制点
+         * （圆心 + 半径边点、扇面圆心 + 边缘点、箭头首尾点）。
+         * 若导入时只拿到 geometry 里的图形轮廓，圆会以「环上某一点」为圆心、
+         * 扇面会把弧线端点当成边缘点，往返一次图形就完全错位。
+         * 因此把控制点单独存入 sourceCoords，导入时优先用它还原原始要素。
+         *
+         * 对第三方 GIS 软件而言这是无害的额外字段，标准解析器会忽略它。
+         */
+        ...(geometryType === 'Polygon' && pts.length > 0
+          ? { sourceCoords: pts.map((p) => [p[0], p[1]]) }
+          : {}),
         ...f.properties,
       },
       geometry: {

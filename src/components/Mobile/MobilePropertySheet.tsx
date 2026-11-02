@@ -17,6 +17,7 @@ import {
   Check,
 } from 'lucide-react';
 import { MobileBottomSheet } from './MobileBottomSheet';
+import { MobileColorPicker } from './MobileColorPicker';
 import { ConfirmModal } from '../Modals/ConfirmModal';
 import { formatArea, formatDistance } from '../../utils/geoUtils';
 import { copyToClipboard } from '../../utils/uiUtils';
@@ -45,6 +46,12 @@ const MobilePropertySheetBase: React.FC<MobilePropertySheetProps> = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   // 复制坐标后的「已复制」提示复位定时器，卸载时需清理，避免对已卸载组件 setState
   const copiedTimerRef = useRef<number | null>(null);
+  // 自研取色器：原生 <input type="color"> 会弹出浏览器/系统自带的取色面板，
+  // 样式与本应用的设计语言完全割裂（且各平台表现不一），故改为自研弹层。
+  const [colorPickerTarget, setColorPickerTarget] = useState<
+    | { propKey: 'strokeColor' | 'fillColor' | 'textColor'; title: string }
+    | null
+  >(null);
 
   useEffect(
     () => () => {
@@ -497,11 +504,15 @@ const MobilePropertySheetBase: React.FC<MobilePropertySheetProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-slate-600 dark:text-gray-400">文字颜色</span>
               <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={editingFeature.properties.textColor || '#ffffff'}
-                  onChange={(e) => handlePropChange('textColor', e.target.value)}
-                  className="w-11 h-11 p-0 bg-transparent rounded-xl cursor-pointer border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-950"
+                <button
+                  type="button"
+                  onClick={() =>
+                    setColorPickerTarget({ propKey: 'textColor', title: '选择文字颜色' })
+                  }
+                  className="w-11 h-11 rounded-xl border border-slate-200 dark:border-gray-700 shadow-sm transition active:scale-95 cursor-pointer"
+                  style={{
+                    backgroundColor: editingFeature.properties.textColor || '#ffffff',
+                  }}
                   aria-label="选择文字颜色"
                 />
                 <span className="font-mono text-slate-500 dark:text-gray-400">
@@ -520,11 +531,13 @@ const MobilePropertySheetBase: React.FC<MobilePropertySheetProps> = ({
               <span>边框/线条颜色</span>
             </label>
             <div className="flex items-center gap-2">
-              <input
-                type="color"
-                value={editingFeature.properties.strokeColor}
-                onChange={(e) => handlePropChange('strokeColor', e.target.value)}
-                className="w-11 h-11 p-0 bg-transparent rounded-xl cursor-pointer border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-950"
+              <button
+                type="button"
+                onClick={() =>
+                  setColorPickerTarget({ propKey: 'strokeColor', title: '选择边框线条颜色' })
+                }
+                className="w-11 h-11 rounded-xl border border-slate-200 dark:border-gray-700 shadow-sm transition active:scale-95 cursor-pointer"
+                style={{ backgroundColor: editingFeature.properties.strokeColor }}
                 aria-label="选择边框线条颜色"
               />
               <span className="font-mono text-slate-500 dark:text-gray-400">
@@ -592,11 +605,13 @@ const MobilePropertySheetBase: React.FC<MobilePropertySheetProps> = ({
             <div className="flex items-center justify-between">
               <label className="text-slate-600 dark:text-gray-400 font-medium">区域填充色</label>
               <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={editingFeature.properties.fillColor}
-                  onChange={(e) => handlePropChange('fillColor', e.target.value)}
-                  className="w-11 h-11 p-0 bg-transparent rounded-xl cursor-pointer border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-950"
+                <button
+                  type="button"
+                  onClick={() =>
+                    setColorPickerTarget({ propKey: 'fillColor', title: '选择区域填充色' })
+                  }
+                  className="w-11 h-11 rounded-xl border border-slate-200 dark:border-gray-700 shadow-sm transition active:scale-95 cursor-pointer"
+                  style={{ backgroundColor: editingFeature.properties.fillColor }}
                   aria-label="选择区域填充色"
                 />
                 <span className="font-mono text-slate-500 dark:text-gray-400">
@@ -672,6 +687,26 @@ const MobilePropertySheetBase: React.FC<MobilePropertySheetProps> = ({
         cancelText="取消"
         type="danger"
       />
+
+      {/* 自研取色器（替代浏览器原生 <input type="color"> 的丑陋弹窗） */}
+      {colorPickerTarget && (
+        <MobileColorPicker
+          isOpen
+          title={colorPickerTarget.title}
+          value={
+            colorPickerTarget.propKey === 'textColor'
+              ? editingFeature.properties.textColor || '#ffffff'
+              : colorPickerTarget.propKey === 'fillColor'
+              ? editingFeature.properties.fillColor
+              : editingFeature.properties.strokeColor
+          }
+          onConfirm={(hex) => {
+            handlePropChange(colorPickerTarget.propKey, hex);
+            setColorPickerTarget(null);
+          }}
+          onCancel={() => setColorPickerTarget(null)}
+        />
+      )}
     </MobileBottomSheet>
   );
 };

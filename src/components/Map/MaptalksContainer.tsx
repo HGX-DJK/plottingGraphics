@@ -260,27 +260,104 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
       onSelectVertex?: (index: number) => void;
     } | null>(null);
 
-    const updateEditingGeometry = () => {
+    /**
+     * 微调预览图层（与要素所属数据图层物理隔离）。
+     *
+     * 背景：早期实现把预览几何体直接写回要素所属的数据图层，且沿用要素自身的 id。
+     * 这会让「渲染账本（renderedGeomsRef）」与图层实际内容失同步 ——
+     * 账本里记的还是那个已被 removeGeometry 摘掉的旧几何体，而预览几何体留在图层里。
+     * 保存微调时增量重建只按账本去摘除（摘的是早已失效的那个，等于没摘），
+     * 预览几何体原封不动留在层里，紧接着新几何体又以同一 id 入层，
+     * 于是同一图层出现两个同 id 几何体，MapTalks 直接抛
+     * "Duplicate geometry id in layer(...)" 并中断整条渲染管线。
+     *
+     * 改为独立图层后：数据图层的几何体集合完全不被微调流程触碰，
+     * 账本与图层内容始终一致，重复 id 在结构上就不可能再发生。
+     */
+    const getEditPreviewLayer = () => {
+      const map = mapInstanceRef.current;
+      const maptalks = (window as any).maptalks;
+      if (!map || !maptalks) return null;
+      let previewLayer = map.getLayer('system-edit-preview');
+      if (!previewLayer) {
+        previewLayer = new maptalks.VectorLayer('system-edit-preview', [], {
+          zIndex: 1004,
+          enableAltitude: true,
+        }).addTo(map);
+      }
+      return previewLayer;
+    };
+
+    /**
+     * 隐藏 / 恢复真实几何体的绘制。
+     * 几何体本身仍留在数据图层与渲染账本里（只影响是否绘制），
+     * 因此不会破坏「一个要素一个几何体」的对应关系。
+     */
+    const setTargetGeometryVisible = (featureId: string, visible: boolean) => {
+      const entry = renderedGeomsRef.current.get(featureId);
+      const geom = entry?.geom;
+      if (!geom) return;
+      try {
+        if (visible) {
+          if (typeof geom.show === 'function') geom.show();
+        } else if (typeof geom.hide === 'function') {
+          geom.hide();
+        }
+      } catch (e) {
+        /* 几何体已随图层销毁时忽略 */
+      }
+    };
+
+    /**
+     * 重建微调预览几何体（独立图层 + 独立 id）。
+     */
+    const refreshEditPreview = () => {
       const state = activeEditStateRef.current;
       const map = mapInstanceRef.current;
       const maptalks = (window as any).maptalks;
       if (!state || !map || !maptalks) return;
 
-      const vecLayer = map.getLayer(state.targetFeat.layerId);
-      if (vecLayer) {
-        const oldGeom = vecLayer.getGeometryById
-          ? vecLayer.getGeometryById(state.targetFeat.id)
-          : null;
-        if (oldGeom) {
-          vecLayer.removeGeometry(oldGeom);
-        }
-        const previewFeat = { ...state.targetFeat, coordinates: [...state.currentCoords] };
-        const updatedGeom = createGeometryFromFeature(maptalks, previewFeat, true);
-        if (updatedGeom) {
-          vecLayer.addGeometry(updatedGeom);
+      const previewLayer = getEditPreviewLayer();
+      if (previewLayer) {
+        previewLayer.clear();
+        // 预览要素使用独立 id，与数据图层中的要素 id 天然不会撞车
+        const previewFeat: PlotFeature = {
+          ...state.targetFeat,
+          id: `edit-preview-${state.targetFeat.id}`,
+          coordinates: [...state.currentCoords],
+        };
+        const previewGeom = createGeometryFromFeature(maptalks, previewFeat, true);
+        if (previewGeom) {
+          // 微调期间真实几何体是隐藏的（收不到指针事件），
+          // 因此把「点击面内部 → 当前拐点移动到点击处」的交互挂到预览形状上，
+          // 保持原有操作手感不变。
+          previewGeom.on('click tap', (e: any) => {
+            const editState = activeEditStateRef.current;
+            if (!editState || editState.selectedIndex < 0 || !e.coordinate) return;
+            if (e.domEvent) e.domEvent.stopPropagation();
+            const targetCoord: [number, number] = [
+              Number(e.coordinate.x.toFixed(6)),
+              Number(e.coordinate.y.toFixed(6)),
+            ];
+            editState.currentCoords[editState.selectedIndex] = targetCoord;
+            updateEditingGeometry();
+            renderEditHandles();
+          });
+          previewGeom.on('mouseover', () => map.setCursor('crosshair'));
+          previewGeom.on('mouseout', () => map.setCursor('default'));
+          previewLayer.addGeometry(previewGeom);
         }
       }
 
+      // 真实几何体保持隐藏，由预览层接管显示（避免出现原形状 + 编辑形状两套轮廓）
+      setTargetGeometryVisible(state.targetFeat.id, false);
+    };
+
+    const updateEditingGeometry = () => {
+      const state = activeEditStateRef.current;
+      if (!state) return;
+
+      refreshEditPreview();
       state.onUpdateCoords([...state.currentCoords]);
     };
 
@@ -612,6 +689,17 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
         const targetFeat = featuresRef.current.find((f) => f.id === featureId);
         if (!targetFeat || !targetFeat.coordinates || targetFeat.coordinates.length === 0) return;
 
+        // 若已有其它要素处于微调中，先把上一个要素完整收尾
+        // （清预览、恢复其真实几何体显示），避免上一个要素残留隐藏状态。
+        const prevState = activeEditStateRef.current;
+        if (prevState && prevState.featureId !== featureId) {
+          const prevPreviewLayer = map.getLayer('system-edit-preview');
+          if (prevPreviewLayer) {
+            prevPreviewLayer.clear();
+          }
+          setTargetGeometryVisible(prevState.featureId, true);
+        }
+
         const currentCoords: [number, number][] = targetFeat.coordinates.map((c) => [c[0], c[1]]);
 
         activeEditStateRef.current = {
@@ -623,6 +711,9 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
           onSelectVertex,
         };
 
+        // 进入微调即建立预览形状：真实几何体隐藏，预览层接管显示，
+        // 拐点把手叠在预览形状之上，视觉上始终只有一套轮廓。
+        refreshEditPreview();
         renderEditHandles();
         onSelectVertex?.(0);
       },
@@ -658,12 +749,23 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
         renderEditHandles();
       },
       stopVertexEdit: () => {
+        const state = activeEditStateRef.current;
         activeEditStateRef.current = null;
         const map = mapInstanceRef.current;
         if (!map) return;
         const vertexLayer = map.getLayer('system-vertex-handles');
         if (vertexLayer) {
           vertexLayer.clear();
+        }
+        // 清除微调预览几何体
+        const editPreviewLayer = map.getLayer('system-edit-preview');
+        if (editPreviewLayer) {
+          editPreviewLayer.clear();
+        }
+        // 恢复真实几何体显示：取消微调时地图应回到原始形状，
+        // 保存微调时也会被随后触发的增量重建替换成新形状。
+        if (state) {
+          setTargetGeometryVisible(state.featureId, true);
         }
         map.config('draggable', true);
       },
@@ -1007,6 +1109,21 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
             }
           });
 
+          // 入层前去重：同一图层内出现重复 id 会让 MapTalks 直接抛错、
+          // 中断整条渲染管线（表现为整张地图渲染中断并弹出错误框）。
+          // 这里先摘除图层中同 id 的残留几何体，
+          // 保证「一个要素一个几何体」这一不变式恒成立。
+          try {
+            if (typeof vecLayer.getGeometryById === 'function') {
+              const duplicated = vecLayer.getGeometryById(feat.id);
+              if (duplicated && duplicated !== geom) {
+                vecLayer.removeGeometry(duplicated);
+              }
+            }
+          } catch (e) {
+            /* 几何体已随图层移除时忽略 */
+          }
+
           vecLayer.addGeometry(geom);
           rendered.set(feat.id, {
             feature: feat,
@@ -1014,6 +1131,17 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
             layerId: feat.layerId,
             selected: isSelected,
           });
+
+          // 微调进行中：真实几何体保持隐藏，由预览层接管显示。
+          // 若编辑期间发生过重建，这里重新隐藏一次，避免原形状突然冒出来。
+          const editState = activeEditStateRef.current;
+          if (editState && editState.featureId === feat.id) {
+            try {
+              if (typeof geom.hide === 'function') geom.hide();
+            } catch (e) {
+              /* 忽略 */
+            }
+          }
         }
       });
 

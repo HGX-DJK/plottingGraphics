@@ -1124,7 +1124,27 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
             /* 几何体已随图层移除时忽略 */
           }
 
-          vecLayer.addGeometry(geom);
+          try {
+            vecLayer.addGeometry(geom);
+          } catch (e) {
+            // 兜底：引擎抛错会中断整条渲染管线，整张地图直接黑掉、
+            // 只能靠 ErrorBoundary 弹「重新加载」自救 —— 对外业作业是不可接受的。
+            // 这里降级处理：再摘一次同 id 几何体后重试；
+            // 仍失败则放弃该要素的绘制，保住地图与其它要素不被拖垮。
+            console.warn('[GeoPlot] 要素几何体入层失败，已跳过该要素渲染：', e);
+            try {
+              const duplicated =
+                typeof vecLayer.getGeometryById === 'function'
+                  ? vecLayer.getGeometryById(feat.id)
+                  : null;
+              if (duplicated && duplicated !== geom) {
+                vecLayer.removeGeometry(duplicated);
+              }
+              vecLayer.addGeometry(geom);
+            } catch (e2) {
+              console.warn('[GeoPlot] 该要素渲染已放弃，不影响其它要素：', e2);
+            }
+          }
           rendered.set(feat.id, {
             feature: feat,
             geom,

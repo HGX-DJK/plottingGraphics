@@ -122,10 +122,12 @@ public class MainActivity extends BridgeActivity {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     ContentResolver resolver = getContentResolver();
                     ContentValues contentValues = new ContentValues();
-                    contentValues.put(MediaStore.Downloads.Media.DISPLAY_NAME, filename);
-                    contentValues.put(MediaStore.Downloads.Media.MIME_TYPE, mimeType);
-                    contentValues.put(MediaStore.Downloads.Media.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
-                    contentValues.put(MediaStore.Downloads.Media.IS_PENDING, 1);
+                    // 注意：MediaStore.Downloads 的列常量直接定义在 Downloads 上，
+                    // 不存在 Downloads.Media 内部类（那是 Images/Video/Audio 才有）。
+                    contentValues.put(MediaStore.Downloads.DISPLAY_NAME, filename);
+                    contentValues.put(MediaStore.Downloads.MIME_TYPE, mimeType);
+                    contentValues.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+                    contentValues.put(MediaStore.Downloads.IS_PENDING, 1);
 
                     Uri uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues);
                     if (uri == null) return false;
@@ -137,7 +139,7 @@ public class MainActivity extends BridgeActivity {
                         }
                     }
                     contentValues.clear();
-                    contentValues.put(MediaStore.Downloads.Media.IS_PENDING, 0);
+                    contentValues.put(MediaStore.Downloads.IS_PENDING, 0);
                     resolver.update(uri, contentValues, null, null);
 
                     runOnUiThread(() -> Toast.makeText(MainActivity.this, "✓ 已保存至手机「下载」目录: " + filename, Toast.LENGTH_LONG).show());

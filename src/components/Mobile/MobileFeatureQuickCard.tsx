@@ -155,48 +155,48 @@ const MobileFeatureQuickCardBase: React.FC<MobileFeatureQuickCardProps> = ({
         </button>
       </div>
 
-      {/* 第二行：操作按钮网格 (均匀呼吸感分布，大触控热区，不再拥挤) */}
-      <div className="grid grid-cols-4 gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/80">
+      {/* 第二行：操作按钮工具条（横向紧凑排布，视觉更轻薄；触控热区由 after 伪元素补足到 44px） */}
+      <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-800/80">
         {/* 聚焦居中 */}
         <button
           onClick={onFocus}
-          className="flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-2xl bg-slate-100/90 dark:bg-slate-800/80 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 text-blue-600 dark:text-blue-400 active:scale-95 transition cursor-pointer"
+          className="relative flex items-center justify-center gap-1.5 h-9 px-2.5 rounded-xl bg-slate-100/90 dark:bg-slate-800/80 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 text-blue-600 dark:text-blue-400 active:scale-95 transition cursor-pointer after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-['']"
           title="地图居中聚焦"
         >
-          <Crosshair className="w-4 h-4" />
-          <span className="text-[11px] font-bold">聚焦</span>
+          <Crosshair className="w-3.5 h-3.5" />
+          <span className="text-[11px] font-bold whitespace-nowrap">聚焦</span>
         </button>
 
         {/* 微调顶点 */}
         {onEditVertices && (
           <button
             onClick={onEditVertices}
-            className="flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-2xl bg-gradient-to-b from-amber-500 to-amber-600 text-white active:scale-95 transition shadow-md shadow-amber-500/25 cursor-pointer"
+            className="relative flex items-center justify-center gap-1.5 h-9 px-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white active:scale-95 transition shadow-sm shadow-amber-500/25 cursor-pointer after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-['']"
             title="微调要素顶点与控制点"
           >
-            <Move className="w-4 h-4" />
-            <span className="text-[11px] font-bold">微调</span>
+            <Move className="w-3.5 h-3.5" />
+            <span className="text-[11px] font-bold whitespace-nowrap">微调</span>
           </button>
         )}
 
         {/* 属性配置 */}
         <button
           onClick={onOpenProperties}
-          className="flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white active:scale-95 transition shadow-md shadow-blue-600/25 cursor-pointer"
+          className="relative flex items-center justify-center gap-1.5 h-9 px-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white active:scale-95 transition shadow-sm shadow-blue-600/25 cursor-pointer after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-['']"
           title="查看要素属性与样式"
         >
-          <Sliders className="w-4 h-4" />
-          <span className="text-[11px] font-bold">属性</span>
+          <Sliders className="w-3.5 h-3.5" />
+          <span className="text-[11px] font-bold whitespace-nowrap">属性</span>
         </button>
 
         {/* 快捷删除 */}
         <button
           onClick={() => setShowDeleteConfirm(true)}
-          className="flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 active:scale-95 transition cursor-pointer"
+          className="relative flex items-center justify-center gap-1.5 h-9 px-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 active:scale-95 transition cursor-pointer after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-['']"
           title="删除要素"
         >
-          <Trash2 className="w-4 h-4" />
-          <span className="text-[11px] font-bold">删除</span>
+          <Trash2 className="w-3.5 h-3.5" />
+          <span className="text-[11px] font-bold whitespace-nowrap">删除</span>
         </button>
       </div>
 

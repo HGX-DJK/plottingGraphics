@@ -37,7 +37,6 @@ interface MobilePoiSearchSheetProps {
   onClose: () => void;
   currentCenter: [number, number];
   userGpsCoord?: [number, number] | null;
-  activeLayer: PlotLayer | undefined;
   features: PlotFeature[];
   layers: PlotLayer[];
   onSelectLocation: (coord: [number, number], title: string, subtitle: string) => void;
@@ -62,7 +61,6 @@ const MobilePoiSearchSheetBase: React.FC<MobilePoiSearchSheetProps> = ({
   onClose,
   currentCenter,
   userGpsCoord,
-  activeLayer,
   features,
   layers,
   onSelectLocation,
@@ -82,6 +80,30 @@ const MobilePoiSearchSheetBase: React.FC<MobilePoiSearchSheetProps> = ({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const searchTimerRef = useRef<number | null>(null);
+  const focusTimerRef = useRef<number | null>(null);
+  const copiedTimerRef = useRef<number | null>(null);
+
+  /**
+   * 请求序号：用于丢弃过期响应。
+   *
+   * 搜索是异步的，输入防抖 350ms 后仍可能出现「先发的请求慢、后发的请求快」，
+   * 旧响应后到会覆盖新结果，用户看到的是与输入不匹配的地点列表。
+   */
+  const requestSeqRef = useRef(0);
+
+  /**
+   * 清除挂起的防抖定时器。
+   *
+   * 手动触发搜索（Enter / 搜索按钮 / 热门词）时必须先调用它：
+   * 否则防抖定时器会在 350ms 后再触发一次同样的搜索，
+   * 同一输入白白打两次高德接口，配额翻倍还容易触发限流。
+   */
+  const clearSearchTimer = React.useCallback(() => {
+    if (searchTimerRef.current !== null) {
+      window.clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
+  }, []);
 
   // 坐标参考基准点 (优先使用 GPS，其次使用地图中心)
   const referenceCoord = userGpsCoord || currentCenter;
@@ -100,7 +122,11 @@ const MobilePoiSearchSheetBase: React.FC<MobilePoiSearchSheetProps> = ({
       if (!amapSearchService.hasApiKey()) {
         setShowKeyConfig(true);
       }
-      setTimeout(() => {
+      if (focusTimerRef.current !== null) {
+        window.clearTimeout(focusTimerRef.current);
+      }
+      focusTimerRef.current = window.setTimeout(() => {
+        focusTimerRef.current = null;
         inputRef.current?.focus();
       }, 150);
     }
@@ -116,6 +142,9 @@ const MobilePoiSearchSheetBase: React.FC<MobilePoiSearchSheetProps> = ({
       setIsLoading(false);
       return;
     }
+
+    // 标记本次请求序号，await 之后用它判断响应是否已过期
+    const seq = ++requestSeqRef.current;
 
     setIsLoading(true);
     setErrorMessage(null);
@@ -135,6 +164,9 @@ const MobilePoiSearchSheetBase: React.FC<MobilePoiSearchSheetProps> = ({
       city,
       referenceCoord
     );
+
+    // 过期响应直接丢弃：既不能覆盖新结果，也不能把 loading 状态误关
+    if (seq !== requestSeqRef.current) return;
 
     if (error) {
       setErrorMessage(error);
@@ -157,9 +189,7 @@ const MobilePoiSearchSheetBase: React.FC<MobilePoiSearchSheetProps> = ({
     const val = e.target.value;
     setKeyword(val);
 
-    if (searchTimerRef.current) {
-      window.clearTimeout(searchTimerRef.current);
-    }
+    clearSearchTimer();
 
     if (!val.trim()) {
       setPois([]);
@@ -174,16 +204,23 @@ const MobilePoiSearchSheetBase: React.FC<MobilePoiSearchSheetProps> = ({
     }, 350);
   };
 
-  // 卸载时清理防抖定时器：抽屉改为按需挂载后，关闭即卸载，
+  // 卸载时清理所有定时器：抽屉改为按需挂载后，关闭即卸载，
   // 否则挂起的搜索会在抽屉关闭后仍发起一次无意义的网络请求。
   useEffect(
     () => () => {
-      if (searchTimerRef.current) {
-        window.clearTimeout(searchTimerRef.current);
-        searchTimerRef.current = null;
+      clearSearchTimer();
+      if (focusTimerRef.current !== null) {
+        window.clearTimeout(focusTimerRef.current);
+        focusTimerRef.current = null;
       }
+      if (copiedTimerRef.current !== null) {
+        window.clearTimeout(copiedTimerRef.current);
+        copiedTimerRef.current = null;
+      }
+      // 组件卸载后，任何在途请求的响应都不应再写回状态
+      requestSeqRef.current += 1;
     },
-    []
+    [clearSearchTimer]
   );
 
   // 点击选择地点 (定位飞跃)
@@ -197,6 +234,8 @@ const MobilePoiSearchSheetBase: React.FC<MobilePoiSearchSheetProps> = ({
   // 点击快捷词
   const handlePresetClick = (preset: { name: string; city: string }) => {
     setKeyword(preset.name);
+    // 手动搜索前先清掉防抖定时器，避免同一输入打两次接口
+    clearSearchTimer();
     executeSearch(preset.name, preset.city);
   };
 
@@ -218,7 +257,13 @@ const MobilePoiSearchSheetBase: React.FC<MobilePoiSearchSheetProps> = ({
     copyToClipboard(text);
     setCopiedId(item.id);
     onNotify?.(`📋 已复制坐标: ${text}`);
-    setTimeout(() => setCopiedId(null), 1800);
+    if (copiedTimerRef.current !== null) {
+      window.clearTimeout(copiedTimerRef.current);
+    }
+    copiedTimerRef.current = window.setTimeout(() => {
+      copiedTimerRef.current = null;
+      setCopiedId(null);
+    }, 1800);
   };
 
   // 清空历史
@@ -324,6 +369,8 @@ const MobilePoiSearchSheetBase: React.FC<MobilePoiSearchSheetProps> = ({
               onChange={handleInputChange}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
+                  // 手动搜索前先清掉防抖定时器，避免同一输入打两次接口
+                  clearSearchTimer();
                   executeSearch(keyword, cityFilter);
                 }
               }}
@@ -339,7 +386,7 @@ const MobilePoiSearchSheetBase: React.FC<MobilePoiSearchSheetProps> = ({
                   setErrorMessage(null);
                   inputRef.current?.focus();
                 }}
-                className="absolute right-2.5 w-6 h-6 rounded-full grid place-items-center text-slate-400 hover:text-slate-600 dark:hover:text-white bg-slate-200/60 dark:bg-gray-700"
+                className="absolute right-2.5 w-6 h-6 rounded-full grid place-items-center text-slate-400 hover:text-slate-600 dark:hover:text-white bg-slate-200/60 dark:bg-gray-700 after:absolute after:inset-0 after:-m-2.5 after:content-['']"
                 aria-label="清空输入"
               >
                 <X className="w-3.5 h-3.5" />
@@ -348,7 +395,11 @@ const MobilePoiSearchSheetBase: React.FC<MobilePoiSearchSheetProps> = ({
           </div>
 
           <button
-            onClick={() => executeSearch(keyword, cityFilter)}
+            onClick={() => {
+              // 手动搜索前先清掉防抖定时器，避免同一输入打两次接口
+              clearSearchTimer();
+              executeSearch(keyword, cityFilter);
+            }}
             disabled={!keyword.trim() || isLoading}
             className="h-11 px-4 rounded-2xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:hover:bg-blue-600 text-white text-xs font-bold shrink-0 transition flex items-center gap-1.5 shadow-sm active:scale-95"
           >
@@ -526,7 +577,9 @@ const MobilePoiSearchSheetBase: React.FC<MobilePoiSearchSheetProps> = ({
                         <button
                           onClick={(e) => handleSaveAsPlotFeature(poi, e)}
                           title="将此地点存为当前图层要素"
-                          className="p-2 rounded-xl text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition"
+                          aria-label="将此地点存为当前图层要素"
+                          // after 伪元素向外扩展触控热区到 44px，不影响排版
+                          className="relative p-2 rounded-xl text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition after:absolute after:inset-0 after:-m-1.5 after:content-['']"
                         >
                           <PlusCircle className="w-4 h-4" />
                         </button>
@@ -535,7 +588,8 @@ const MobilePoiSearchSheetBase: React.FC<MobilePoiSearchSheetProps> = ({
                       <button
                         onClick={(e) => handleCopyCoord(poi, e)}
                         title="复制经纬度"
-                        className="p-2 rounded-xl text-slate-500 dark:text-gray-400 bg-slate-100 dark:bg-gray-700/60 hover:text-slate-800 dark:hover:text-white transition"
+                        aria-label="复制经纬度"
+                        className="relative p-2 rounded-xl text-slate-500 dark:text-gray-400 bg-slate-100 dark:bg-gray-700/60 hover:text-slate-800 dark:hover:text-white transition after:absolute after:inset-0 after:-m-1.5 after:content-['']"
                       >
                         {copiedId === poi.id ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                       </button>

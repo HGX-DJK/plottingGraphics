@@ -162,7 +162,8 @@ const MobilePropertySheetBase: React.FC<MobilePropertySheetProps> = ({
 
   const handleAddCustomAttribute = () => {
     if (!newAttrKey.trim()) return;
-    const existing = feature.properties.customAttributes || {};
+    // 同样基于草稿读取已有字段，避免覆盖掉刚输入但尚未提交的内容
+    const existing = editingFeature.properties.customAttributes || {};
     handlePropChange('customAttributes', {
       ...existing,
       [newAttrKey.trim()]: newAttrVal.trim(),
@@ -388,9 +389,14 @@ const MobilePropertySheetBase: React.FC<MobilePropertySheetProps> = ({
           )}
 
           <div className="space-y-1.5">
-            {feature.properties.customAttributes &&
-            Object.keys(feature.properties.customAttributes).length > 0 ? (
-              Object.entries(feature.properties.customAttributes).map(([k, v]) => (
+            {/*
+              自定义属性列表必须读取草稿(editingFeature)而非外部 feature：
+              新增/删除字段先写入草稿（150ms 节流提交），若列表读的是未提交的 feature，
+              新增字段在提交前不可见、删除后仍会短暂显示，给用户「操作没生效」的错觉。
+            */}
+            {editingFeature.properties.customAttributes &&
+            Object.keys(editingFeature.properties.customAttributes).length > 0 ? (
+              Object.entries(editingFeature.properties.customAttributes).map(([k, v]) => (
                 <div
                   key={k}
                   className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-gray-900/60 border border-slate-200 dark:border-gray-800/80 text-[11px]"
@@ -400,7 +406,8 @@ const MobilePropertySheetBase: React.FC<MobilePropertySheetProps> = ({
                     <span className="text-slate-800 dark:text-gray-200 font-medium">{v}</span>
                     <button
                       onClick={() => handleDeleteCustomAttribute(k)}
-                      className="text-slate-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 p-0.5"
+                      // after 伪元素向外扩展触控热区到 44px（图标本体仅 16px），不影响排版
+                      className="relative text-slate-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 p-0.5 after:absolute after:inset-0 after:-m-3 after:content-['']"
                       title="删除字段"
                       aria-label={`删除字段 ${k}`}
                     >

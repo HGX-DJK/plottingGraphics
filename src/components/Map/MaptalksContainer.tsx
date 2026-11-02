@@ -4,6 +4,7 @@ import React, {
   useState,
   useImperativeHandle,
   forwardRef,
+  memo,
 } from 'react';
 import { PlotFeature, PlotLayer, PlotFeatureType, BasemapType } from '../../types';
 import { Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
@@ -64,7 +65,7 @@ interface MaptalksContainerProps {
   onSnapFeedback?: (snapped: boolean) => void;
 }
 
-export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContainerProps>(
+const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContainerProps>(
   (
     {
       layers,
@@ -835,7 +836,11 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
           return;
         }
 
-        if (!drawingTool && e.target === map) {
+        // 必须读 ref 而不是建图时捕获的 drawingTool 闭包变量：
+        // 本 effect 的依赖是 [maptalksReady]，只在引擎就绪时执行一次，
+        // 捕获到的 drawingTool 永远是初始值（null），标绘过程中点空白地图
+        // 会误触发「取消选中」。
+        if (!drawingToolRef.current && e.target === map) {
           onSelectFeature(null);
         }
       });
@@ -1186,9 +1191,28 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
         }
       };
 
-      // 移动指针时更新半透明预览与动态方位角
-      const handleMouseMove = (e: any) => {
-        let mouseCoord: [number, number] = [e.coordinate.x, e.coordinate.y];
+      /**
+       * 移动指针时更新半透明预览与动态方位角
+       *
+       * 性能修正：原实现每个 mousemove 事件都会完整执行一遍
+       *   吸附候选重算（O(要素顶点总数)）+ 拓扑自相交检测（O(n²)）
+       *   + 预览层全量重建（clear 后重建十余个 GL 几何体）
+       *   + setActiveSegment（每次都是新对象，触发 App 全树重渲染）。
+       * mousemove 在移动端可达 60~120Hz，等于整棵树按帧率重渲染，是标绘掉帧的主因。
+       *
+       * 现改为节流合并：60ms 内的连续移动只提交最后一次坐标，
+       * 与同文件 viewchange 的 120ms 节流策略保持一致。
+       */
+      const PREVIEW_THROTTLE_MS = 60;
+      let lastPreviewEmit = 0;
+      let previewThrottleTimer: number | null = null;
+      let pendingPreviewCoord: [number, number] | null = null;
+
+      const emitPreview = (coord: [number, number]) => {
+        pendingPreviewCoord = null;
+        lastPreviewEmit = Date.now();
+
+        let mouseCoord: [number, number] = coord;
         let wasSnapped = false;
 
         if (enableSnappingRef.current) {
@@ -1211,6 +1235,24 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
           const dist = calculateSphericalDistance(lastPt, mouseCoord);
           const azimuth = calculateAzimuth(lastPt, mouseCoord);
           onActiveSegmentChangeRef.current?.({ length: dist, azimuth });
+        }
+      };
+
+      const handleMouseMove = (e: any) => {
+        pendingPreviewCoord = [e.coordinate.x, e.coordinate.y];
+        const now = Date.now();
+        const elapsed = now - lastPreviewEmit;
+        if (elapsed >= PREVIEW_THROTTLE_MS) {
+          if (previewThrottleTimer !== null) {
+            window.clearTimeout(previewThrottleTimer);
+            previewThrottleTimer = null;
+          }
+          emitPreview(pendingPreviewCoord);
+        } else if (previewThrottleTimer === null) {
+          previewThrottleTimer = window.setTimeout(() => {
+            previewThrottleTimer = null;
+            if (pendingPreviewCoord) emitPreview(pendingPreviewCoord);
+          }, PREVIEW_THROTTLE_MS - elapsed);
         }
       };
 
@@ -1268,6 +1310,10 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
       map.on('mouseup touchend', handleTouchEnd);
 
       return () => {
+        if (previewThrottleTimer !== null) {
+          window.clearTimeout(previewThrottleTimer);
+          previewThrottleTimer = null;
+        }
         map.off('click', handleClick);
         map.off('mousemove', handleMouseMove);
         map.off('dblclick', handleDblClick);
@@ -1338,4 +1384,14 @@ export const MaptalksContainer = forwardRef<MaptalksContainerRef, MaptalksContai
   }
 );
 
-MaptalksContainer.displayName = 'MaptalksContainer';
+MaptalksContainerInner.displayName = 'MaptalksContainerInner';
+
+/**
+ * 地图容器用 React.memo 包裹。
+ *
+ * 该组件体量最大（1300+ 行、数十个 Hook），而 App 会在地图平移缩放时
+ * 以 120ms 的节流频率重新渲染（视口中心/缩放变化）。
+ * 包裹 memo 后，只要 layers / features / drawingTool 等 props 引用不变，
+ * 这类与地图内部无关的父级重渲染就不会再白白执行一遍整个组件函数。
+ */
+export const MaptalksContainer = memo(MaptalksContainerInner);

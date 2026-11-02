@@ -1,4 +1,11 @@
 import { PlotFeature, PlotLayer } from '../types';
+import {
+  calculateStraightArrow,
+  calculateAttackArrow,
+  calculatePincerArrow,
+  calculateGatheringPlace,
+  calculateSector,
+} from './plotAlgorithms';
 
 /**
  * 坐标格式枚举
@@ -7,15 +14,27 @@ export type CoordinateFormat = 'DD' | 'DMS' | 'MERCATOR';
 
 /**
  * 将经纬度转换为度分秒 (DMS) 字符串
+ *
+ * 注意进位：秒数四舍五入到 1 位小数后可能达到 60.0（如 59.95 → "60.0"），
+ * 直接输出会得到非法的度分秒。此处做完整的「秒 → 分 → 度」进位。
  */
 export function toDMS(val: number, isLng: boolean): string {
   const dir = isLng ? (val >= 0 ? 'E' : 'W') : (val >= 0 ? 'N' : 'S');
   const abs = Math.abs(val);
-  const deg = Math.floor(abs);
-  const minFloat = (abs - deg) * 60;
-  const min = Math.floor(minFloat);
-  const sec = ((minFloat - min) * 60).toFixed(1);
-  return `${deg}°${min.toString().padStart(2, '0')}'${sec.padStart(4, '0')}" ${dir}`;
+  let deg = Math.floor(abs);
+  let min = Math.floor((abs - deg) * 60);
+  let sec = Math.round(((abs - deg) * 60 - min) * 60 * 10) / 10;
+
+  if (sec >= 60) {
+    sec -= 60;
+    min += 1;
+  }
+  if (min >= 60) {
+    min -= 60;
+    deg += 1;
+  }
+
+  return `${deg}°${min.toString().padStart(2, '0')}'${sec.toFixed(1).padStart(4, '0')}" ${dir}`;
 }
 
 /**
@@ -270,6 +289,49 @@ function ccw(p1: [number, number], p2: [number, number], p3: [number, number]): 
   return (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (p3[0] - p1[0]);
 }
 
+/**
+ * 判断点 p 是否落在线段 s1-s2 上（允许落在端点上）
+ */
+function pointOnSegment(
+  p: [number, number],
+  s1: [number, number],
+  s2: [number, number],
+  eps: number
+): boolean {
+  if (
+    p[0] < Math.min(s1[0], s2[0]) - eps ||
+    p[0] > Math.max(s1[0], s2[0]) + eps ||
+    p[1] < Math.min(s1[1], s2[1]) - eps ||
+    p[1] > Math.max(s1[1], s2[1]) + eps
+  ) {
+    return false;
+  }
+  const cross = (s2[0] - s1[0]) * (p[1] - s1[1]) - (s2[1] - s1[1]) * (p[0] - s1[0]);
+  const scale = Math.hypot(s2[0] - s1[0], s2[1] - s1[1]) || 1;
+  return Math.abs(cross) / scale <= eps;
+}
+
+/**
+ * 判断两条共线线段是否存在正长度的重叠（仅接触于一点不算）
+ */
+function segmentsOverlap(
+  a1: [number, number],
+  a2: [number, number],
+  b1: [number, number],
+  b2: [number, number],
+  eps: number
+): boolean {
+  // 投影到主轴上比较区间
+  const useX = Math.abs(a2[0] - a1[0]) >= Math.abs(a2[1] - a1[1]);
+  const key = useX ? 0 : 1;
+  const aMin = Math.min(a1[key], a2[key]);
+  const aMax = Math.max(a1[key], a2[key]);
+  const bMin = Math.min(b1[key], b2[key]);
+  const bMax = Math.max(b1[key], b2[key]);
+  const overlap = Math.min(aMax, bMax) - Math.max(aMin, bMin);
+  return overlap > eps;
+}
+
 function segmentsIntersect(
   a1: [number, number],
   a2: [number, number],
@@ -290,10 +352,56 @@ function segmentsIntersect(
   const d3 = ccw(a1, a2, b1);
   const d4 = ccw(a1, a2, b2);
 
-  return (
+  // 常规交叉：两端严格位于对方直线的异侧
+  if (
     ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
     ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))
+  ) {
+    return true;
+  }
+
+  /**
+   * 共线 / 相切情形。
+   *
+   * 原实现只认「严格异号」，因此任何叉积为 0 的情况（共线重叠、顶点压在另一条边上）
+   * 都会被判成「无相交」，导致生成违反 OGC 拓扑规范的面要素。
+   * 实测：退化多边形 [[0,0],[0,1],[1,1],[0.5,0.5],[1,0]] 曾被漏判。
+   *
+   * 这里补充两类判定：
+   *   1. T 型接触：某个端点落在对方线段内部（非端点）——非法拓扑；
+   *   2. 共线重叠：两条线段存在正长度的重叠——非法拓扑。
+   * 相邻边共享端点、以及仅在一点接触的情况仍不判为相交，避免误报。
+   */
+  const scale = Math.max(
+    Math.hypot(a2[0] - a1[0], a2[1] - a1[1]),
+    Math.hypot(b2[0] - b1[0], b2[1] - b1[1]),
+    1e-9
   );
+  const eps = scale * 1e-9;
+
+  const isEndpointOf = (p: [number, number], s1: [number, number], s2: [number, number]) =>
+    Math.abs(p[0] - s1[0]) <= eps && Math.abs(p[1] - s1[1]) <= eps
+      ? true
+      : Math.abs(p[0] - s2[0]) <= eps && Math.abs(p[1] - s2[1]) <= eps;
+
+  if (
+    (pointOnSegment(a1, b1, b2, eps) && !isEndpointOf(a1, b1, b2)) ||
+    (pointOnSegment(a2, b1, b2, eps) && !isEndpointOf(a2, b1, b2)) ||
+    (pointOnSegment(b1, a1, a2, eps) && !isEndpointOf(b1, a1, a2)) ||
+    (pointOnSegment(b2, a1, a2, eps) && !isEndpointOf(b2, a1, a2))
+  ) {
+    return true;
+  }
+
+  if (
+    Math.abs(d1) <= eps &&
+    Math.abs(d2) <= eps &&
+    segmentsOverlap(a1, a2, b1, b2, eps)
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -373,7 +481,19 @@ export function calculateSphericalPolygonArea(coords: [number, number][]): numbe
     const lng2 = (p2[0] * Math.PI) / 180;
     const lat2 = (p2[1] * Math.PI) / 180;
 
-    total += (lng2 - lng1) * (2 + Math.sin(lat1) + Math.sin(lat2));
+    /**
+     * 经差归一化到 [-180°, 180°]。
+     *
+     * 若不归一，跨越 180° 经线的边（例如 179.5° → -179.5°）经差会算成 -359°，
+     * 面积被放大约 359 倍。实测同一块 1°×1° 区域：
+     *   不跨经线写法 1.2390e+10 m²（正确）
+     *   跨经线写法   4.4480e+12 m²（放大约 359 倍）
+     */
+    let dLng = lng2 - lng1;
+    if (dLng > Math.PI) dLng -= 2 * Math.PI;
+    else if (dLng < -Math.PI) dLng += 2 * Math.PI;
+
+    total += dLng * (2 + Math.sin(lat1) + Math.sin(lat2));
   }
 
   const area = Math.abs((total * R * R) / 2);
@@ -423,9 +543,146 @@ export function exportPlottingProject(layers: PlotLayer[], features: PlotFeature
 }
 
 /**
+ * 生成面要素的真实几何外环（与地图渲染结果保持一致）
+ *
+ * 早期实现对所有面类要素一律直接导出「原始控制点」，
+ * 导致箭头 / 扇面 / 集结地域导出的是控制点而非渲染出来的图形：
+ *   - sector 只有 2 个控制点，闭合后仅 3 个位置，违反 RFC 7946「线性环 ≥ 4 个位置」；
+ *   - 各类箭头导出的是 2~3 个控制点，图形在 QGIS/ArcGIS 中完全变形。
+ * 现改为复用 plotAlgorithms 中的几何生成函数，导出与地图上看到的一致的真实轮廓。
+ */
+function buildPolygonRing(f: PlotFeature): [number, number][] | null {
+  const pts = (f.coordinates || []) as [number, number][];
+
+  switch (f.type) {
+    case 'straight-arrow': {
+      const g = calculateStraightArrow(pts);
+      return g.length >= 3 ? (g as [number, number][]) : null;
+    }
+    case 'attack-arrow': {
+      const g = calculateAttackArrow(pts);
+      return g.length >= 3 ? (g as [number, number][]) : null;
+    }
+    case 'pincer-arrow': {
+      const g = calculatePincerArrow(pts);
+      return g.length >= 3 ? (g as [number, number][]) : null;
+    }
+    case 'gathering-place': {
+      const g = calculateGatheringPlace(pts);
+      return g.length >= 3 ? (g as [number, number][]) : null;
+    }
+    case 'sector': {
+      if (pts.length < 1) return null;
+      const center = pts[0];
+      const edge = pts[1] || [center[0] + 0.05, center[1]];
+      const g = calculateSector(center, edge, 90);
+      return g.length >= 3 ? (g as [number, number][]) : null;
+    }
+    case 'circle': {
+      // 地图上渲染为 maptalks.Circle，GeoJSON 无圆类型，用 64 边近似圆导出
+      if (pts.length < 1) return null;
+      const center = pts[0];
+      let radiusMeters: number;
+      if (pts.length >= 2) {
+        radiusMeters = calculateSphericalDistance(pts[0], pts[1]);
+      } else {
+        radiusMeters = (f.properties?.radius as number) || 1200;
+      }
+      // 经纬度平面上 1 度约 111320 米
+      const dLat = radiusMeters / 110574;
+      const dLng = radiusMeters / (111320 * Math.cos((center[1] * Math.PI) / 180) || 1);
+      const ring: [number, number][] = [];
+      const segments = 64;
+      for (let i = 0; i < segments; i++) {
+        const th = (i / segments) * Math.PI * 2;
+        ring.push([center[0] + dLng * Math.cos(th), center[1] + dLat * Math.sin(th)]);
+      }
+      return ring;
+    }
+    case 'rectangle': {
+      if (pts.length >= 4) return [...pts];
+      if (pts.length === 2) {
+        const [p1, p2] = pts;
+        return [
+          [p1[0], p1[1]],
+          [p2[0], p1[1]],
+          [p2[0], p2[1]],
+          [p1[0], p2[1]],
+        ];
+      }
+      return null;
+    }
+    default:
+      return pts.length >= 3 ? [...pts] : null;
+  }
+}
+
+/**
  * 导出要素为标准 RFC 7946 GeoJSON 格式 (供 QGIS, ArcGIS, Mapbox, Leaflet 等通用 GIS 软件读取)
+ *
+ * 几何分派规则：
+ *   Point      : marker / text / point-* / post-*
+ *   LineString : polyline / freehand
+ *   Polygon    : polygon / rectangle / circle / sector / gathering-place / 各类箭头
  */
 export function exportToGeoJSON(features: PlotFeature[]): string {
+  const outFeatures: any[] = [];
+
+  for (const f of features) {
+    const pts = (f.coordinates || []) as [number, number][];
+    let geometryType = 'Point';
+    let coords: any = null;
+
+    if (f.type === 'marker' || f.type === 'text' || f.type.startsWith('point-') || f.type.startsWith('post-')) {
+      geometryType = 'Point';
+      coords = pts[0] || [0, 0];
+    } else if (f.type === 'polyline' || f.type === 'freehand') {
+      geometryType = 'LineString';
+      coords = pts.length >= 2 ? pts : null;
+    } else {
+      geometryType = 'Polygon';
+      const ring = buildPolygonRing(f);
+      if (!ring || ring.length < 3) {
+        // 无法构成合法面（控制点不足），跳过该要素而不是输出非法几何
+        console.warn(`[GeoJSON 导出] 要素「${f.name}」(${f.type}) 控制点不足，已跳过`);
+        continue;
+      }
+      // RFC 7946 要求线性环闭合且至少 4 个位置
+      const closedRing = [...ring];
+      if (
+        closedRing[0][0] !== closedRing[closedRing.length - 1][0] ||
+        closedRing[0][1] !== closedRing[closedRing.length - 1][1]
+      ) {
+        closedRing.push(closedRing[0]);
+      }
+      if (closedRing.length < 4) {
+        console.warn(`[GeoJSON 导出] 要素「${f.name}」(${f.type}) 几何退化，已跳过`);
+        continue;
+      }
+      coords = [closedRing];
+    }
+
+    if (coords === null) {
+      console.warn(`[GeoJSON 导出] 要素「${f.name}」(${f.type}) 几何无效，已跳过`);
+      continue;
+    }
+
+    outFeatures.push({
+      type: 'Feature',
+      id: f.id,
+      properties: {
+        name: f.name,
+        type: f.type,
+        layerId: f.layerId,
+        ...f.properties,
+      },
+      geometry: {
+        type: geometryType,
+        coordinates: coords,
+      },
+    });
+  }
+
   const geojson = {
     type: 'FeatureCollection',
     name: 'GeoPlot_Export_Features',
@@ -433,40 +690,7 @@ export function exportToGeoJSON(features: PlotFeature[]): string {
       type: 'name',
       properties: { name: 'urn:ogc:def:crs:OGC:1.3:CRS84' },
     },
-    features: features.map((f) => {
-      let geometryType = 'Point';
-      let coords: any = f.coordinates;
-
-      if (f.type === 'marker' || f.type.startsWith('point-') || f.type === 'text') {
-        geometryType = 'Point';
-        coords = f.coordinates[0] || [0, 0];
-      } else if (f.type === 'polyline' || f.type === 'freehand') {
-        geometryType = 'LineString';
-        coords = f.coordinates;
-      } else {
-        geometryType = 'Polygon';
-        const ring = [...f.coordinates];
-        if (ring.length > 0 && (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1])) {
-          ring.push(ring[0]);
-        }
-        coords = [ring];
-      }
-
-      return {
-        type: 'Feature',
-        id: f.id,
-        properties: {
-          name: f.name,
-          type: f.type,
-          layerId: f.layerId,
-          ...f.properties,
-        },
-        geometry: {
-          type: geometryType,
-          coordinates: coords,
-        },
-      };
-    }),
+    features: outFeatures,
   };
 
   return JSON.stringify(geojson, null, 2);

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { PlotFeature, PlotLayer } from '../types';
 import { storageService } from '../services/storageService';
 
@@ -17,6 +17,23 @@ export function useFeatures(options: UseFeaturesOptions) {
   );
   const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
 
+  /**
+   * 用 ref 持有最新的要素表与选中态。
+   *
+   * 目的：让下面几个回调不再依赖 features / selectedFeatureId，
+   * 从而在「仅选中态变化」「仅要素增删」时保持引用稳定。
+   * 否则 handleDeleteFeature 会因 selectedFeatureId 变化而换引用，
+   * 传给 React.memo 包裹的 MobileLayerSheet / MobileFeatureListSheet /
+   * MobilePropertySheet 后浅比较必然失败，三个抽屉会被无谓地整体重渲染。
+   */
+  const featuresRef = useRef(features);
+  featuresRef.current = features;
+  const selectedFeatureIdRef = useRef(selectedFeatureId);
+  selectedFeatureIdRef.current = selectedFeatureId;
+  const selectedFeatureRef = useRef<PlotFeature | null>(null);
+  const layersRef = useRef(layers);
+  layersRef.current = layers;
+
   // 自动持久化
   useEffect(() => {
     storageService.saveFeatures(features);
@@ -26,13 +43,15 @@ export function useFeatures(options: UseFeaturesOptions) {
     return features.find((f) => f.id === selectedFeatureId) || null;
   }, [features, selectedFeatureId]);
 
+  selectedFeatureRef.current = selectedFeature;
+
   // 新建要素
   const handleCreateFeature = useCallback(
     (featureData: Omit<PlotFeature, 'id' | 'createdAt' | 'updatedAt'>) => {
       // 确保所属图层处于可见状态
       onEnsureLayerVisible?.(featureData.layerId);
 
-      const targetLayer = layers.find((l) => l.id === featureData.layerId);
+      const targetLayer = layersRef.current.find((l) => l.id === featureData.layerId);
       const newFeature: PlotFeature = {
         ...featureData,
         id: `feat-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
@@ -45,7 +64,7 @@ export function useFeatures(options: UseFeaturesOptions) {
       onNotify?.(`✓ 已在「${targetLayer?.name || '指定图层'}」中创建要素 "${newFeature.name}"`);
       return newFeature;
     },
-    [layers, onEnsureLayerVisible, onNotify]
+    [onEnsureLayerVisible, onNotify]
   );
 
   // 更新要素
@@ -56,10 +75,10 @@ export function useFeatures(options: UseFeaturesOptions) {
   // 删除要素 (带撤销入口)
   const handleDeleteFeature = useCallback(
     (featureId: string) => {
-      const target = features.find((f) => f.id === featureId);
+      const target = featuresRef.current.find((f) => f.id === featureId);
       if (!target) return;
       setFeatures((prev) => prev.filter((f) => f.id !== featureId));
-      if (selectedFeatureId === featureId) {
+      if (selectedFeatureIdRef.current === featureId) {
         setSelectedFeatureId(null);
       }
       onNotify?.(`✓ 已删除要素 "${target.name}"`, {
@@ -72,7 +91,7 @@ export function useFeatures(options: UseFeaturesOptions) {
         },
       });
     },
-    [features, selectedFeatureId, onNotify]
+    [onNotify]
   );
 
   // 清空要素 (全部或指定图层)
@@ -80,7 +99,8 @@ export function useFeatures(options: UseFeaturesOptions) {
     (layerId?: string) => {
       if (layerId) {
         setFeatures((prev) => prev.filter((f) => f.layerId !== layerId));
-        if (selectedFeature && selectedFeature.layerId === layerId) {
+        const selected = selectedFeatureRef.current;
+        if (selected && selected.layerId === layerId) {
           setSelectedFeatureId(null);
         }
         onNotify?.('✓ 指定图层要素已清空');
@@ -90,7 +110,7 @@ export function useFeatures(options: UseFeaturesOptions) {
         onNotify?.('✓ 所有图层要素已全部清空');
       }
     },
-    [selectedFeature, onNotify]
+    [onNotify]
   );
 
   // 按图层级联删除要素
@@ -100,9 +120,9 @@ export function useFeatures(options: UseFeaturesOptions) {
     // 否则 selectedFeatureId 会指向一个已不存在的要素：
     // selectedFeature 解析为 null，但底栏 hasSelectedFeature 仍为 true，UI 状态自相矛盾。
     setSelectedFeatureId((prev) =>
-      prev && features.find((f) => f.id === prev && f.layerId === layerId) ? null : prev
+      prev && featuresRef.current.find((f) => f.id === prev && f.layerId === layerId) ? null : prev
     );
-  }, [features]);
+  }, []);
 
   // 精准定位与聚焦要素
   const handleLocateFeature = useCallback(
@@ -111,7 +131,7 @@ export function useFeatures(options: UseFeaturesOptions) {
       onFocusMap?: (feat: PlotFeature) => void,
       onCloseModals?: () => void
     ) => {
-      const feat = features.find((f) => f.id === featureId);
+      const feat = featuresRef.current.find((f) => f.id === featureId);
       if (!feat) return;
 
       // 1. 确保该要素所属图层可见，并切换激活该图层
@@ -129,7 +149,7 @@ export function useFeatures(options: UseFeaturesOptions) {
 
       onNotify?.(`📍 已在地图中精准定位: ${feat.name}`);
     },
-    [features, onEnsureLayerVisible, onSelectActiveLayer, onNotify]
+    [onEnsureLayerVisible, onSelectActiveLayer, onNotify]
   );
 
   // 批量重置/替换要素

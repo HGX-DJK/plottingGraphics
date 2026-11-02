@@ -15,10 +15,54 @@ export interface MapPosterMeta {
   layers?: { id: string; name: string; color: string; visible: boolean }[];
 }
 
+/**
+ * 专题图合成结果
+ *
+ * degraded 为 true 表示合成失败、已回退为原始地图截图。
+ * 早期实现把异常吞掉只写 console，用户导出时只看到一张没有图例与标题栏的裸图，
+ * 完全不知道发生了什么。现在把降级原因回传给上层，由 App 统一 Toast 提示。
+ */
+export interface MapPosterResult {
+  dataUrl: string;
+  degraded: boolean;
+  reason?: string;
+}
+
+/**
+ * 绘制圆角矩形（兼容旧版 Android WebView）
+ *
+ * ctx.roundRect 需要 Chrome 99+ / Safari 16.4+，旧版 WebView 上调用会抛 TypeError，
+ * 导致整张专题图合成失败。此处提供基于 arcTo 的等价实现。
+ */
+function drawRoundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number
+): void {
+  const radius = Math.min(r, w / 2, h / 2);
+  if (typeof (ctx as any).roundRect === 'function') {
+    (ctx as any).roundRect(x, y, w, h, radius);
+    return;
+  }
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + w - radius, y);
+  ctx.arcTo(x + w, y, x + w, y + radius, radius);
+  ctx.lineTo(x + w, y + h - radius);
+  ctx.arcTo(x + w, y + h, x + w - radius, y + h, radius);
+  ctx.lineTo(x + radius, y + h);
+  ctx.arcTo(x, y + h, x, y + h - radius, radius);
+  ctx.lineTo(x, y + radius);
+  ctx.arcTo(x, y, x + radius, y, radius);
+  ctx.closePath();
+}
+
 export async function generateMapPoster(
   mapDataUrl: string,
   meta: MapPosterMeta = {}
-): Promise<string> {
+): Promise<MapPosterResult> {
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -51,7 +95,12 @@ export async function generateMapPoster(
         canvas.height = POSTER_HEIGHT;
         const ctx = canvas.getContext('2d');
         if (!ctx) {
-          return resolve(mapDataUrl);
+          resolve({
+            dataUrl: mapDataUrl,
+            degraded: true,
+            reason: '当前设备不支持 Canvas 2D 绘图，专题图合成无法完成，已回退为原始地图截图。',
+          });
+          return;
         }
 
         // 2. 绘制纯白高清绘图纸张背景
@@ -196,7 +245,7 @@ export async function generateMapPoster(
         ctx.shadowBlur = 8;
         ctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
         ctx.beginPath();
-        ctx.roundRect(legendX, legendY, legendW, legendH, 12);
+        drawRoundRect(ctx, legendX, legendY, legendW, legendH, 12);
         ctx.fill();
 
         ctx.strokeStyle = 'rgba(15, 23, 42, 0.2)';
@@ -215,7 +264,7 @@ export async function generateMapPoster(
         const layerColor = meta.activeLayerColor || '#3b82f6';
         ctx.fillStyle = layerColor;
         ctx.beginPath();
-        ctx.roundRect(legendX + 16, legendY + 38, 16, 16, 4);
+        drawRoundRect(ctx, legendX + 16, legendY + 38, 16, 16, 4);
         ctx.fill();
         ctx.strokeStyle = '#0f172a';
         ctx.lineWidth = 1;
@@ -252,7 +301,7 @@ export async function generateMapPoster(
         ctx.shadowBlur = 8;
         ctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
         ctx.beginPath();
-        ctx.roundRect(refX, refY, refW, refH, 12);
+        drawRoundRect(ctx, refX, refY, refW, refH, 12);
         ctx.fill();
 
         ctx.strokeStyle = 'rgba(15, 23, 42, 0.2)';
@@ -367,16 +416,32 @@ export async function generateMapPoster(
         ctx.font = 'bold 12px monospace';
         ctx.fillText(timeStr, mapX + col1W + col2W + 76, midRowY + 16);
 
-        resolve(canvas.toDataURL('image/png'));
+        resolve({
+          dataUrl: canvas.toDataURL('image/png'),
+          degraded: false,
+        });
       } catch (err) {
+        /**
+         * 合成失败（最常见是底图瓦片跨域导致画布被污染，toDataURL 抛 SecurityError）
+         * 时回退为原始地图截图，保证用户至少拿得到图；
+         * 但必须把降级原因回传，让上层明确告知用户「专题图要素缺失」。
+         */
         console.warn('Canvas poster composition error:', err);
-        resolve(mapDataUrl);
+        resolve({
+          dataUrl: mapDataUrl,
+          degraded: true,
+          reason: '专题图合成失败（可能是底图跨域限制），已回退为原始地图截图，图例与标题栏缺失。',
+        });
       }
     };
 
     img.onerror = (e) => {
       console.warn('Failed to load map data URL into image:', e);
-      resolve(mapDataUrl);
+      resolve({
+        dataUrl: mapDataUrl,
+        degraded: true,
+        reason: '地图截图载入失败，专题图合成未能完成，已回退为原始地图截图。',
+      });
     };
 
     img.src = mapDataUrl;

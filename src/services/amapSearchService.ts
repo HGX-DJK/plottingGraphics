@@ -33,15 +33,30 @@ const STORAGE_KEY_SEARCH_HISTORY = 'geoplot_poi_search_history';
 
 class AmapSearchService {
   /**
+   * 统一的高德 Key 格式校验。
+   *
+   * 早期实现里 getApiKey() 用 `length > 10` 判定，而 getCustomApiKey() 不做校验，
+   * 导致「配置面板显示已保存」但检索时又被判定为未配置；
+   * 同时 getApiKey() 直接访问 localStorage，隐私模式下抛 SecurityError，
+   * 反而把本该工作的降级路径弄崩。现统一为同一套校验 + 全部兜底。
+   */
+  private static isValidKeyFormat(key: string | null | undefined): boolean {
+    return typeof key === 'string' && key.trim().length > 10;
+  }
+
+  /**
    * 获取当前生效的高德 Web 服务 Key (仅用户自配 Key)
-   * @returns 用户配置的 Key；未配置时返回空字符串
+   * @returns 用户配置的 Key；未配置或读取失败时返回空字符串
    */
   getApiKey(): string {
-    const customKey = localStorage.getItem(STORAGE_KEY_AMAP_KEY);
-    if (customKey && customKey.trim().length > 10) {
-      return customKey.trim();
+    try {
+      const customKey = localStorage.getItem(STORAGE_KEY_AMAP_KEY);
+      return AmapSearchService.isValidKeyFormat(customKey) ? customKey!.trim() : '';
+    } catch (e) {
+      // 隐私模式下访问 localStorage 会抛 SecurityError，降级路径绝不能因此崩溃
+      console.warn('Failed to read amap key from localStorage:', e);
+      return '';
     }
-    return '';
   }
 
   /**
@@ -61,18 +76,28 @@ class AmapSearchService {
    * 保存用户自定义的高德 Key
    */
   setCustomApiKey(key: string): void {
-    if (!key || !key.trim()) {
-      localStorage.removeItem(STORAGE_KEY_AMAP_KEY);
-    } else {
-      localStorage.setItem(STORAGE_KEY_AMAP_KEY, key.trim());
+    try {
+      if (!key || !key.trim()) {
+        localStorage.removeItem(STORAGE_KEY_AMAP_KEY);
+      } else {
+        localStorage.setItem(STORAGE_KEY_AMAP_KEY, key.trim());
+      }
+    } catch (e) {
+      console.warn('Failed to save amap key:', e);
     }
   }
 
   /**
-   * 获取用户自定义 Key (若未设置则返回空字符串)
+   * 获取用户自定义 Key (若未设置或格式不合法则返回空字符串)
    */
   getCustomApiKey(): string {
-    return localStorage.getItem(STORAGE_KEY_AMAP_KEY) || '';
+    try {
+      const key = localStorage.getItem(STORAGE_KEY_AMAP_KEY);
+      return AmapSearchService.isValidKeyFormat(key) ? key!.trim() : '';
+    } catch (e) {
+      console.warn('Failed to read amap key:', e);
+      return '';
+    }
   }
 
   /**
@@ -238,15 +263,27 @@ class AmapSearchService {
     const q = keyword.trim().toLowerCase();
     if (!q) return [];
 
+    const safeText = (v: unknown): string =>
+      typeof v === 'string' ? v.toLowerCase() : '';
+
+    const layerNameOf = (layerId: string): string => {
+      const layer = layers.find((l) => l.id === layerId);
+      return layer ? safeText(layer.name) : '';
+    };
+
     const matched = features.filter((feat) => {
-      const matchName = feat.name.toLowerCase().includes(q);
-      const matchNotes = feat.properties.notes?.toLowerCase().includes(q);
-      const matchLayer = layers.find((l) => l.id === feat.layerId)?.name.toLowerCase().includes(q);
+      if (!feat) return false;
+      const matchName = safeText(feat.name).includes(q);
+      const matchNotes = safeText(feat.properties?.notes).includes(q);
+      const matchLayer = layerNameOf(feat.layerId).includes(q);
       return matchName || matchNotes || matchLayer;
     });
 
     return matched.map((feat) => {
-      const firstCoord: [number, number] = feat.coordinates[0] || [121.4737, 31.2304];
+      const firstCoord: [number, number] =
+        Array.isArray(feat.coordinates) && feat.coordinates.length > 0
+          ? feat.coordinates[0]
+          : [121.4737, 31.2304];
       const layer = layers.find((l) => l.id === feat.layerId);
 
       let distance: number | undefined;
@@ -257,7 +294,9 @@ class AmapSearchService {
       return {
         id: `local-${feat.id}`,
         name: feat.name,
-        address: `【本地图层: ${layer?.name || '默认'}】${feat.properties.notes || '无附加描述'}`,
+        address: `【本地图层: ${layer?.name || '默认'}】${
+          typeof feat.properties?.notes === 'string' ? feat.properties.notes : '无附加描述'
+        }`,
         location: firstCoord,
         type: `标绘要素 (${feat.type})`,
         district: '本地工作图层',

@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "cap:sync": "cap sync",
     "cap:open": "cap open android",
-    "cap:build": "npm run build && cap sync"
+    "cap:build": "pnpm run build && cap sync"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.3",

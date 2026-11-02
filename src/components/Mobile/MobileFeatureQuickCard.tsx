@@ -146,7 +146,8 @@ const MobileFeatureQuickCardBase: React.FC<MobileFeatureQuickCardProps> = ({
         {/* 关闭按钮 */}
         <button
           onClick={onClose}
-          className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition shrink-0 cursor-pointer"
+          // after 伪元素向外扩展 8px，把 28px 的图标按钮触控热区提升到 44px（移动端下限），不影响排版
+          className="relative p-1.5 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition shrink-0 cursor-pointer after:absolute after:inset-0 after:-m-2 after:content-['']"
           title="关闭"
           aria-label="关闭要素快览卡片"
         >

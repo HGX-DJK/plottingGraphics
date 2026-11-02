@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { PlotLayer, PlotFeature } from '../../types';
 import {
   Layers,
@@ -76,6 +76,27 @@ const MobileLayerSheetBase: React.FC<MobileLayerSheetProps> = ({
 
   const isOnlyActiveVisible = layers.every((l) => (l.id === activeLayerId ? l.visible : !l.visible));
   const isAllVisible = layers.length > 0 && layers.every((l) => l.visible);
+
+  /**
+   * 要素按图层分组（useMemo 缓存）
+   *
+   * 原实现在 layers.map 内部对每个图层执行一次 features.filter，
+   * 即每渲染一次就是 O(图层数 × 要素数) 的全量扫描。
+   * 抽屉按需挂载后每次打开/展开都要重算一遍，要素累积到数百条时开销明显。
+   * 这里一次遍历建索引，渲染时直接 O(1) 取用。
+   */
+  const featuresByLayer = useMemo(() => {
+    const map = new Map<string, PlotFeature[]>();
+    for (const feat of features) {
+      const list = map.get(feat.layerId);
+      if (list) {
+        list.push(feat);
+      } else {
+        map.set(feat.layerId, [feat]);
+      }
+    }
+    return map;
+  }, [features]);
 
   // 中文定制二次确认弹窗状态（彻底杜绝系统原生 CANCEL / OK 弹窗）
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -194,7 +215,7 @@ const MobileLayerSheetBase: React.FC<MobileLayerSheetProps> = ({
 
         {layers.map((layer) => {
           const isActive = layer.id === activeLayerId;
-          const layerFeatures = features.filter((f) => f.layerId === layer.id);
+          const layerFeatures = featuresByLayer.get(layer.id) ?? [];
           const isExpanded = isLayerExpanded(layer.id, layerFeatures.length);
           const isSliderOpen = sliderLayerId === layer.id;
 

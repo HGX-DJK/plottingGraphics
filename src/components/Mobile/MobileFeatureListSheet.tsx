@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { PlotFeature, PlotLayer } from '../../types';
 import {
   ListFilter,
@@ -116,13 +116,80 @@ const MobileFeatureListSheetBase: React.FC<MobileFeatureListSheetProps> = ({
     return null;
   };
 
-  const filtered = features.filter((f) => {
-    const matchSearch =
-      f.name.toLowerCase().includes(search.toLowerCase()) ||
-      (f.properties.notes && f.properties.notes.toLowerCase().includes(search.toLowerCase()));
-    const matchLayer = layerFilter === 'all' || f.layerId === layerFilter;
-    return matchSearch && matchLayer;
-  });
+  /**
+   * 搜索词统一小写化（提到 filter 回调之外）
+   *
+   * 原实现在 filter 回调里对每个要素各调用两次 search.toLowerCase()，
+   * 要素多时是纯粹的重复计算。
+   */
+  const query = search.trim().toLowerCase();
+
+  const filtered = useMemo(() => {
+    if (!query && layerFilter === 'all') return features;
+    return features.filter((f) => {
+      const matchSearch =
+        f.name.toLowerCase().includes(query) ||
+        (typeof f.properties.notes === 'string' &&
+          f.properties.notes.toLowerCase().includes(query));
+      const matchLayer = layerFilter === 'all' || f.layerId === layerFilter;
+      return matchSearch && matchLayer;
+    });
+  }, [features, query, layerFilter]);
+
+  /**
+   * 要素按图层分组 + 各图层要素计数 + 图层索引表
+   *
+   * 原实现在 layers.map 内对每个图层执行 features.filter(...).length，
+   * 分组视图里再对每个图层执行一次 filtered.filter(...)，
+   * 渲染一张要素卡片时还要 layers.find(...) 找所属图层 ——
+   * 一次渲染要重复扫 3~4 遍全量数据。这里全部预计算并缓存。
+   */
+  const featuresByLayer = useMemo(() => {
+    const map = new Map<string, PlotFeature[]>();
+    for (const feat of features) {
+      const list = map.get(feat.layerId);
+      if (list) {
+        list.push(feat);
+      } else {
+        map.set(feat.layerId, [feat]);
+      }
+    }
+    return map;
+  }, [features]);
+
+  const countByLayer = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const [layerId, list] of featuresByLayer) {
+      map.set(layerId, list.length);
+    }
+    return map;
+  }, [featuresByLayer]);
+
+  /**
+   * 搜索过滤后的要素按图层分组（分组视图使用）
+   *
+   * 必须基于 filtered 而非全量 features，否则分组视图会丢失搜索条件。
+   */
+  const filteredByLayer = useMemo(() => {
+    const map = new Map<string, PlotFeature[]>();
+    for (const feat of filtered) {
+      const list = map.get(feat.layerId);
+      if (list) {
+        list.push(feat);
+      } else {
+        map.set(feat.layerId, [feat]);
+      }
+    }
+    return map;
+  }, [filtered]);
+
+  const layerById = useMemo(() => {
+    const map = new Map<string, PlotLayer>();
+    for (const layer of layers) {
+      map.set(layer.id, layer);
+    }
+    return map;
+  }, [layers]);
 
   // 是否处于「搜索 / 图层筛选」生效状态，决定顶部统计文案
   const isFiltering = search.trim() !== '' || layerFilter !== 'all';
@@ -138,7 +205,7 @@ const MobileFeatureListSheetBase: React.FC<MobileFeatureListSheetProps> = ({
 
   // 渲染单个要素卡片 (现代扁平微质感，明暗自适应)
   const renderFeatureCard = (feat: PlotFeature, parentLayer?: PlotLayer) => {
-    const layer = parentLayer || layers.find((l) => l.id === feat.layerId);
+    const layer = parentLayer || layerById.get(feat.layerId);
     const Icon = getIcon(feat.type);
     const isSelected = feat.id === selectedFeatureId;
     const metric = getFeatureMetric(feat);
@@ -372,7 +439,7 @@ const MobileFeatureListSheetBase: React.FC<MobileFeatureListSheetProps> = ({
                     : 'bg-slate-200/80 dark:bg-gray-800 text-slate-600 dark:text-gray-300'
                 }`}
               >
-                {features.filter((f) => f.layerId === l.id).length}
+                {countByLayer.get(l.id) ?? 0}
               </span>
             </button>
           ))}
@@ -405,7 +472,7 @@ const MobileFeatureListSheetBase: React.FC<MobileFeatureListSheetProps> = ({
             {layers
               .filter((layer) => layerFilter === 'all' || layerFilter === layer.id)
               .map((layer) => {
-                const groupFeatures = filtered.filter((f) => f.layerId === layer.id);
+                const groupFeatures = filteredByLayer.get(layer.id) ?? [];
                 const isCollapsed = collapsedGroups[layer.id];
 
                 return (

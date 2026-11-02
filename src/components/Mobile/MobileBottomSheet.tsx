@@ -29,6 +29,8 @@ const MobileBottomSheetBase: React.FC<MobileBottomSheetProps> = ({
   const dragStartYRef = useRef<number | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
   const isDraggingRef = useRef(false);
+  // 拖拽位移更新的 rAF 句柄（用于合并同一帧内的多次 pointermove）
+  const dragRafRef = useRef<number | null>(null);
   // 拖拽中状态用于关闭过渡动画，保证手势跟手无延迟
   const [isDragging, setIsDragging] = useState(false);
 
@@ -52,13 +54,20 @@ const MobileBottomSheetBase: React.FC<MobileBottomSheetProps> = ({
     }, 220);
   }, []);
 
-  // 卸载时清理关闭定时器（抽屉已改为按需挂载，父级可能在其离场动画期间直接卸载）
+  // 卸载时清理关闭定时器与拖拽 rAF（抽屉已改为按需挂载，父级可能在其离场动画期间直接卸载）
   useEffect(
     () => () => {
       if (closeTimerRef.current !== null) {
         window.clearTimeout(closeTimerRef.current);
         closeTimerRef.current = null;
       }
+      if (dragRafRef.current !== null) {
+        cancelAnimationFrame(dragRafRef.current);
+        dragRafRef.current = null;
+      }
+      // 兜底：确保拖拽状态一定被复位，不会残留 isDragging=true
+      isDraggingRef.current = false;
+      dragStartYRef.current = null;
     },
     []
   );
@@ -101,9 +110,24 @@ const MobileBottomSheetBase: React.FC<MobileBottomSheetProps> = ({
     }
   }, [isOpen]);
 
-  // 下拉拖拽手势：向下拖动超过阈值即关闭抽屉
+  /**
+   * 下拉拖拽手势：向下拖动超过阈值即关闭抽屉
+   *
+   * 关键点：必须调用 setPointerCapture。
+   * 手柄只有约 20px 高，鼠标/触控板下指针一旦移出手柄，
+   * pointermove / pointerup 会被改派给手柄下方的元素，
+   * 于是 handlePointerMove 冻结、handlePointerUp 永不执行，
+   * isDragging 永远为 true → 面板 transition 被永久置为 none 且停在冻结的偏移位，
+   * 拖拽关闭彻底失效（桌面「真机外框预览」模式下必现）。
+   * 捕获指针后，所有后续事件都会继续派发给手柄本身。
+   */
   const handlePointerDown = (e: React.PointerEvent) => {
     if (isClosing) return;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (err) {
+      /* 少数环境不支持指针捕获，忽略即可 */
+    }
     dragStartYRef.current = e.clientY;
     isDraggingRef.current = true;
     dragOffsetRef.current = 0;
@@ -111,6 +135,10 @@ const MobileBottomSheetBase: React.FC<MobileBottomSheetProps> = ({
     setIsDragging(true);
   };
 
+  /**
+   * 位移更新用 requestAnimationFrame 合并：
+   * 原实现每个 pointermove 事件都 setState，触控板上每秒可达上百次。
+   */
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!isDraggingRef.current || dragStartYRef.current === null) return;
 
@@ -118,11 +146,31 @@ const MobileBottomSheetBase: React.FC<MobileBottomSheetProps> = ({
     // 仅允许向下拖动，向上拖动做阻尼回弹
     const next = delta > 0 ? delta : delta * 0.25;
     dragOffsetRef.current = next;
-    setDragOffset(next);
+
+    if (dragRafRef.current !== null) return;
+    dragRafRef.current = requestAnimationFrame(() => {
+      dragRafRef.current = null;
+      setDragOffset(dragOffsetRef.current);
+    });
   };
 
-  const handlePointerUp = () => {
+  const handlePointerUp = (e?: React.PointerEvent) => {
+    if (dragRafRef.current !== null) {
+      cancelAnimationFrame(dragRafRef.current);
+      dragRafRef.current = null;
+    }
     if (!isDraggingRef.current) return;
+
+    if (e) {
+      try {
+        if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        }
+      } catch (err) {
+        /* 忽略释放失败 */
+      }
+    }
+
     isDraggingRef.current = false;
     dragStartYRef.current = null;
     setIsDragging(false);
@@ -178,6 +226,8 @@ const MobileBottomSheetBase: React.FC<MobileBottomSheetProps> = ({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
+          // 指针捕获意外丢失时同样要走收尾流程，确保 isDragging 一定复位
+          onLostPointerCapture={handlePointerUp}
           className="w-full flex justify-center pt-2.5 pb-1 cursor-grab active:cursor-grabbing touch-none select-none"
         >
           <div className="w-12 h-1.5 bg-slate-300 dark:bg-gray-700/80 rounded-full" />
@@ -196,7 +246,9 @@ const MobileBottomSheetBase: React.FC<MobileBottomSheetProps> = ({
             {headerAction}
             <button
               onClick={requestClose}
-              className="p-1.5 rounded-full bg-slate-100 dark:bg-gray-800 text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white transition"
+              // after 伪元素向外扩展 8px 的可点击区域，把图标按钮的触控热区
+              // 从 28px 提升到 44px（移动端可点击目标下限），且不影响原有排版
+              className="relative p-1.5 rounded-full bg-slate-100 dark:bg-gray-800 text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white transition after:absolute after:inset-0 after:-m-2 after:content-['']"
               aria-label="关闭"
             >
               <X className="w-4 h-4" />

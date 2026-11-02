@@ -152,7 +152,13 @@ const MobileDrawingControlsBase: React.FC<MobileDrawingControlsProps> = ({
 
   useEffect(() => {
     if (!moreToolsOpen) return;
-    const handlePointerDown = (e: MouseEvent) => {
+    /**
+     * 用 pointerdown 而不是 mousedown：
+     * 触屏上 mousedown 要等 touchend 之后才由浏览器合成，
+     * 「更多工具」浮层会在手指抬起后才延迟关闭，手感很差。
+     * Pointer Events 统一了鼠标 / 触摸 / 手写笔三条路径。
+     */
+    const handlePointerDown = (e: PointerEvent) => {
       if (toolsRef.current && !toolsRef.current.contains(e.target as Node)) {
         setMoreToolsOpen(false);
       }
@@ -160,10 +166,10 @@ const MobileDrawingControlsBase: React.FC<MobileDrawingControlsProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setMoreToolsOpen(false);
     };
-    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('pointerdown', handlePointerDown);
     document.addEventListener('keydown', handleKeyDown);
     return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('pointerdown', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [moreToolsOpen]);

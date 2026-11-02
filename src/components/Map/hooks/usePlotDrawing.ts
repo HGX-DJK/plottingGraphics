@@ -77,10 +77,38 @@ export function usePlotDrawing({
     }
   }, [isMeasureTool, drawingPoints.length, onDrawingPointsChange]);
 
-  // 吸附候选顶点计算
+  /**
+   * 吸附候选顶点计算（带缓存）
+   *
+   * 原实现每次调用都重新遍历全部可见要素的每一个顶点并新建数组。
+   * 该函数在 mousemove（现已节流到 60ms）与 click 时都会被调用，
+   * 要素累积到数百条时单次就是数千次数组拷贝。
+   *
+   * 现按「要素表 / 图层表 / 已采集点」三者引用做缓存：
+   * 只有它们真正变化（新增要素、切换图层、新增打点）才重算。
+   */
+  const candidateCacheRef = useRef<{
+    features: PlotFeature[];
+    layers: PlotLayer[];
+    points: [number, number][];
+    result: [number, number][];
+  } | null>(null);
+
   const getCandidateVertices = useCallback((): [number, number][] => {
     const currentLayers = layersRef.current;
     const currentFeatures = featuresRef.current;
+    const currentPoints = drawingPointsRef.current;
+
+    const cache = candidateCacheRef.current;
+    if (
+      cache &&
+      cache.features === currentFeatures &&
+      cache.layers === currentLayers &&
+      cache.points === currentPoints
+    ) {
+      return cache.result;
+    }
+
     const visibleLayerIds = new Set(currentLayers.filter((l) => l.visible).map((l) => l.id));
     const candidates: [number, number][] = [];
     currentFeatures.forEach((feat) => {
@@ -88,7 +116,14 @@ export function usePlotDrawing({
         feat.coordinates.forEach((c) => candidates.push(c));
       }
     });
-    drawingPointsRef.current.forEach((c) => candidates.push(c));
+    currentPoints.forEach((c) => candidates.push(c));
+
+    candidateCacheRef.current = {
+      features: currentFeatures,
+      layers: currentLayers,
+      points: currentPoints,
+      result: candidates,
+    };
     return candidates;
   }, [layersRef, featuresRef]);
 

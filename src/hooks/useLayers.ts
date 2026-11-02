@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { PlotLayer } from '../types';
 import { storageService } from '../services/storageService';
 
@@ -9,6 +9,17 @@ interface UseLayersOptions {
 
 export function useLayers(options?: UseLayersOptions) {
   const { onNotify, onCascadeDeleteFeatures } = options || {};
+
+  /**
+   * 级联删除回调用 ref 持有最新实现。
+   *
+   * 原因：App.tsx 传入的是内联箭头函数，每次渲染都是新引用。
+   * 若让 handleDeleteLayer 直接依赖它，handleDeleteLayer 的引用就会随每次
+   * App 渲染而变化，传给 React.memo 包裹的 MobileLayerSheet 后浅比较必然失败，
+   * 图层抽屉会被地图平移、Toast 出现等无关状态变化反复整体重渲染。
+   */
+  const cascadeDeleteRef = useRef(onCascadeDeleteFeatures);
+  cascadeDeleteRef.current = onCascadeDeleteFeatures;
 
   const [layers, setLayers] = useState<PlotLayer[]>(() => storageService.loadLayers());
   const [activeLayerId, setActiveLayerId] = useState<string>(() =>
@@ -122,12 +133,12 @@ export function useLayers(options?: UseLayersOptions) {
       }
       const updated = layers.filter((l) => l.id !== layerId);
       setLayers(updated);
-      onCascadeDeleteFeatures?.(layerId);
+      cascadeDeleteRef.current?.(layerId);
       if (activeLayerId === layerId && updated.length > 0) {
         handleSelectActiveLayer(updated[0].id);
       }
     },
-    [layers, activeLayerId, onNotify, onCascadeDeleteFeatures, handleSelectActiveLayer]
+    [layers, activeLayerId, onNotify, handleSelectActiveLayer]
   );
 
   // 确保指定图层可见 (例如绘制/定位要素时)

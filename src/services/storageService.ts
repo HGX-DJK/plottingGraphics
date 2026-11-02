@@ -14,22 +14,76 @@ const STORAGE_KEY_ACTIVE_LAYER = 'geoplot_studio_active_layer_shanghai_v3';
  */
 const WRITE_DEBOUNCE_MS = 300;
 
-/** 待落盘的数据：storageKey -> 序列化后的字符串 */
-const pendingWrites = new Map<string, string>();
-/** 待落盘的定时器：storageKey -> 定时器句柄 */
+/** 待落盘的数据：storageKey -> 序列化函数（真正落盘时才执行 JSON.stringify） */
+const pendingWrites = new Map<string, () => string>();
+/** 待落盘的定时器：定时器句柄 -> storageKey */
 const writeTimers = new Map<ReturnType<typeof setTimeout>, string>();
 
-function writeNow(key: string, payload: string): void {
+/**
+ * 存储异常回调。
+ *
+ * 隐私模式 / 存储配额写满这类故障若只写 console，用户会看到「已保存」的提示，
+ * 实际数据却已经丢失。因此这里提供注册入口，由上层（App）接到 Toast 提示。
+ */
+let storageErrorHandler: ((message: string) => void) | null = null;
+
+/**
+ * 注册存储异常回调（由 App 挂载时注册，收到 Toast 提示）
+ */
+export function setStorageErrorHandler(handler: ((message: string) => void) | null): void {
+  storageErrorHandler = handler;
+}
+
+function notifyStorageError(message: string): void {
   try {
-    localStorage.setItem(key, payload);
+    storageErrorHandler?.(message);
   } catch (e) {
-    console.error(`Failed to save ${key}`, e);
+    console.warn('storage error handler failed', e);
   }
 }
 
-/** 登记一次防抖写入，同一 key 的前序写入会被合并 */
-function scheduleWrite(key: string, payload: string): void {
-  pendingWrites.set(key, payload);
+/**
+ * 判断异常是否为本地存储配额写满
+ */
+function isQuotaError(e: any): boolean {
+  if (!e) return false;
+  return (
+    e.name === 'QuotaExceededError' ||
+    e.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+    e.code === 22 ||
+    e.code === 1014
+  );
+}
+
+/**
+ * 立即写入一条数据。
+ *
+ * @returns 是否写入成功（失败时保留待写队列，等待下一次冲刷重试）
+ */
+function writeNow(key: string, payload: string): boolean {
+  try {
+    localStorage.setItem(key, payload);
+    return true;
+  } catch (e: any) {
+    console.error(`Failed to save ${key}`, e);
+    if (isQuotaError(e)) {
+      notifyStorageError('本地存储空间已满，最新改动未能保存。请删除部分要素或图层后重试，避免数据丢失。');
+    } else {
+      notifyStorageError('本地数据保存失败，请检查浏览器隐私设置（无痕模式可能禁用本地存储）。');
+    }
+    return false;
+  }
+}
+
+/**
+ * 登记一次防抖写入，同一 key 的前序写入会被合并。
+ *
+ * @param serialize 延迟执行的序列化函数。
+ *   把 JSON.stringify 放在函数体内是刻意为之：原先在调用点就完成序列化，
+ *   防抖只推迟了 setItem，序列化开销（要素多时可达数十毫秒）依然每次都付。
+ */
+function scheduleWrite(key: string, serialize: () => string): void {
+  pendingWrites.set(key, serialize);
 
   writeTimers.forEach((timerKey, timer) => {
     if (timerKey === key) {
@@ -40,10 +94,12 @@ function scheduleWrite(key: string, payload: string): void {
 
   const timer = setTimeout(() => {
     writeTimers.delete(timer);
-    const latest = pendingWrites.get(key);
-    pendingWrites.delete(key);
-    if (latest !== undefined) {
-      writeNow(key, latest);
+    const serializePending = pendingWrites.get(key);
+    if (serializePending === undefined) return;
+    const ok = writeNow(key, serializePending());
+    // 仅在写入成功后移除待写队列；失败则保留，下一次冲刷会重试
+    if (ok) {
+      pendingWrites.delete(key);
     }
   }, WRITE_DEBOUNCE_MS);
 
@@ -61,8 +117,11 @@ export function flushStorageWrites(): void {
   writeTimers.forEach((_storageKey, timer) => clearTimeout(timer));
   writeTimers.clear();
 
-  pendingWrites.forEach((payload, key) => writeNow(key, payload));
-  pendingWrites.clear();
+  pendingWrites.forEach((serialize, key) => {
+    if (writeNow(key, serialize())) {
+      pendingWrites.delete(key);
+    }
+  });
 }
 
 if (typeof window !== 'undefined') {
@@ -320,12 +379,57 @@ export const INITIAL_FEATURES: PlotFeature[] = [
   },
 ];
 
+/**
+ * 图层结构校验：至少要有字符串 id 与 name
+ */
+function isValidLayer(item: any): boolean {
+  return (
+    !!item &&
+    typeof item === 'object' &&
+    typeof item.id === 'string' &&
+    item.id.length > 0 &&
+    typeof item.name === 'string'
+  );
+}
+
+/**
+ * 要素结构校验：id 为字符串、coordinates 为坐标数组、properties 为对象
+ *
+ * 这三项缺一不可：featureGeometry 在渲染时会直接读取 properties.strokeColor
+ * 与 coordinates[0]，任一缺失都会在渲染期抛错。
+ */
+function isValidFeature(item: any): boolean {
+  if (!item || typeof item !== 'object') return false;
+  if (typeof item.id !== 'string' || item.id.length === 0) return false;
+  if (!Array.isArray(item.coordinates)) return false;
+  if (typeof item.properties !== 'object' || item.properties === null) return false;
+  return item.coordinates.every(
+    (c: any) =>
+      Array.isArray(c) &&
+      c.length >= 2 &&
+      typeof c[0] === 'number' &&
+      typeof c[1] === 'number' &&
+      Number.isFinite(c[0]) &&
+      Number.isFinite(c[1])
+  );
+}
+
 export const storageService = {
   loadLayers(): PlotLayer[] {
     try {
       const data = localStorage.getItem(STORAGE_KEY_LAYERS);
       if (data) {
-        return JSON.parse(data);
+        const parsed = JSON.parse(data);
+        /**
+         * 必须校验结构：JSON 语法正确不代表数据可用。
+         * 早期实现直接返回解析结果，一旦 localStorage 里被写入非数组 JSON
+         * （例如旧版本遗留数据或外部脚本污染），下游 layers.find 会抛
+         * “not a function” 导致首屏白屏。现校验失败即回退默认数据。
+         */
+        if (Array.isArray(parsed) && parsed.every(isValidLayer)) {
+          return parsed;
+        }
+        console.warn('[storage] 图层数据结构非法，已回退到默认数据');
       }
     } catch (e) {
       console.error('Failed to load layers', e);
@@ -335,14 +439,21 @@ export const storageService = {
   },
 
   saveLayers(layers: PlotLayer[]): void {
-    scheduleWrite(STORAGE_KEY_LAYERS, JSON.stringify(layers));
+    // 浅拷贝数组本身，避免调用方在防抖窗口内改动数组导致写入内容漂移；
+    // 真正的序列化推迟到落盘时刻执行。
+    const snapshot = layers.slice();
+    scheduleWrite(STORAGE_KEY_LAYERS, () => JSON.stringify(snapshot));
   },
 
   loadFeatures(): PlotFeature[] {
     try {
       const data = localStorage.getItem(STORAGE_KEY_FEATURES);
       if (data) {
-        return JSON.parse(data);
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.every(isValidFeature)) {
+          return parsed;
+        }
+        console.warn('[storage] 要素数据结构非法，已回退到默认数据');
       }
     } catch (e) {
       console.error('Failed to load features', e);
@@ -352,28 +463,46 @@ export const storageService = {
   },
 
   saveFeatures(features: PlotFeature[]): void {
-    scheduleWrite(STORAGE_KEY_FEATURES, JSON.stringify(features));
+    const snapshot = features.slice();
+    scheduleWrite(STORAGE_KEY_FEATURES, () => JSON.stringify(snapshot));
   },
 
   getActiveLayerId(layers: PlotLayer[]): string {
-    const saved = localStorage.getItem(STORAGE_KEY_ACTIVE_LAYER);
-    if (saved && layers.some((l) => l.id === saved)) {
-      return saved;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_ACTIVE_LAYER);
+      if (saved && Array.isArray(layers) && layers.some((l) => l.id === saved)) {
+        return saved;
+      }
+    } catch (e) {
+      /**
+       * 隐私模式（Firefox 阻止站点数据 / iOS 无痕模式）下访问 localStorage 会抛
+       * SecurityError。该函数在 useState 初始化器中被调用，异常会直接冒泡出
+       * React 渲染，导致首屏白屏，因此必须兜底。
+       */
+      console.warn('[storage] 无法读取当前图层标识，已回退到首个图层', e);
     }
     return layers.length > 0 ? layers[0].id : '';
   },
 
   setActiveLayerId(layerId: string): void {
-    localStorage.setItem(STORAGE_KEY_ACTIVE_LAYER, layerId);
+    try {
+      localStorage.setItem(STORAGE_KEY_ACTIVE_LAYER, layerId);
+    } catch (e) {
+      console.warn('[storage] 无法保存当前图层标识', e);
+    }
   },
 
   resetToDefault(): { layers: PlotLayer[]; features: PlotFeature[] } {
     // 先冲刷掉待写入的旧数据，避免与重置后的内容竞争
     flushStorageWrites();
 
-    localStorage.removeItem(STORAGE_KEY_LAYERS);
-    localStorage.removeItem(STORAGE_KEY_FEATURES);
-    localStorage.removeItem(STORAGE_KEY_ACTIVE_LAYER);
+    try {
+      localStorage.removeItem(STORAGE_KEY_LAYERS);
+      localStorage.removeItem(STORAGE_KEY_FEATURES);
+      localStorage.removeItem(STORAGE_KEY_ACTIVE_LAYER);
+    } catch (e) {
+      console.warn('[storage] 清空旧数据失败（隐私模式可能禁用本地存储）', e);
+    }
 
     // 重置必须立即落盘，不走防抖
     writeNow(STORAGE_KEY_LAYERS, JSON.stringify(INITIAL_LAYERS));

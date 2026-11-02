@@ -7,12 +7,17 @@
  * 图标 Data URI 缓存。
  *
  * 每次要素几何重建都会重新调用 createTacticalIcon()，
- * 而 SVG 拼接 + base64 编码是纯 CPU 开销，同一 (类型, 颜色, 文本) 组合的结果完全一致，
+ * 而 SVG 拼接 + base64 编码是纯 CPU 开销，同一 (类型, 颜色) 组合的结果完全一致，
  * 因此直接缓存结果，避免重复编码。
+ *
+ * 注意：text 参数不参与 SVG 渲染，因此**不能**放进缓存键。
+ * 早期实现把 text 计入键，而调用方传入的正是每个要素各自的 properties.text，
+ * 导致不同注记的同类要素各占一个缓存位，命中率接近 0，
+ * 反而加快了 256 项上限的淘汰抖动。
  */
 const iconCache = new Map<string, string>();
 
-/** 缓存上限，超出后按插入顺序淘汰最旧条目（防止名称各异的要素导致无限增长） */
+/** 缓存上限，超出后淘汰最久未使用的条目（防止名称各异的要素导致无限增长） */
 const ICON_CACHE_MAX = 256;
 
 /**
@@ -20,12 +25,16 @@ const ICON_CACHE_MAX = 256;
  *
  * @param type  图标类型（point-survey / point-station / point-hazard / point-medical / marker 等）
  * @param color 主题色
- * @param text  注记文本（当前各图元内未使用，保留参数以兼容既有调用方）
+ * @param text  注记文本（当前各图元内未使用，保留参数以兼容既有调用方；
+ *              注记文字由 MapTalks 的 textName 符号单独渲染，不进入本 SVG）
  */
 export function createTacticalIcon(type: string, color = '#3b82f6', text = ''): string {
-  const cacheKey = `${type}|${color}|${text}`;
+  const cacheKey = `${type}|${color}`;
   const cached = iconCache.get(cacheKey);
   if (cached !== undefined) {
+    // LRU：命中后重新插入队尾，使最久未使用的条目优先被淘汰
+    iconCache.delete(cacheKey);
+    iconCache.set(cacheKey, cached);
     return cached;
   }
 
@@ -118,7 +127,7 @@ export function createTacticalIcon(type: string, color = '#3b82f6', text = ''): 
     dataUri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   }
 
-  // 写入缓存（Map 按插入顺序迭代，超出上限时淘汰最旧一条）
+  // 写入缓存（Map 按插入顺序迭代，超出上限时淘汰最久未使用的一条）
   if (iconCache.size >= ICON_CACHE_MAX) {
     const oldestKey = iconCache.keys().next().value;
     if (oldestKey !== undefined) {

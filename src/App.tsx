@@ -1,8 +1,13 @@
-import React, { useState, useRef, useCallback, Suspense } from 'react';
+import React, { useState, useRef, useCallback, useEffect, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { User, PlotFeatureType, BasemapType, PlotFeature } from './types';
 import { authService } from './services/authService';
-import { storageService, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM } from './services/storageService';
+import {
+  storageService,
+  setStorageErrorHandler,
+  DEFAULT_MAP_CENTER,
+  DEFAULT_MAP_ZOOM,
+} from './services/storageService';
 import {
   MaptalksContainer,
   MaptalksContainerRef,
@@ -70,6 +75,16 @@ export const App: React.FC = () => {
 
   // 1. 全局轻量 Toast 反馈
   const { toastMessage, toastAction, setToastAction, showToast } = useToast();
+
+  /**
+   * 存储异常（隐私模式禁用本地存储 / 配额写满）转 Toast 提示。
+   *
+   * 早期实现里写入失败只写 console，用户看到「已保存」实则数据已经丢失。
+   */
+  useEffect(() => {
+    setStorageErrorHandler((message) => showToast(message));
+    return () => setStorageErrorHandler(null);
+  }, [showToast]);
 
   // 2. 全局明暗风格主题管理
   const [theme, setTheme] = useState<ThemeMode>(() => themeService.initTheme());
@@ -289,6 +304,32 @@ export const App: React.FC = () => {
   const [exportImageDataUrl, setExportImageDataUrl] = useState<string | null>(null);
   const [isExportingImage, setIsExportingImage] = useState(false);
 
+  /**
+   * 成果图导出所需的元数据快照。
+   *
+   * 早期实现把 cursorCoords / zoomLevel / features.length 直接放进
+   * handleOpenExportPoster 的依赖数组，于是地图每次平移缩放（120ms 节流一帧）
+   * 都会产生新的函数引用，传给常驻的 MobileDrawingControls 后 React.memo 失效，
+   * 右侧工具条逐帧重渲染。这里改为用 ref 持有最新值，
+   * 让导出回调的引用与地图视图彻底解耦。
+   */
+  const posterMetaRef = useRef({
+    activeLayerName: '默认工作图层',
+    activeLayerColor: '#3b82f6',
+    featuresCount: 0,
+    zoomLevel: DEFAULT_MAP_ZOOM,
+    coords: DEFAULT_MAP_CENTER,
+    author: '系统主管',
+  });
+  posterMetaRef.current = {
+    activeLayerName: activeLayer?.name || '默认工作图层',
+    activeLayerColor: activeLayer?.color || '#3b82f6',
+    featuresCount: features.length,
+    zoomLevel,
+    coords: cursorCoords,
+    author: currentUser?.displayName || '系统主管',
+  };
+
   const handleOpenExportPoster = useCallback(async () => {
     setIsExportImageModalOpen(true);
     setIsExportingImage(true);
@@ -305,18 +346,22 @@ export const App: React.FC = () => {
       const { generateMapPoster } = await import('./utils/mapPosterGenerator');
 
       // 合成带工程标题、指北针、图层色标与时间戳的水印成果简报
-      const posterDataUrl = await generateMapPoster(rawDataUrl, {
+      const meta = posterMetaRef.current;
+      const result = await generateMapPoster(rawDataUrl, {
         title: '现场空间地理协同标绘成果专题图',
         projectName: '空间地理协同采集与现场态势推演平台',
-        activeLayerName: activeLayer?.name || '默认工作图层',
-        activeLayerColor: activeLayer?.color || '#3b82f6',
-        featuresCount: features.length,
-        zoomLevel: Math.round(zoomLevel),
-        centerCoords: cursorCoords,
-        author: currentUser?.displayName || '系统主管',
+        activeLayerName: meta.activeLayerName,
+        activeLayerColor: meta.activeLayerColor,
+        featuresCount: meta.featuresCount,
+        zoomLevel: Math.round(meta.zoomLevel),
+        centerCoords: meta.coords,
+        author: meta.author,
       });
 
-      setExportImageDataUrl(posterDataUrl);
+      setExportImageDataUrl(result.dataUrl);
+      if (result.degraded) {
+        showToast(result.reason || '专题图合成失败，已回退为原始地图截图');
+      }
     } catch (err: any) {
       console.error('Failed to generate poster:', err);
       showToast(`导出失败: ${err.message || '画布跨域或未就绪'}`);
@@ -324,7 +369,7 @@ export const App: React.FC = () => {
     } finally {
       setIsExportingImage(false);
     }
-  }, [activeLayer, features.length, zoomLevel, cursorCoords, currentUser, showToast]);
+  }, [showToast]);
 
   // 清除要素
   const handleClearActiveLayer = useCallback(() => {
@@ -510,12 +555,13 @@ export const App: React.FC = () => {
   const handleResetNorth = useCallback(() => mapRef.current?.resetNorth(), []);
 
   const handleToggleSnapping = useCallback(() => {
-    setEnableSnapping((prev) => {
-      const next = !prev;
-      showToast(next ? '🧲 顶点吸附已开启 (CAD/GIS精度)' : '⚪ 顶点吸附已关闭');
-      return next;
-    });
-  }, [showToast]);
+    // 提示语必须在 setState updater 之外触发。
+    // 原因：React 18 StrictMode 会双调用 updater 函数并把 updater 视为纯函数，
+    // 在其内部调用 showToast 会导致提示重复触发（与 useLayers 中的约定一致）。
+    const next = !enableSnapping;
+    setEnableSnapping(next);
+    showToast(next ? '🧲 顶点吸附已开启 (CAD/GIS精度)' : '⚪ 顶点吸附已关闭');
+  }, [enableSnapping, showToast]);
 
   const handleOpenClearFeatures = useCallback(() => setIsClearModalOpen(true), []);
   const handleOpenSearch = useCallback(() => setIsSearchOpen(true), []);
@@ -1012,7 +1058,6 @@ export const App: React.FC = () => {
             onClose={handleCloseSearch}
             currentCenter={cursorCoords}
             userGpsCoord={userGpsCoord}
-            activeLayer={activeLayer}
             features={features}
             layers={layers}
             onSelectLocation={handleSelectPoiLocation}

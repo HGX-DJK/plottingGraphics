@@ -52,6 +52,25 @@ export function useMapMeasurement({
   }, [measureResult]);
 
   /**
+   * 离开量算模式时清理量算态。
+   *
+   * 早期实现只在「drawingTool 为空」时清理，于是
+   *   量算 → 切到标绘工具 → 再切回量算
+   * 这条路径下 measurePoints / measureResult / 量算图层都会被保留，
+   * 旧的测量图形与读数会直接复活，与当前操作对不上。
+   * 这里监听 drawingTool：只要不再是量算工具，就立即清空。
+   */
+  useEffect(() => {
+    if (!isMeasureTool) {
+      measurePointsRef.current = [];
+      setMeasurePoints([]);
+      setMeasureResult(null);
+      measureToolRef.current = null;
+      measureLayerRef.current?.clear();
+    }
+  }, [isMeasureTool, measureLayerRef]);
+
+  /**
    * 渲染量算几何体并同步读数。
    * 测距：折线 + 顶点标定 + 终点总长标注；测面：多边形 + 顶点标定 + 中心面积标注。
    */

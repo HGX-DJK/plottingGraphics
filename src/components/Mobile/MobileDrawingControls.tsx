@@ -53,6 +53,8 @@ interface MobileDrawingControlsProps {
   hasSelectedFeature?: boolean;
   onAddCenterPoint?: () => void;
   cursorCoords?: [number, number];
+  reticleMode?: boolean;
+  onToggleReticleMode?: () => void;
 }
 
 const MobileDrawingControlsBase: React.FC<MobileDrawingControlsProps> = ({
@@ -83,9 +85,13 @@ const MobileDrawingControlsBase: React.FC<MobileDrawingControlsProps> = ({
   hasSelectedFeature = false,
   onAddCenterPoint,
   cursorCoords,
+  reticleMode: propReticleMode,
+  onToggleReticleMode,
 }) => {
   // 屏幕中心十字准星模式状态 (解决移动端手指遮挡痛点，行业标杆测绘体验)
-  const [reticleMode, setReticleMode] = useState<boolean>(true);
+  const [internalReticleMode, setInternalReticleMode] = useState<boolean>(true);
+  const reticleMode = propReticleMode !== undefined ? propReticleMode : internalReticleMode;
+  const toggleReticle = onToggleReticleMode || (() => setInternalReticleMode((prev) => !prev));
   const getToolDisplayName = (tool: string) => {
     const names: Record<string, string> = {
       'straight-arrow': '规划导向直箭头',
@@ -226,8 +232,7 @@ const MobileDrawingControlsBase: React.FC<MobileDrawingControlsProps> = ({
             {/* 准星模式 / 触屏直按模式切换 */}
             <button
               onClick={() => {
-                const next = !reticleMode;
-                setReticleMode(next);
+                toggleReticle();
                 if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(20);
               }}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold transition ${

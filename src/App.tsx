@@ -197,6 +197,7 @@ export const App: React.FC = () => {
   const [bearing, setBearing] = useState<number>(0);
   const [pitch, setPitch] = useState<number>(0);
   const [enableSnapping, setEnableSnapping] = useState<boolean>(true);
+  const [reticleMode, setReticleMode] = useState<boolean>(true);
   const [topologyWarning, setTopologyWarning] = useState<string | null>(null);
   const [activeSegment, setActiveSegment] = useState<{
     length: number;
@@ -739,6 +740,7 @@ export const App: React.FC = () => {
           selectedFeatureId={selectedFeatureId}
           drawingTool={drawingTool}
           basemap={basemap}
+          reticleMode={reticleMode}
           enableSnapping={enableSnapping}
           onSelectFeature={handleSelectFeatureFromMap}
           onCreateFeature={handleCreateFeatureFromMap}
@@ -763,6 +765,8 @@ export const App: React.FC = () => {
           activeSegment={activeSegment}
           cursorCoords={cursorCoords}
           onAddCenterPoint={handleAddCenterPoint}
+          reticleMode={reticleMode}
+          onToggleReticleMode={() => setReticleMode((prev) => !prev)}
           theme={theme}
           onToggleTheme={handleToggleTheme}
           hasSelectedFeature={!!selectedFeature && !drawingTool && activeTab !== 'properties'}

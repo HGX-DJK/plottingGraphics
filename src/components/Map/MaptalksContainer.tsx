@@ -67,6 +67,7 @@ interface MaptalksContainerProps {
   onTopologyWarning?: (msg: string | null) => void;
   onActiveSegmentChange?: (segment: { length: number; azimuth: { degrees: number; text: string } } | null) => void;
   onSnapFeedback?: (snapped: boolean) => void;
+  reticleMode?: boolean;
 }
 
 const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContainerProps>(
@@ -79,6 +80,7 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
       drawingTool,
       basemap,
       enableSnapping = true,
+      reticleMode = true,
       onSelectFeature,
       onCreateFeature,
       onCancelDrawing,
@@ -126,6 +128,11 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
 
     const enableSnappingRef = useRef(enableSnapping);
     enableSnappingRef.current = enableSnapping;
+    const reticleModeRef = useRef(reticleMode);
+    useEffect(() => {
+      reticleModeRef.current = reticleMode;
+    }, [reticleMode]);
+    const lastSnappedStateRef = useRef<boolean>(false);
 
     const onSelectFeatureRef = useRef(onSelectFeature);
     onSelectFeatureRef.current = onSelectFeature;
@@ -1268,6 +1275,19 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
 
       map.setCursor('crosshair');
 
+      // 1. 禁用双击缩放 (避免快速双击闭合/完成绘制时地图镜头突然放大跳动)
+      const prevDoubleClickZoom = typeof (map as any).isDoubleClickZoomable === 'function'
+        ? (map as any).isDoubleClickZoomable()
+        : map.options?.doubleClickZoom ?? true;
+      map.setOptions({ doubleClickZoom: false });
+
+      // 2. 拖拽平移防抖与抬手误触保护 (记录最后拖拽结束时间)
+      let lastMapDragEndTime = 0;
+      const handleMapDragEnd = () => {
+        lastMapDragEndTime = Date.now();
+      };
+      map.on('moveend dragend animateend', handleMapDragEnd);
+
       // 空间量算模式 (测距与测面)
       if (drawingTool === 'measure-distance' || drawingTool === 'measure-area') {
         if (measureToolRef.current !== drawingTool) {
@@ -1276,6 +1296,10 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
         }
 
         const onMeasureClick = (e: any) => {
+          // 准星模式下禁止通过点击画布落点 (由准星落点按钮精确添加)
+          if (reticleModeRef.current) return;
+          // 拖拽平移结束 180ms 内丢弃抬手伪点击
+          if (Date.now() - lastMapDragEndTime < 180) return;
           const coord: [number, number] = [e.coordinate.x, e.coordinate.y];
           handleMeasureClick(coord, drawingTool, maptalks);
           if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(25);
@@ -1300,6 +1324,8 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
 
         map.on('click', onMeasureClick);
         return () => {
+          map.setOptions({ doubleClickZoom: prevDoubleClickZoom });
+          map.off('moveend dragend animateend', handleMapDragEnd);
           addPointAtCoordRef.current = null;
           map.off('click', onMeasureClick);
         };
@@ -1423,6 +1449,10 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
       addPointAtCoordRef.current = addPointInternal;
 
       const handleClick = (e: any) => {
+        // 准星标定模式下直接点击地图不落点 (仅通过准星落点按钮或闭合标记落点)
+        if (reticleModeRef.current) return;
+        // 拖拽平移刚刚结束 180ms 内，丢弃抬手抖动造成的误触点击
+        if (Date.now() - lastMapDragEndTime < 180) return;
         addPointInternal([e.coordinate.x, e.coordinate.y]);
       };
 
@@ -1460,6 +1490,15 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
             wasSnapped = true;
           }
         }
+
+        // 磁吸状态突变捕获 (由未吸附进入已吸附)，触发微机械短震动反馈
+        if (wasSnapped && !lastSnappedStateRef.current) {
+          onSnapFeedbackRef.current?.(true);
+          if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            navigator.vibrate(12);
+          }
+        }
+        lastSnappedStateRef.current = wasSnapped;
 
         const pts = drawingPointsRef.current;
         if (pts.length > 0) {
@@ -1537,14 +1576,32 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
         }
       };
 
+      // 准星标定模式下，地图滑动平移时实时牵引橡皮筋预览线至屏幕中心十字准星处
+      const handleReticleMapMove = () => {
+        if (!reticleModeRef.current) return;
+        const pts = drawingPointsRef.current;
+        if (pts.length > 0) {
+          const center = map.getCenter();
+          if (center) {
+            pendingPreviewCoord = [center.x, center.y];
+            emitPreview([center.x, center.y]);
+          }
+        }
+      };
+
       map.on('click', handleClick);
       map.on('mousemove', handleMouseMove);
       map.on('dblclick', handleDblClick);
       map.on('mousedown touchstart', handleTouchStart);
       map.on('touchmove mousemove', handleTouchMove);
       map.on('mouseup touchend', handleTouchEnd);
+      map.on('moving viewchange', handleReticleMapMove);
 
       return () => {
+        map.setOptions({ doubleClickZoom: prevDoubleClickZoom });
+        map.off('moveend dragend animateend', handleMapDragEnd);
+        map.off('moving viewchange', handleReticleMapMove);
+
         if (previewThrottleTimer !== null) {
           window.clearTimeout(previewThrottleTimer);
           previewThrottleTimer = null;

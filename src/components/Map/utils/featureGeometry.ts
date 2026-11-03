@@ -31,18 +31,18 @@ export function createGeometryFromFeature(
       symbol: [
         {
           markerFile: iconUrl,
-          markerWidth: isSelected ? 46 : 38,
-          markerHeight: isSelected ? 46 : 38,
+          markerWidth: isSelected ? 34 : 28,
+          markerHeight: isSelected ? 34 : 28,
           markerDx: 0,
           markerDy: 0,
         },
         {
           textName: properties.text || feat.name,
-          textSize: properties.textSize || 12,
+          textSize: properties.textSize || 11,
           textFill: isSelected ? '#fbbf24' : properties.textColor || '#ffffff',
           textHaloFill: '#0b1120',
-          textHaloRadius: 3,
-          textDy: 26,
+          textHaloRadius: 2.5,
+          textDy: 20,
           textWeight: 'bold',
         },
       ],
@@ -57,18 +57,18 @@ export function createGeometryFromFeature(
       symbol: [
         {
           markerFile: iconUrl,
-          markerWidth: isSelected ? 40 : 32,
-          markerHeight: isSelected ? 40 : 32,
+          markerWidth: isSelected ? 30 : 24,
+          markerHeight: isSelected ? 30 : 24,
           markerDx: 0,
-          markerDy: -6,
+          markerDy: -4,
         },
         {
           textName: feat.name,
-          textSize: 12,
+          textSize: 11,
           textFill: isSelected ? '#fbbf24' : '#ffffff',
           textHaloFill: '#000000',
           textHaloRadius: 2,
-          textDy: 20,
+          textDy: 16,
         },
       ],
     });

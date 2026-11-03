@@ -226,7 +226,7 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
         { duration: 500 }
       );
 
-      // 显示高亮聚焦脉冲光环 (引导视线)
+      // 显示高亮聚焦脉冲光环 (引导视线，专业紧凑微标)
       const maptalks = (window as any).maptalks;
       if (maptalks) {
         let focusLayer = map.getLayer('system-focus-beacon');
@@ -238,20 +238,20 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
           symbol: [
             {
               markerType: 'ellipse',
-              markerWidth: 44,
-              markerHeight: 44,
+              markerWidth: 22,
+              markerHeight: 22,
               markerFill: '#38bdf8',
-              markerFillOpacity: 0.35,
+              markerFillOpacity: 0.22,
               markerLineColor: '#0284c7',
-              markerLineWidth: 2,
+              markerLineWidth: 1.5,
             },
             {
               markerType: 'ellipse',
-              markerWidth: 16,
-              markerHeight: 16,
-              markerFill: '#f59e0b',
+              markerWidth: 8,
+              markerHeight: 8,
+              markerFill: '#0284c7',
               markerLineColor: '#ffffff',
-              markerLineWidth: 2.5,
+              markerLineWidth: 1.8,
             },
           ],
         });
@@ -260,7 +260,7 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
           try {
             focusLayer?.clear();
           } catch (e) {}
-        }, 2200);
+        }, 1100);
       }
     };
 
@@ -401,48 +401,48 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
             ? [
                 {
                   markerType: 'ellipse',
-                  markerWidth: 44,
-                  markerHeight: 44,
+                  markerWidth: 26,
+                  markerHeight: 26,
                   markerFill: '#f59e0b',
-                  markerFillOpacity: 0.35,
+                  markerFillOpacity: 0.25,
                   markerLineColor: '#fbbf24',
-                  markerLineWidth: 2,
+                  markerLineWidth: 1.5,
                 },
                 {
                   markerType: 'ellipse',
-                  markerWidth: 34,
-                  markerHeight: 34,
+                  markerWidth: 20,
+                  markerHeight: 20,
                   markerFill: '#f59e0b',
                   markerFillOpacity: 0.98,
-                  markerLineColor: '#ffffff',
-                  markerLineWidth: 3.5,
-                },
-                {
-                  textName: `点${idx + 1}`,
-                  textSize: 11,
-                  textFill: '#ffffff',
-                  textWeight: 'bold',
-                  textHaloFill: '#78350f',
-                  textHaloRadius: 2,
-                },
-              ]
-            : [
-                {
-                  markerType: 'ellipse',
-                  markerWidth: 30,
-                  markerHeight: 30,
-                  markerFill: '#2563eb',
-                  markerFillOpacity: 0.95,
                   markerLineColor: '#ffffff',
                   markerLineWidth: 2.5,
                 },
                 {
                   textName: String(idx + 1),
-                  textSize: 12,
+                  textSize: 10,
+                  textFill: '#ffffff',
+                  textWeight: 'bold',
+                  textHaloFill: '#78350f',
+                  textHaloRadius: 1.5,
+                },
+              ]
+            : [
+                {
+                  markerType: 'ellipse',
+                  markerWidth: 16,
+                  markerHeight: 16,
+                  markerFill: '#2563eb',
+                  markerFillOpacity: 0.95,
+                  markerLineColor: '#ffffff',
+                  markerLineWidth: 2,
+                },
+                {
+                  textName: String(idx + 1),
+                  textSize: 9,
                   textFill: '#ffffff',
                   textWeight: 'bold',
                   textHaloFill: '#1e3a8a',
-                  textHaloRadius: 1.5,
+                  textHaloRadius: 1.2,
                 },
               ],
         });
@@ -548,28 +548,28 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
           symbol: [
             {
               markerType: 'ellipse',
-              markerWidth: 32,
-              markerHeight: 32,
+              markerWidth: 22,
+              markerHeight: 22,
               markerFill: '#3b82f6',
-              markerFillOpacity: 0.25,
+              markerFillOpacity: 0.22,
               markerLineColor: '#60a5fa',
               markerLineWidth: 1.5,
             },
             {
               markerType: 'ellipse',
-              markerWidth: 16,
-              markerHeight: 16,
+              markerWidth: 10,
+              markerHeight: 10,
               markerFill: '#2563eb',
               markerLineColor: '#ffffff',
-              markerLineWidth: 3,
+              markerLineWidth: 2,
             },
             {
               textName: '当前设备 GPS 位置',
-              textSize: 11,
+              textSize: 10,
               textFill: '#60a5fa',
               textHaloFill: '#0b1120',
-              textHaloRadius: 2.5,
-              textDy: 24,
+              textHaloRadius: 2,
+              textDy: 18,
               textWeight: 'bold',
             },
           ],
@@ -606,13 +606,13 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
         }
         searchLayer.clear();
 
-        // 1. 动态水波光环底座
+        // 1. 动态水波光环底座 (精简紧凑)
         const halo = new maptalks.Marker(coord, {
           symbol: [
             {
               markerType: 'ellipse',
-              markerWidth: 44,
-              markerHeight: 44,
+              markerWidth: 22,
+              markerHeight: 22,
               markerFill: '#ef4444',
               markerFillOpacity: 0.22,
               markerLineColor: '#f87171',
@@ -620,11 +620,11 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
             },
             {
               markerType: 'ellipse',
-              markerWidth: 16,
-              markerHeight: 16,
+              markerWidth: 8,
+              markerHeight: 8,
               markerFill: '#dc2626',
               markerLineColor: '#ffffff',
-              markerLineWidth: 2.5,
+              markerLineWidth: 1.8,
             },
           ],
         });
@@ -635,22 +635,22 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
             symbol: [
               {
                 textName: title,
-                textSize: 12,
+                textSize: 11,
                 textFill: '#ffffff',
                 textWeight: 'bold',
                 textHaloFill: '#1e293b',
-                textHaloRadius: 3,
-                textDy: -24,
+                textHaloRadius: 2.5,
+                textDy: -18,
               },
               ...(subtitle
                 ? [
                     {
                       textName: subtitle.length > 22 ? subtitle.slice(0, 20) + '...' : subtitle,
-                      textSize: 10,
+                      textSize: 9.5,
                       textFill: '#cbd5e1',
                       textHaloFill: '#0f172a',
                       textHaloRadius: 2,
-                      textDy: -8,
+                      textDy: -6,
                     },
                   ]
                 : []),

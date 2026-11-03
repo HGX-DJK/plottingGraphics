@@ -8,6 +8,7 @@ import {
   calculateAzimuth,
   findSnapTarget,
   checkPolygonSelfIntersection,
+  checkPolygonOverlap,
 } from '../../../utils/geoUtils';
 import {
   calculateStraightArrow,
@@ -238,13 +239,22 @@ export function usePlotDrawing({
       if (pts.length === 0) return;
 
       let hasTopoError = false;
-      if (drawingTool === 'polygon' && pts.length >= 4) {
-        const topo = checkPolygonSelfIntersection(pts);
+      if (drawingTool === 'polygon' && pts.length >= 3) {
+        const topo = pts.length >= 4 ? checkPolygonSelfIntersection(pts) : { hasIntersection: false };
         if (topo.hasIntersection) {
           hasTopoError = true;
           onTopologyWarningRef.current?.(topo.message || '⚠️ 存在边线自相交 (不符合GIS拓扑规范)');
         } else {
-          onTopologyWarningRef.current?.(null);
+          // 检查与已有地块的拓扑压占冲突
+          const overlap = checkPolygonOverlap(pts, featuresRef.current);
+          if (overlap.hasOverlap) {
+            const first = overlap.overlaps[0];
+            onTopologyWarningRef.current?.(
+              `⚠️ 与「${first.targetFeature.name}」压占重叠 ${first.overlapAreaText} (占对方 ${first.overlapPercentage}%)`
+            );
+          } else {
+            onTopologyWarningRef.current?.(null);
+          }
         }
       } else {
         onTopologyWarningRef.current?.(null);

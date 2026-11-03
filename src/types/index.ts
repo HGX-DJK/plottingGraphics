@@ -45,6 +45,12 @@ export interface PlotFeatureProperties {
   // 空间几何指标 (由算法自动计算生成)
   calculatedArea?: number;      // 面积 (平方米)
   calculatedLength?: number;    // 长度/周长 (米)
+  // 中空多边形内环孔洞 (支持中空地块/岛洞多边形)
+  holes?: [number, number][][];
+  // 空间缓冲区分析元信息
+  isBufferPolygon?: boolean;
+  bufferDistance?: number;      // 缓冲距离 (米)
+  bufferSourceId?: string;      // 缓冲源要素 ID
   // GIS 自定义扩展业务属性 (键值对)
   customAttributes?: Record<string, string>;
 }

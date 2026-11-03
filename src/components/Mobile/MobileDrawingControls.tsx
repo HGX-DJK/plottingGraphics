@@ -21,6 +21,7 @@ import {
   Sun,
   Moon,
   Image as ImageIcon,
+  Target,
 } from 'lucide-react';
 import { formatDistance } from '../../utils/geoUtils';
 
@@ -50,6 +51,8 @@ interface MobileDrawingControlsProps {
   onLocateGPS?: () => void;
   onExportPoster?: () => void;
   hasSelectedFeature?: boolean;
+  onAddCenterPoint?: () => void;
+  cursorCoords?: [number, number];
 }
 
 const MobileDrawingControlsBase: React.FC<MobileDrawingControlsProps> = ({
@@ -78,7 +81,11 @@ const MobileDrawingControlsBase: React.FC<MobileDrawingControlsProps> = ({
   onLocateGPS,
   onExportPoster,
   hasSelectedFeature = false,
+  onAddCenterPoint,
+  cursorCoords,
 }) => {
+  // 屏幕中心十字准星模式状态 (解决移动端手指遮挡痛点，行业标杆测绘体验)
+  const [reticleMode, setReticleMode] = useState<boolean>(true);
   const getToolDisplayName = (tool: string) => {
     const names: Record<string, string> = {
       'straight-arrow': '规划导向直箭头',
@@ -216,6 +223,28 @@ const MobileDrawingControlsBase: React.FC<MobileDrawingControlsProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
+            {/* 准星模式 / 触屏直按模式切换 */}
+            <button
+              onClick={() => {
+                const next = !reticleMode;
+                setReticleMode(next);
+                if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(20);
+              }}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold transition ${
+                reticleMode
+                  ? 'bg-amber-50 dark:bg-amber-600/30 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-500/50'
+                  : 'bg-slate-100 dark:bg-gray-800 text-slate-500 dark:text-gray-400 border border-slate-200 dark:border-gray-700/60'
+              }`}
+              title="切换中心十字准星标定模式与触屏直接点选模式"
+            >
+              <Target
+                className={`w-3.5 h-3.5 ${
+                  reticleMode ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-gray-500'
+                }`}
+              />
+              <span>{reticleMode ? '准星模式' : '触控模式'}</span>
+            </button>
+
             {!isMeasureMode && onToggleSnapping && (
               <button
                 onClick={onToggleSnapping}
@@ -303,6 +332,39 @@ const MobileDrawingControlsBase: React.FC<MobileDrawingControlsProps> = ({
         </div>
       )}
 
+      {/* 屏幕中心高精度十字准星 (Crosshair Reticle，解决移动端粗手指遮挡痛点) */}
+      {drawingTool && reticleMode && (
+        <div className="absolute inset-0 pointer-events-none z-20 flex items-center justify-center select-none">
+          <div className="relative w-20 h-20 flex items-center justify-center">
+            {/* 水平十字丝 (中心留白) */}
+            <div className="absolute left-0 w-6 h-[1.5px] bg-amber-500 dark:bg-amber-400 shadow-[0_0_4px_rgba(245,158,11,0.6)]" />
+            <div className="absolute right-0 w-6 h-[1.5px] bg-amber-500 dark:bg-amber-400 shadow-[0_0_4px_rgba(245,158,11,0.6)]" />
+
+            {/* 垂直十字丝 (中心留白) */}
+            <div className="absolute top-0 h-6 w-[1.5px] bg-amber-500 dark:bg-amber-400 shadow-[0_0_4px_rgba(245,158,11,0.6)]" />
+            <div className="absolute bottom-0 h-6 w-[1.5px] bg-amber-500 dark:bg-amber-400 shadow-[0_0_4px_rgba(245,158,11,0.6)]" />
+
+            {/* 瞄准准星环 (中心开孔留空，彻底避免遮挡目标地物) */}
+            <div className="w-8 h-8 rounded-full border-2 border-amber-500 dark:border-amber-400 flex items-center justify-center bg-black/10 backdrop-blur-[0.5px] shadow-sm">
+              <div className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 animate-ping opacity-75" />
+              <div className="absolute w-1 h-1 rounded-full bg-amber-600 dark:bg-amber-300" />
+            </div>
+
+            {/* 准星四角精密测绘角标 (CAD 级标定十字丝) */}
+            <div className="absolute top-2 left-2 w-1.5 h-1.5 border-t border-l border-amber-500/60" />
+            <div className="absolute top-2 right-2 w-1.5 h-1.5 border-t border-r border-amber-500/60" />
+            <div className="absolute bottom-2 left-2 w-1.5 h-1.5 border-b border-l border-amber-500/60" />
+            <div className="absolute bottom-2 right-2 w-1.5 h-1.5 border-b border-r border-amber-500/60" />
+
+            {/* 准星下方微型坐标与落点引导标签 */}
+            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md bg-black/75 backdrop-blur-md text-amber-400 text-[9px] font-mono font-bold whitespace-nowrap shadow-lg border border-amber-500/30 flex items-center gap-1">
+              <Crosshair className="w-2.5 h-2.5 text-amber-400 animate-spin" style={{ animationDuration: '6s' }} />
+              <span>{cursorCoords ? `${cursorCoords[0].toFixed(5)}°, ${cursorCoords[1].toFixed(5)}°` : '移动地图对准地物'}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 底部显眼完成控制条 (触屏单手交互优化，免除双击与盲点)
           底部偏移按安全区计算，避免与 TabBar 及 Home Indicator 重叠 */}
       {drawingTool && (
@@ -355,6 +417,19 @@ const MobileDrawingControlsBase: React.FC<MobileDrawingControlsProps> = ({
           <div className="flex items-center gap-1.5 shrink-0">
             {isMeasureMode ? (
               <>
+                {reticleMode && onAddCenterPoint && (
+                  <button
+                    onClick={() => {
+                      onAddCenterPoint();
+                      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(25);
+                    }}
+                    className="flex items-center gap-1 px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 active:scale-95 text-white text-xs font-black shadow-md shadow-orange-500/25 transition cursor-pointer"
+                    title="在屏幕中心十字准星处采集量算点"
+                  >
+                    <Target className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>准星落点</span>
+                  </button>
+                )}
                 {drawingPointsCount > 0 && onUndoMeasurePoint && (
                   <button
                     onClick={onUndoMeasurePoint}
@@ -396,6 +471,20 @@ const MobileDrawingControlsBase: React.FC<MobileDrawingControlsProps> = ({
                   >
                     <Undo2 className="w-3.5 h-3.5" />
                     <span>撤回</span>
+                  </button>
+                )}
+
+                {reticleMode && onAddCenterPoint && (
+                  <button
+                    onClick={() => {
+                      onAddCenterPoint();
+                      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(25);
+                    }}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 active:scale-95 text-white text-xs font-black shadow-lg shadow-orange-500/30 transition cursor-pointer border border-amber-300/40"
+                    title="在屏幕中心十字准星处采集标绘顶点"
+                  >
+                    <Target className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>准星落点</span>
                   </button>
                 )}
 

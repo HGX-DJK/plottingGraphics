@@ -45,6 +45,9 @@ const ClearFeaturesModal = React.lazy(() =>
 const ExportImageModal = React.lazy(() =>
   import('./components/Modals/ExportImageModal').then((m) => ({ default: m.ExportImageModal }))
 );
+const BufferModal = React.lazy(() =>
+  import('./components/Modals/BufferModal').then((m) => ({ default: m.BufferModal }))
+);
 import {
   Smartphone,
   Monitor,
@@ -57,6 +60,10 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
+  Compass,
+  Copy,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import {
   CoordinateFormat,
@@ -222,10 +229,25 @@ export const App: React.FC = () => {
   const [isImportExportModalOpen, setIsImportExportModalOpen] = useState(false);
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
 
+  // 空间缓冲区分析弹窗状态
+  const [bufferTargetFeature, setBufferTargetFeature] = useState<PlotFeature | null>(null);
+  const handleOpenBufferModal = useCallback((feat: PlotFeature) => {
+    setBufferTargetFeature(feat);
+  }, []);
+  const handleCloseBufferModal = useCallback(() => {
+    setBufferTargetFeature(null);
+  }, []);
+
+  // 准星中心落点触发
+  const handleAddCenterPoint = useCallback(() => {
+    mapRef.current?.addPointAtCenter();
+  }, []);
+
   // 8. 顶点二次拖拽修改与重定位状态 (解决画错拐点必须整图删掉重画痛点)
   const [editingFeature, setEditingFeature] = useState<PlotFeature | null>(null);
   const [editingCoords, setEditingCoords] = useState<[number, number][]>([]);
   const [selectedVertexIndex, setSelectedVertexIndex] = useState<number>(0);
+  const [nudgeStep, setNudgeStep] = useState<number>(5); // 0.5m / 1m / 5m / 20m 步长
 
   const handleStartVertexEdit = useCallback(
     (feat: PlotFeature) => {
@@ -259,6 +281,18 @@ export const App: React.FC = () => {
 
   const handleNudgeVertex = useCallback((dxMeters: number, dyMeters: number) => {
     mapRef.current?.nudgeSelectedVertex(dxMeters, dyMeters);
+  }, []);
+
+  const handleInsertVertex = useCallback(() => {
+    mapRef.current?.insertVertex(selectedVertexIndex);
+  }, [selectedVertexIndex]);
+
+  const handleDeleteVertex = useCallback(() => {
+    mapRef.current?.deleteVertex(selectedVertexIndex);
+  }, [selectedVertexIndex]);
+
+  const handleCycleNudgeStep = useCallback(() => {
+    setNudgeStep((prev) => (prev === 1 ? 5 : prev === 5 ? 20 : prev === 20 ? 0.5 : 1));
   }, []);
 
   const handleSaveVertexEdit = useCallback(() => {
@@ -683,6 +717,32 @@ export const App: React.FC = () => {
       {/* 1. 移动端顶部全局地名检索栏 (高德风格沉浸式搜索) */}
       <MobileHeader onOpenSearch={handleOpenSearch} />
 
+      {/* 顶部 GIS 视口坐标与比例尺悬浮 HUD */}
+      {!drawingTool && !editingFeature && (
+        <div
+          className="absolute left-3 z-20 pointer-events-auto flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-white/95 dark:bg-gray-950/95 backdrop-blur-md border border-slate-200/90 dark:border-white/10 shadow-lg text-slate-700 dark:text-gray-200 text-[11px] font-mono select-none"
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 3.75rem)' }}
+        >
+          <button
+            onClick={handleCycleCoordinateFormat}
+            className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-blue-400 transition cursor-pointer"
+            title="点击切换坐标显示格式 (DD / DMS / 墨卡托)"
+          >
+            <Compass className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+            <span className="font-bold">{formatCoordinates(cursorCoords, coordinateFormat, 5)}</span>
+          </button>
+          <span className="text-slate-300 dark:text-gray-700">|</span>
+          <span className="text-slate-500 dark:text-gray-400 font-bold">Z{zoomLevel.toFixed(1)}</span>
+          <button
+            onClick={handleCopyCoordinates}
+            className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-800 text-slate-400 hover:text-blue-500 transition cursor-pointer"
+            title="复制当前中心坐标"
+          >
+            <Copy className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+
       {/* 标绘与操作反馈 Toast */}
       {toastMessage &&
         (typeof document !== 'undefined'
@@ -748,6 +808,8 @@ export const App: React.FC = () => {
           enableSnapping={enableSnapping}
           topologyWarning={topologyWarning}
           activeSegment={activeSegment}
+          cursorCoords={cursorCoords}
+          onAddCenterPoint={handleAddCenterPoint}
           theme={theme}
           onToggleTheme={handleToggleTheme}
           hasSelectedFeature={!!selectedFeature && !drawingTool && activeTab !== 'properties'}
@@ -776,6 +838,7 @@ export const App: React.FC = () => {
             onFocus={handleQuickCardFocus}
             onOpenProperties={handleQuickCardOpenProperties}
             onEditVertices={handleQuickCardEditVertices}
+            onOpenBuffer={() => handleOpenBufferModal(selectedFeature)}
             onDelete={handleQuickCardDelete}
             onClose={handleQuickCardClose}
           />
@@ -836,35 +899,65 @@ export const App: React.FC = () => {
                 直接点击地图任意处可立即重定位，亦可拖拽把手或按键微调。
               </div>
 
-              {/* 4 方向精密微调按钮组 (5m 精度) */}
+              {/* 拐点增删与步长切换 */}
+              <div className="flex flex-col gap-1 shrink-0">
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={handleInsertVertex}
+                    className="flex items-center gap-1 px-2 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 active:scale-90 transition cursor-pointer"
+                    title="在当前拐点后插入新拐点"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>插点</span>
+                  </button>
+                  <button
+                    onClick={handleDeleteVertex}
+                    disabled={editingCoords.length <= (editingFeature.type === 'polygon' ? 3 : 2)}
+                    className="flex items-center gap-1 px-2 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-700 text-rose-700 dark:text-rose-300 text-[10px] font-bold hover:bg-rose-100 dark:hover:bg-rose-900/40 disabled:opacity-40 active:scale-90 transition cursor-pointer"
+                    title="删除当前选中的拐点"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>删点</span>
+                  </button>
+                </div>
+                <button
+                  onClick={handleCycleNudgeStep}
+                  className="px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 font-mono text-[9px] font-bold border border-amber-300/60 dark:border-amber-700/60 hover:bg-amber-200 active:scale-95 transition text-center cursor-pointer"
+                  title="点击切换微调步长 (0.5m / 1m / 5m / 20m)"
+                >
+                  步长: {nudgeStep}m
+                </button>
+              </div>
+
+              {/* 4 方向精密微调按钮组 (可变精度) */}
               <div className="grid grid-cols-3 gap-1 shrink-0 items-center justify-items-center">
                 <div />
                 <button
-                  onClick={() => handleNudgeVertex(0, 5)}
+                  onClick={() => handleNudgeVertex(0, nudgeStep)}
                   className="p-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-90 transition shadow-sm text-slate-700 dark:text-slate-200 cursor-pointer"
-                  title="向北微移 5 米"
+                  title={`向北微移 ${nudgeStep} 米`}
                 >
                   <ArrowUp className="w-3.5 h-3.5" />
                 </button>
                 <div />
                 <button
-                  onClick={() => handleNudgeVertex(-5, 0)}
+                  onClick={() => handleNudgeVertex(-nudgeStep, 0)}
                   className="p-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-90 transition shadow-sm text-slate-700 dark:text-slate-200 cursor-pointer"
-                  title="向西微移 5 米"
+                  title={`向西微移 ${nudgeStep} 米`}
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                 </button>
                 <button
-                  onClick={() => handleNudgeVertex(0, -5)}
+                  onClick={() => handleNudgeVertex(0, -nudgeStep)}
                   className="p-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-90 transition shadow-sm text-slate-700 dark:text-slate-200 cursor-pointer"
-                  title="向南微移 5 米"
+                  title={`向南微移 ${nudgeStep} 米`}
                 >
                   <ArrowDown className="w-3.5 h-3.5" />
                 </button>
                 <button
-                  onClick={() => handleNudgeVertex(5, 0)}
+                  onClick={() => handleNudgeVertex(nudgeStep, 0)}
                   className="p-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-90 transition shadow-sm text-slate-700 dark:text-slate-200 cursor-pointer"
-                  title="向东微移 5 米"
+                  title={`向东微移 ${nudgeStep} 米`}
                 >
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
@@ -970,8 +1063,10 @@ export const App: React.FC = () => {
           onClose={handleClosePropertySheet}
           feature={selectedFeature}
           layers={layers}
+          allFeatures={features}
           onUpdateFeature={handleUpdateFeature}
           onDeleteFeature={handleDeleteFeature}
+          onOpenBufferModal={handleOpenBufferModal}
         />
       )}
 
@@ -1034,6 +1129,21 @@ export const App: React.FC = () => {
             activeLayerId={activeLayerId}
             onImportData={handleImportData}
             onResetDemo={handleResetDemo}
+            onNotify={showToast}
+          />
+        </Suspense>
+      )}
+
+      {/* 空间动态缓冲区分析弹窗 */}
+      {bufferTargetFeature && (
+        <Suspense fallback={null}>
+          <BufferModal
+            isOpen={!!bufferTargetFeature}
+            onClose={handleCloseBufferModal}
+            feature={bufferTargetFeature}
+            layers={layers}
+            activeLayerId={activeLayerId}
+            onCreateFeature={handleCreateFeature}
             onNotify={showToast}
           />
         </Suspense>

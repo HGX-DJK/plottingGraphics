@@ -142,10 +142,14 @@ export function createGeometryFromFeature(
     });
   }
 
-  // 普通多边形
+  // 普通多边形 (支持外环 + 多个内环孔洞中空面)
   if (type === 'polygon') {
     if (coordinates.length < 3) return null;
-    return new maptalks.Polygon([coordinates], {
+    const rings =
+      properties.holes && properties.holes.length > 0
+        ? [coordinates, ...properties.holes]
+        : [coordinates];
+    return new maptalks.Polygon(rings, {
       id: feat.id,
       symbol: {
         lineColor: strokeColor,

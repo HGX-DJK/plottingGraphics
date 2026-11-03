@@ -34,6 +34,10 @@ export interface MaptalksContainerRef {
   flyToLocation: (coord: [number, number], title?: string, subtitle?: string, zoom?: number) => void;
   clearSearchMarker: () => void;
   captureMapImage: () => Promise<string>;
+  getCenterCoordinate: () => [number, number];
+  addPointAtCenter: () => [number, number] | null;
+  insertVertex: (index: number) => void;
+  deleteVertex: (index: number) => void;
   startVertexEdit: (
     featureId: string,
     onUpdateCoords: (coords: [number, number][]) => void,
@@ -151,6 +155,9 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
         { feature: PlotFeature; geom: any; layerId: string; selected: boolean }
       >
     >(new Map());
+
+    // 准星中心落点与程序化打点委托 Ref
+    const addPointAtCoordRef = useRef<((coord: [number, number]) => [number, number] | null) | null>(null);
 
     // 1. 空间量算引擎 Hook
     const {
@@ -676,6 +683,56 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
           return canvas.toDataURL('image/png');
         }
         throw new Error('未检测到可用的地图画布');
+      },
+      getCenterCoordinate: (): [number, number] => {
+        const map = mapInstanceRef.current;
+        if (!map) return [121.4737, 31.2304];
+        const center = map.getCenter();
+        return [Number(center.x.toFixed(6)), Number(center.y.toFixed(6))];
+      },
+      addPointAtCenter: (): [number, number] | null => {
+        const map = mapInstanceRef.current;
+        if (!map) return null;
+        const center = map.getCenter();
+        const centerCoord: [number, number] = [
+          Number(center.x.toFixed(6)),
+          Number(center.y.toFixed(6)),
+        ];
+        if (addPointAtCoordRef.current) {
+          return addPointAtCoordRef.current(centerCoord);
+        }
+        return null;
+      },
+      insertVertex: (index: number) => {
+        const state = activeEditStateRef.current;
+        if (!state || state.currentCoords.length === 0) return;
+        const idx = Math.max(0, Math.min(state.currentCoords.length - 1, index));
+        const cur = state.currentCoords[idx];
+        const next = state.currentCoords[(idx + 1) % state.currentCoords.length];
+        const mid: [number, number] = [
+          Number(((cur[0] + next[0]) / 2).toFixed(6)),
+          Number(((cur[1] + next[1]) / 2).toFixed(6)),
+        ];
+        state.currentCoords.splice(idx + 1, 0, mid);
+        state.selectedIndex = idx + 1;
+        updateEditingGeometry();
+        renderEditHandles();
+        state.onUpdateCoords(state.currentCoords);
+        state.onSelectVertex?.(idx + 1);
+      },
+      deleteVertex: (index: number) => {
+        const state = activeEditStateRef.current;
+        if (!state) return;
+        const minPts =
+          state.targetFeat.type === 'polygon' || state.targetFeat.type === 'gathering-place' ? 3 : 2;
+        if (state.currentCoords.length <= minPts) return;
+        const idx = Math.max(0, Math.min(state.currentCoords.length - 1, index));
+        state.currentCoords.splice(idx, 1);
+        state.selectedIndex = Math.min(state.selectedIndex, state.currentCoords.length - 1);
+        updateEditingGeometry();
+        renderEditHandles();
+        state.onUpdateCoords(state.currentCoords);
+        state.onSelectVertex?.(state.selectedIndex);
       },
       startVertexEdit: (
         featureId: string,
@@ -1221,17 +1278,36 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
         const onMeasureClick = (e: any) => {
           const coord: [number, number] = [e.coordinate.x, e.coordinate.y];
           handleMeasureClick(coord, drawingTool, maptalks);
+          if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(25);
+        };
+
+        addPointAtCoordRef.current = (inputCoord: [number, number]) => {
+          let mCoord = inputCoord;
+          if (enableSnappingRef.current) {
+            const res = typeof map.getResolution === 'function' ? map.getResolution() : 10;
+            const thresholdMeters = Math.max(10, res * 22);
+            const candidates = getCandidateVertices();
+            const snap = findSnapTarget(mCoord, candidates, thresholdMeters);
+            if (snap.snapped) {
+              mCoord = snap.snappedCoord;
+              onSnapFeedbackRef.current?.(true);
+            }
+          }
+          handleMeasureClick(mCoord, drawingTool, maptalks);
+          if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(25);
+          return mCoord;
         };
 
         map.on('click', onMeasureClick);
         return () => {
+          addPointAtCoordRef.current = null;
           map.off('click', onMeasureClick);
         };
       }
 
-      // 标绘交互点击
-      const handleClick = (e: any) => {
-        let coord: [number, number] = [e.coordinate.x, e.coordinate.y];
+      // 标绘交互内部落点逻辑 (支持触控直按与屏幕中心十字准星落点)
+      const addPointInternal = (inputCoord: [number, number]): [number, number] | null => {
+        let coord: [number, number] = [inputCoord[0], inputCoord[1]];
         const existingPts = drawingPointsRef.current;
         let wasSnapped = false;
 
@@ -1249,16 +1325,12 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
         }
 
         // 多边形自动闭合判定：
-        // 只有当已有至少 3 个有效顶点，且本次点击精准命中「起点」标记（手指触控像素距离 <= 26px，或经吸附精准对齐起点），才视为闭合完成；
-        // 否则一律作为新的多边形拐点加入，支持任意多边形拐点采集 (4点、5点、6点...N点)！
         if (drawingTool === 'polygon' && existingPts.length >= 3) {
           let isCloseToFirst = false;
 
-          // 1. 若开启了磁吸且精准吸附到了起点坐标
           if (wasSnapped && coord[0] === existingPts[0][0] && coord[1] === existingPts[0][1]) {
             isCloseToFirst = true;
           } else if (typeof map.coordinateToContainerPoint === 'function') {
-            // 2. 屏幕像素距离校验 (触控点距离起点标记在 26px 以内，相当于手指准确点击起点)
             try {
               const pFirstScreen = map.coordinateToContainerPoint(
                 new maptalks.Coordinate(existingPts[0][0], existingPts[0][1])
@@ -1274,7 +1346,6 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
               }
             } catch (err) {}
           } else {
-            // 兜底方案：使用高精度分辨率计算 (不大于 16 像素距离)
             const res = typeof map.getResolution === 'function' ? map.getResolution() : 5;
             const thresholdMeters = Math.max(5, res * 16);
             const distToFirst = calculateSphericalDistance(coord, existingPts[0]);
@@ -1285,7 +1356,8 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
 
           if (isCloseToFirst) {
             finishDrawing(existingPts);
-            return;
+            if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(30);
+            return coord;
           }
         }
 
@@ -1295,7 +1367,7 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
           const distToLast = calculateSphericalDistance(coord, lastPt);
           const res = typeof map.getResolution === 'function' ? map.getResolution() : 5;
           if (distToLast < Math.max(0.5, res * 2.5)) {
-            return;
+            return null;
           }
         }
 
@@ -1304,19 +1376,25 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
         setDrawingPoints(currentPts);
         renderPreview(currentPts, wasSnapped ? coord : undefined);
 
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate(25);
+        }
+
         // 单点要素 -> 立即完成
         if (
-          drawingTool.startsWith('post-') ||
-          drawingTool.startsWith('point-') ||
-          drawingTool === 'marker' ||
-          drawingTool === 'text'
+          drawingTool &&
+          (drawingTool.startsWith('post-') ||
+            drawingTool.startsWith('point-') ||
+            drawingTool === 'marker' ||
+            drawingTool === 'text')
         ) {
           finishDrawing(currentPts);
-          return;
+          return coord;
         }
 
         // 两点要素 -> 达到2点立即完成
         if (
+          drawingTool &&
           (drawingTool === 'straight-arrow' ||
             drawingTool === 'circle' ||
             drawingTool === 'sector' ||
@@ -1324,19 +1402,28 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
           currentPts.length >= 2
         ) {
           finishDrawing(currentPts);
-          return;
+          return coord;
         }
 
         // 三点要素 -> 达到3点立即完成
         if (
+          drawingTool &&
           (drawingTool === 'attack-arrow' ||
             drawingTool === 'pincer-arrow' ||
             drawingTool === 'gathering-place') &&
           currentPts.length >= 3
         ) {
           finishDrawing(currentPts);
-          return;
+          return coord;
         }
+
+        return coord;
+      };
+
+      addPointAtCoordRef.current = addPointInternal;
+
+      const handleClick = (e: any) => {
+        addPointInternal([e.coordinate.x, e.coordinate.y]);
       };
 
       /**
@@ -1468,6 +1555,7 @@ const MaptalksContainerInner = forwardRef<MaptalksContainerRef, MaptalksContaine
         map.off('mousedown touchstart', handleTouchStart);
         map.off('touchmove mousemove', handleTouchMove);
         map.off('mouseup touchend', handleTouchEnd);
+        addPointAtCoordRef.current = null;
       };
     }, [
       drawingTool,

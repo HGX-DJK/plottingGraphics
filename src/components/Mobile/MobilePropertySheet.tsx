@@ -15,11 +15,18 @@ import {
   X,
   Copy,
   Check,
+  AlertTriangle,
+  Sparkles,
 } from 'lucide-react';
 import { MobileBottomSheet } from './MobileBottomSheet';
 import { MobileColorPicker } from './MobileColorPicker';
 import { ConfirmModal } from '../Modals/ConfirmModal';
-import { formatArea, formatDistance } from '../../utils/geoUtils';
+import {
+  formatArea,
+  formatDistance,
+  checkPolygonOverlap,
+  OverlapAnalysisResult,
+} from '../../utils/geoUtils';
 import { copyToClipboard } from '../../utils/uiUtils';
 
 interface MobilePropertySheetProps {
@@ -27,8 +34,10 @@ interface MobilePropertySheetProps {
   onClose: () => void;
   feature: PlotFeature | null;
   layers: PlotLayer[];
+  allFeatures?: PlotFeature[];
   onUpdateFeature: (updated: PlotFeature) => void;
   onDeleteFeature: (featureId: string) => void;
+  onOpenBufferModal?: (feature: PlotFeature) => void;
 }
 
 const MobilePropertySheetBase: React.FC<MobilePropertySheetProps> = ({
@@ -36,8 +45,10 @@ const MobilePropertySheetBase: React.FC<MobilePropertySheetProps> = ({
   onClose,
   feature,
   layers,
+  allFeatures = [],
   onUpdateFeature,
   onDeleteFeature,
+  onOpenBufferModal,
 }) => {
   const [newAttrKey, setNewAttrKey] = useState('');
   const [newAttrVal, setNewAttrVal] = useState('');
@@ -237,6 +248,18 @@ const MobilePropertySheetBase: React.FC<MobilePropertySheetProps> = ({
     feature.type === 'gathering-place' ||
     feature.type === 'sector';
 
+  // 空间拓扑压占分析
+  const [overlapAnalysis, setOverlapAnalysis] = useState<OverlapAnalysisResult | null>(null);
+
+  useEffect(() => {
+    if (isPolygonLike && feature.coordinates && feature.coordinates.length >= 2) {
+      const res = checkPolygonOverlap(feature.coordinates, allFeatures, feature.id);
+      setOverlapAnalysis(res);
+    } else {
+      setOverlapAnalysis(null);
+    }
+  }, [feature, allFeatures, isPolygonLike]);
+
   const isTextOrPoint =
     feature.type === 'text' ||
     feature.type === 'marker' ||
@@ -347,6 +370,83 @@ const MobilePropertySheetBase: React.FC<MobilePropertySheetProps> = ({
                 {formatDistance(feature.properties.calculatedLength || 0)}
               </div>
             </div>
+          )}
+          {/* 中空多边形内环孔洞指标 */}
+          {isPolygonLike && feature.properties?.holes && feature.properties.holes.length > 0 && (
+            <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/40 flex items-center justify-between text-[11px] text-indigo-700 dark:text-indigo-300">
+              <span className="font-semibold">中空面内环孔洞:</span>
+              <span className="font-bold font-mono">已扣除 {feature.properties.holes.length} 个内环孔洞面积</span>
+            </div>
+          )}
+
+          {/* 空间拓扑压占关系检测卡片 */}
+          {isPolygonLike && overlapAnalysis && (
+            <div
+              className={`p-2.5 rounded-xl border text-[11px] space-y-1.5 ${
+                overlapAnalysis.hasOverlap
+                  ? 'bg-amber-50/80 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700/60 text-amber-800 dark:text-amber-200'
+                  : 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200/80 dark:border-emerald-800/40 text-emerald-800 dark:text-emerald-200'
+              }`}
+            >
+              <div className="flex items-center justify-between font-bold">
+                <span className="flex items-center gap-1.5">
+                  <AlertTriangle
+                    className={`w-3.5 h-3.5 ${
+                      overlapAnalysis.hasOverlap ? 'text-amber-600' : 'text-emerald-600'
+                    }`}
+                  />
+                  <span>空间拓扑压占检测</span>
+                </span>
+                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-full bg-white/80 dark:bg-black/40">
+                  {overlapAnalysis.hasOverlap
+                    ? `⚠️ 发现 ${overlapAnalysis.overlaps.length} 处冲突`
+                    : '✓ 拓扑正常'}
+                </span>
+              </div>
+              {overlapAnalysis.hasOverlap ? (
+                <div className="space-y-1 pt-1">
+                  <div className="text-[10px] text-amber-700 dark:text-amber-300 font-medium">
+                    总压占重叠面积: <span className="font-bold font-mono">{overlapAnalysis.totalOverlapAreaText}</span>
+                  </div>
+                  <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
+                    {overlapAnalysis.overlaps.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-1 rounded-lg bg-white/90 dark:bg-gray-900/90 text-[10px] border border-amber-200/60 dark:border-amber-800/40"
+                      >
+                        <span className="font-medium truncate max-w-[150px]">
+                          {item.targetFeature.name}
+                        </span>
+                        <span className="font-mono font-bold text-amber-600 dark:text-amber-400 shrink-0">
+                          {item.overlapAreaText} ({item.overlapPercentage}%)
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                  该图斑边界独立，与工区已有地块及规划红线无任何压占冲突。
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* 空间动态缓冲区生成入口 */}
+          {onOpenBufferModal && (
+            <button
+              type="button"
+              onClick={() => onOpenBufferModal(feature)}
+              className="w-full py-2 px-3 rounded-xl bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-800/60 text-cyan-700 dark:text-cyan-300 font-bold text-xs flex items-center justify-between hover:bg-cyan-100 dark:hover:bg-cyan-900/40 transition active:scale-[0.99] cursor-pointer"
+            >
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-cyan-500" />
+                <span>生成动态空间缓冲区 (Buffer)</span>
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-600 text-white font-mono shadow-sm">
+                一键分析
+              </span>
+            </button>
           )}
         </div>
 

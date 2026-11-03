@@ -26,6 +26,7 @@ interface MobileFeatureQuickCardProps {
   onFocus: () => void;
   onOpenProperties: () => void;
   onEditVertices?: () => void;
+  onOpenBuffer?: () => void;
   onDelete: () => void;
   onClose: () => void;
 }
@@ -36,6 +37,7 @@ const MobileFeatureQuickCardBase: React.FC<MobileFeatureQuickCardProps> = ({
   onFocus,
   onOpenProperties,
   onEditVertices,
+  onOpenBuffer,
   onDelete,
   onClose,
 }) => {
@@ -188,6 +190,18 @@ const MobileFeatureQuickCardBase: React.FC<MobileFeatureQuickCardProps> = ({
           <Sliders className="w-3.5 h-3.5" />
           <span className="text-[11px] font-bold whitespace-nowrap">属性</span>
         </button>
+
+        {/* 空间缓冲区 */}
+        {onOpenBuffer && (
+          <button
+            onClick={onOpenBuffer}
+            className="relative flex items-center justify-center gap-1.5 h-9 px-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white active:scale-95 transition shadow-sm shadow-cyan-600/25 cursor-pointer after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-['']"
+            title="生成动态空间缓冲区"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span className="text-[11px] font-bold whitespace-nowrap">缓冲</span>
+          </button>
+        )}
 
         {/* 快捷删除 */}
         <button

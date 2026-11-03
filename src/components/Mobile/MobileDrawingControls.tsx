@@ -188,7 +188,7 @@ const MobileDrawingControlsBase: React.FC<MobileDrawingControlsProps> = ({
       {drawingTool && (
         <div
           className="absolute left-3 right-3 z-30 flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border border-blue-500/50 shadow-2xl animate-in slide-in-from-top-4 duration-200"
-          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 4.25rem)' }}
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
         >
           <div className="flex items-center gap-2 min-w-0">
             <span
@@ -325,42 +325,40 @@ const MobileDrawingControlsBase: React.FC<MobileDrawingControlsProps> = ({
       {drawingTool && topologyWarning && (
         <div
           className="absolute left-3 right-3 z-30 flex items-center gap-2 p-2.5 rounded-xl bg-red-50 dark:bg-red-950/95 border border-red-300 dark:border-red-500/60 text-red-700 dark:text-red-200 text-xs font-semibold backdrop-blur-md shadow-2xl animate-in slide-in-from-top-2 duration-200"
-          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 8rem)' }}
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 4.5rem)' }}
         >
           <AlertTriangle className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0 animate-pulse" />
           <span className="truncate">{topologyWarning}</span>
         </div>
       )}
 
-      {/* 屏幕中心高精度十字准星 (Crosshair Reticle，解决移动端粗手指遮挡痛点) */}
+      {/* 屏幕中心高精度微型十字准星 (奥维/Field Maps 极简测绘级微丝，24px 极致通透不挡地物) */}
       {drawingTool && reticleMode && (
         <div className="absolute inset-0 pointer-events-none z-20 flex items-center justify-center select-none">
-          <div className="relative w-20 h-20 flex items-center justify-center">
-            {/* 水平十字丝 (中心留白) */}
-            <div className="absolute left-0 w-6 h-[1.5px] bg-amber-500 dark:bg-amber-400 shadow-[0_0_4px_rgba(245,158,11,0.6)]" />
-            <div className="absolute right-0 w-6 h-[1.5px] bg-amber-500 dark:bg-amber-400 shadow-[0_0_4px_rgba(245,158,11,0.6)]" />
-
-            {/* 垂直十字丝 (中心留白) */}
-            <div className="absolute top-0 h-6 w-[1.5px] bg-amber-500 dark:bg-amber-400 shadow-[0_0_4px_rgba(245,158,11,0.6)]" />
-            <div className="absolute bottom-0 h-6 w-[1.5px] bg-amber-500 dark:bg-amber-400 shadow-[0_0_4px_rgba(245,158,11,0.6)]" />
-
-            {/* 瞄准准星环 (中心开孔留空，彻底避免遮挡目标地物) */}
-            <div className="w-8 h-8 rounded-full border-2 border-amber-500 dark:border-amber-400 flex items-center justify-center bg-black/10 backdrop-blur-[0.5px] shadow-sm">
-              <div className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 animate-ping opacity-75" />
-              <div className="absolute w-1 h-1 rounded-full bg-amber-600 dark:bg-amber-300" />
-            </div>
-
-            {/* 准星四角精密测绘角标 (CAD 级标定十字丝) */}
-            <div className="absolute top-2 left-2 w-1.5 h-1.5 border-t border-l border-amber-500/60" />
-            <div className="absolute top-2 right-2 w-1.5 h-1.5 border-t border-r border-amber-500/60" />
-            <div className="absolute bottom-2 left-2 w-1.5 h-1.5 border-b border-l border-amber-500/60" />
-            <div className="absolute bottom-2 right-2 w-1.5 h-1.5 border-b border-r border-amber-500/60" />
-
-            {/* 准星下方微型坐标与落点引导标签 */}
-            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md bg-black/75 backdrop-blur-md text-amber-400 text-[9px] font-mono font-bold whitespace-nowrap shadow-lg border border-amber-500/30 flex items-center gap-1">
-              <Crosshair className="w-2.5 h-2.5 text-amber-400 animate-spin" style={{ animationDuration: '6s' }} />
-              <span>{cursorCoords ? `${cursorCoords[0].toFixed(5)}°, ${cursorCoords[1].toFixed(5)}°` : '移动地图对准地物'}</span>
-            </div>
+          <div className="relative w-6 h-6 flex items-center justify-center">
+            <svg
+              viewBox="0 0 24 24"
+              className="w-6 h-6 overflow-visible drop-shadow-[0_0_1.5px_rgba(0,0,0,0.85)]"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              {/* 微型透空瞄准环 (内径 9px，保证中心目标视野完全开阔) */}
+              <circle
+                cx="12"
+                cy="12"
+                r="4.5"
+                stroke="#f59e0b"
+                strokeWidth="1.25"
+                className="dark:stroke-amber-400"
+              />
+              {/* 四向微刻度线 (向外延伸 4.5px，中心留空) */}
+              <line x1="12" y1="1" x2="12" y2="5" stroke="#f59e0b" strokeWidth="1.25" strokeLinecap="round" className="dark:stroke-amber-400" />
+              <line x1="12" y1="19" x2="12" y2="23" stroke="#f59e0b" strokeWidth="1.25" strokeLinecap="round" className="dark:stroke-amber-400" />
+              <line x1="1" y1="12" x2="5" y2="12" stroke="#f59e0b" strokeWidth="1.25" strokeLinecap="round" className="dark:stroke-amber-400" />
+              <line x1="19" y1="12" x2="23" y2="12" stroke="#f59e0b" strokeWidth="1.25" strokeLinecap="round" className="dark:stroke-amber-400" />
+              {/* 中心单像素精确定位针尖点 */}
+              <circle cx="12" cy="12" r="1" fill="#f59e0b" className="dark:fill-amber-400" />
+            </svg>
           </div>
         </div>
       )}

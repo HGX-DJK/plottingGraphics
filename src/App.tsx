@@ -60,19 +60,14 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
-  Compass,
-  Copy,
   Plus,
   Trash2,
 } from 'lucide-react';
 import {
-  CoordinateFormat,
-  formatCoordinates,
   calculateLineLength,
   calculateSphericalPolygonArea,
 } from './utils/geoUtils';
 import { ThemeMode, themeService } from './services/themeService';
-import { copyToClipboard } from './utils/uiUtils';
 import { useToast } from './hooks/useToast';
 import { useLayers } from './hooks/useLayers';
 import { useFeatures } from './hooks/useFeatures';
@@ -199,7 +194,6 @@ export const App: React.FC = () => {
   const [measureResult, setMeasureResult] = useState<MeasureResult | null>(null);
   const [cursorCoords, setCursorCoords] = useState<[number, number]>(DEFAULT_MAP_CENTER);
   const [zoomLevel, setZoomLevel] = useState<number>(DEFAULT_MAP_ZOOM);
-  const [coordinateFormat, setCoordinateFormat] = useState<CoordinateFormat>('DD');
   const [bearing, setBearing] = useState<number>(0);
   const [pitch, setPitch] = useState<number>(0);
   const [enableSnapping, setEnableSnapping] = useState<boolean>(true);
@@ -208,21 +202,6 @@ export const App: React.FC = () => {
     length: number;
     azimuth: { degrees: number; text: string };
   } | null>(null);
-
-  const handleCycleCoordinateFormat = () => {
-    setCoordinateFormat((prev) => {
-      if (prev === 'DD') return 'DMS';
-      if (prev === 'DMS') return 'MERCATOR';
-      return 'DD';
-    });
-  };
-
-  const handleCopyCoordinates = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const text = formatCoordinates(cursorCoords, coordinateFormat, 6);
-    const ok = await copyToClipboard(text);
-    showToast(ok ? `✓ 已复制精确坐标: ${text}` : '复制失败，请检查浏览器剪贴板权限');
-  };
 
   // 7. 模态弹窗状态
   const [isNewLayerModalOpen, setIsNewLayerModalOpen] = useState(false);
@@ -715,33 +694,7 @@ export const App: React.FC = () => {
   const renderMobileAppContent = () => (
     <div className="relative w-full h-full flex flex-col bg-slate-100 dark:bg-gray-950 overflow-hidden select-none transition-colors duration-200">
       {/* 1. 移动端顶部全局地名检索栏 (高德风格沉浸式搜索) */}
-      <MobileHeader onOpenSearch={handleOpenSearch} />
-
-      {/* 顶部 GIS 视口坐标与比例尺悬浮 HUD */}
-      {!drawingTool && !editingFeature && (
-        <div
-          className="absolute left-3 z-20 pointer-events-auto flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-white/95 dark:bg-gray-950/95 backdrop-blur-md border border-slate-200/90 dark:border-white/10 shadow-lg text-slate-700 dark:text-gray-200 text-[11px] font-mono select-none"
-          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 3.75rem)' }}
-        >
-          <button
-            onClick={handleCycleCoordinateFormat}
-            className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-blue-400 transition cursor-pointer"
-            title="点击切换坐标显示格式 (DD / DMS / 墨卡托)"
-          >
-            <Compass className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-            <span className="font-bold">{formatCoordinates(cursorCoords, coordinateFormat, 5)}</span>
-          </button>
-          <span className="text-slate-300 dark:text-gray-700">|</span>
-          <span className="text-slate-500 dark:text-gray-400 font-bold">Z{zoomLevel.toFixed(1)}</span>
-          <button
-            onClick={handleCopyCoordinates}
-            className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-800 text-slate-400 hover:text-blue-500 transition cursor-pointer"
-            title="复制当前中心坐标"
-          >
-            <Copy className="w-3 h-3" />
-          </button>
-        </div>
-      )}
+      {!drawingTool && !editingFeature && <MobileHeader onOpenSearch={handleOpenSearch} />}
 
       {/* 标绘与操作反馈 Toast */}
       {toastMessage &&

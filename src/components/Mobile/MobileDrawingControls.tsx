@@ -193,18 +193,19 @@ const MobileDrawingControlsBase: React.FC<MobileDrawingControlsProps> = ({
           位置基于安全区计算：始终位于顶部胶囊下方，刘海屏设备同样不会互相遮挡 */}
       {drawingTool && (
         <div
-          className="absolute left-3 right-3 z-30 flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border border-blue-500/50 shadow-2xl animate-in slide-in-from-top-4 duration-200"
+          className="absolute left-3 right-3 z-30 flex items-center justify-between gap-2.5 px-3 py-2 rounded-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border border-slate-200/90 dark:border-white/10 shadow-lg animate-in slide-in-from-top-4 duration-200"
           style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
         >
-          <div className="flex items-center gap-2 min-w-0">
+          {/* 左侧：工具名称与状态引导 (独享大宽度，永不被挤断) */}
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <span
-              className={`w-2.5 h-2.5 rounded-full animate-pulse shrink-0 ${
+              className={`w-2 h-2 rounded-full animate-pulse shrink-0 ${
                 isMeasureMode
                   ? 'bg-amber-500 dark:bg-amber-400'
                   : 'bg-blue-500 dark:bg-blue-400'
               }`}
             />
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div
                 className={`text-xs font-bold truncate ${
                   isMeasureMode
@@ -214,11 +215,11 @@ const MobileDrawingControlsBase: React.FC<MobileDrawingControlsProps> = ({
               >
                 {getToolDisplayName(drawingTool)}
               </div>
-              <div className="text-[10px] text-slate-600 dark:text-gray-300 truncate">
+              <div className="text-[10px] text-slate-500 dark:text-gray-400 truncate">
                 {isMeasureMode ? (
                   <span className="font-mono">
                     {drawingPointsCount > 0
-                      ? `读数 ${measureReadout} · 已落 ${drawingPointsCount} 个点`
+                      ? `读数 ${measureReadout} · 已落 ${drawingPointsCount} 点`
                       : getRequiredPointsText(drawingTool, drawingPointsCount)}
                   </span>
                 ) : (
@@ -228,6 +229,7 @@ const MobileDrawingControlsBase: React.FC<MobileDrawingControlsProps> = ({
             </div>
           </div>
 
+          {/* 右侧：紧凑控制开关组 (准星/触控切换、磁吸开关、退出) */}
           <div className="flex items-center gap-1.5 shrink-0">
             {/* 准星模式 / 触屏直按模式切换 */}
             <button
@@ -247,13 +249,13 @@ const MobileDrawingControlsBase: React.FC<MobileDrawingControlsProps> = ({
                   reticleMode ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-gray-500'
                 }`}
               />
-              <span>{reticleMode ? '准星模式' : '触控模式'}</span>
+              <span>{reticleMode ? '准星' : '触控'}</span>
             </button>
 
             {!isMeasureMode && onToggleSnapping && (
               <button
                 onClick={onToggleSnapping}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold transition ${
+                className={`flex items-center gap-1 px-2 py-1 rounded-xl text-xs font-semibold transition ${
                   enableSnapping
                     ? 'bg-cyan-50 dark:bg-cyan-600/30 text-cyan-700 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-500/50'
                     : 'bg-slate-100 dark:bg-gray-800/80 text-slate-500 dark:text-gray-400 border border-slate-200 dark:border-gray-700/60'
@@ -263,55 +265,6 @@ const MobileDrawingControlsBase: React.FC<MobileDrawingControlsProps> = ({
                 <Magnet className={`w-3.5 h-3.5 ${enableSnapping ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400 dark:text-gray-500'}`} />
                 <span>吸附{enableSnapping ? '开' : '关'}</span>
               </button>
-            )}
-
-            {isMeasureMode ? (
-              <>
-                {drawingPointsCount > 0 && onUndoMeasurePoint && (
-                  <button
-                    onClick={onUndoMeasurePoint}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-300 active:bg-slate-200 dark:active:bg-gray-700 text-xs font-medium transition"
-                    title="撤回上一个量算点"
-                    aria-label="撤回上一个量算点"
-                  >
-                    <Undo2 className="w-3.5 h-3.5" />
-                    <span>撤回</span>
-                  </button>
-                )}
-                {drawingPointsCount > 0 && onClearMeasure && (
-                  <button
-                    onClick={onClearMeasure}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-500/40 text-xs font-medium transition"
-                    title="清空量算点重新测量"
-                    aria-label="清空量算点并重新测量"
-                  >
-                    <Eraser className="w-3.5 h-3.5" />
-                    <span>重测</span>
-                  </button>
-                )}
-              </>
-            ) : (
-              <>
-                {drawingPointsCount > 0 && onUndoPoint && (
-                  <button
-                    onClick={onUndoPoint}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-300 active:bg-slate-200 dark:active:bg-gray-700 text-xs font-medium transition"
-                  >
-                    <Undo2 className="w-3.5 h-3.5" />
-                    <span>撤回</span>
-                  </button>
-                )}
-
-                {canFinish && onFinishDrawing && (
-                  <button
-                    onClick={onFinishDrawing}
-                    className="flex items-center gap-1 px-3 py-1 rounded-xl bg-emerald-600 text-white active:bg-emerald-500 text-xs font-bold shadow transition"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>完成</span>
-                  </button>
-                )}
-              </>
             )}
 
             <button
@@ -368,147 +321,125 @@ const MobileDrawingControlsBase: React.FC<MobileDrawingControlsProps> = ({
         </div>
       )}
 
-      {/* 底部显眼完成控制条 (触屏单手交互优化，免除双击与盲点)
+      {/* 底部显眼完成控制条 (触屏单手交互优化，双层卡片：上层全宽读数，下层大拇指舒适落点)
           底部偏移按安全区计算，避免与 TabBar 及 Home Indicator 重叠 */}
       {drawingTool && (
         <div
-          className="absolute left-3 right-3 z-30 flex items-center justify-between gap-2.5 p-3 rounded-2xl bg-white/95 dark:bg-gray-950/95 backdrop-blur-xl border border-blue-500/40 dark:border-blue-500/50 shadow-2xl animate-in slide-in-from-bottom-4 duration-200"
+          className="absolute left-3 right-3 z-30 flex flex-col gap-2.5 p-3 rounded-2xl bg-white/95 dark:bg-gray-950/95 backdrop-blur-xl border border-slate-200/90 dark:border-white/10 shadow-2xl animate-in slide-in-from-bottom-4 duration-200"
           style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4.5rem)' }}
         >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div
-              className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${
-                isMeasureMode
-                  ? 'bg-amber-50 dark:bg-amber-500/20 border-amber-200 dark:border-amber-500/40'
-                  : 'bg-blue-50 dark:bg-blue-600/20 border-blue-200 dark:border-blue-500/40'
-              }`}
-            >
-              <span
-                className={`text-xs font-black font-mono ${
+          {/* 上层：要素与实时测量读数信息栏 (全宽展示，绝不挤压截断) */}
+          <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-gray-800/80 pb-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div
+                className={`px-2 py-0.5 rounded-lg flex items-center justify-center shrink-0 border ${
                   isMeasureMode
-                    ? 'text-amber-600 dark:text-amber-400'
-                    : 'text-blue-600 dark:text-blue-400'
+                    ? 'bg-amber-50 dark:bg-amber-500/20 border-amber-200 dark:border-amber-500/40'
+                    : 'bg-blue-50 dark:bg-blue-600/20 border-blue-200 dark:border-blue-500/40'
                 }`}
               >
-                {drawingPointsCount}
-              </span>
-            </div>
-            <div className="min-w-0">
+                <span
+                  className={`text-xs font-black font-mono ${
+                    isMeasureMode
+                      ? 'text-amber-600 dark:text-amber-400'
+                      : 'text-blue-600 dark:text-blue-400'
+                  }`}
+                >
+                  已采 {drawingPointsCount} 点
+                </span>
+              </div>
               <div className="text-xs font-bold text-slate-800 dark:text-gray-100 truncate">
                 {getToolDisplayName(drawingTool)}
               </div>
-              <div className="text-[10px] text-slate-500 dark:text-gray-400 truncate mt-0.5">
-                {isMeasureMode ? (
-                  <span className="font-mono font-semibold text-amber-600 dark:text-amber-300">
-                    {drawingPointsCount > 0 ? `${measureUnitLabel}: ${measureReadout}` : '轻触地图落点开始量算'}
-                  </span>
-                ) : activeSegment ? (
-                  <span className="text-cyan-600 dark:text-cyan-300 font-mono font-medium">
-                    当前边: {formatDistance(activeSegment.length)} | 方位角: {activeSegment.azimuth.text}
-                  </span>
-                ) : canFinish ? (
-                  drawingTool === 'polygon'
-                    ? `已采 ${drawingPointsCount} 点 · 可继续落点/点起点闭合/完成保存`
-                    : `已采 ${drawingPointsCount} 点 · 可继续落点或完成保存`
-                ) : (
-                  getRequiredPointsText(drawingTool, drawingPointsCount)
-                )}
-              </div>
+            </div>
+
+            {/* 动态测量读数或操作引导 (右侧全宽自适应，绝不截断) */}
+            <div className="text-xs font-mono shrink-0">
+              {isMeasureMode ? (
+                <span className="font-bold text-amber-600 dark:text-amber-400">
+                  {drawingPointsCount > 0 ? `${measureUnitLabel}: ${measureReadout}` : '轻触或准星落点开始'}
+                </span>
+              ) : activeSegment ? (
+                <span className="font-semibold text-cyan-600 dark:text-cyan-400">
+                  边长 <span className="font-black">{formatDistance(activeSegment.length)}</span> · 方位 <span className="font-black">{activeSegment.azimuth.text}</span>
+                </span>
+              ) : (
+                <span className="text-[11px] text-slate-500 dark:text-gray-400">
+                  {getRequiredPointsText(drawingTool, drawingPointsCount)}
+                </span>
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
-            {isMeasureMode ? (
-              <>
-                {reticleMode && onAddCenterPoint && (
-                  <button
-                    onClick={() => {
-                      onAddCenterPoint();
-                      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(25);
-                    }}
-                    className="flex items-center gap-1 px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 active:scale-95 text-white text-xs font-black shadow-md shadow-orange-500/25 transition cursor-pointer"
-                    title="在屏幕中心十字准星处采集量算点"
-                  >
-                    <Target className="w-3.5 h-3.5 stroke-[2.5]" />
-                    <span>准星落点</span>
-                  </button>
-                )}
-                {drawingPointsCount > 0 && onUndoMeasurePoint && (
-                  <button
-                    onClick={onUndoMeasurePoint}
-                    className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-200 active:bg-slate-200 dark:active:bg-gray-700 text-xs font-semibold border border-slate-200 dark:border-gray-700 transition"
-                    title="撤回上一个量算点"
-                    aria-label="撤回上一个量算点"
-                  >
-                    <Undo2 className="w-3.5 h-3.5" />
-                    <span>撤回</span>
-                  </button>
-                )}
-                {drawingPointsCount > 0 && onClearMeasure && (
-                  <button
-                    onClick={onClearMeasure}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 active:from-rose-600 active:to-red-700 text-white text-xs font-black shadow-lg shadow-rose-600/30 transition active:scale-[0.97]"
-                    title="清空量算点并重新测量"
-                    aria-label="清空量算点并重新测量"
-                  >
-                    <Eraser className="w-4 h-4 stroke-[3]" />
-                    <span>清除重测</span>
-                  </button>
-                )}
-                {drawingPointsCount === 0 && (
-                  <button
-                    onClick={onCancelDrawing}
-                    className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 dark:bg-gray-800/80 text-slate-500 active:text-slate-800 dark:text-gray-400 dark:active:text-white text-xs font-medium transition"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                    <span>取消</span>
-                  </button>
-                )}
-              </>
-            ) : (
-              <>
-                {drawingPointsCount > 0 && onUndoPoint && (
-                  <button
-                    onClick={onUndoPoint}
-                    className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-200 active:bg-slate-200 dark:active:bg-gray-700 text-xs font-semibold border border-slate-200 dark:border-gray-700 transition"
-                  >
-                    <Undo2 className="w-3.5 h-3.5" />
-                    <span>撤回</span>
-                  </button>
-                )}
+          {/* 下层：拇指操作大按钮行 (全宽弹性分布，触控极度舒适) */}
+          <div className="flex items-center gap-2">
+            {/* 取消 / 退出 */}
+            <button
+              onClick={onCancelDrawing}
+              className="flex items-center justify-center gap-1 h-10 px-3.5 rounded-xl bg-slate-100 dark:bg-gray-800 text-slate-600 dark:text-gray-300 active:bg-slate-200 dark:active:bg-gray-700 text-xs font-semibold transition"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>取消</span>
+            </button>
 
-                {reticleMode && onAddCenterPoint && (
-                  <button
-                    onClick={() => {
-                      onAddCenterPoint();
-                      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(25);
-                    }}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 active:scale-95 text-white text-xs font-black shadow-lg shadow-orange-500/30 transition cursor-pointer border border-amber-300/40"
-                    title="在屏幕中心十字准星处采集标绘顶点"
-                  >
-                    <Target className="w-3.5 h-3.5 stroke-[2.5]" />
-                    <span>准星落点</span>
-                  </button>
-                )}
+            {/* 撤回 (只要有点即可撤回) */}
+            {drawingPointsCount > 0 && (
+              <button
+                onClick={isMeasureMode ? onUndoMeasurePoint : onUndoPoint}
+                className="flex items-center justify-center gap-1 h-10 px-3.5 rounded-xl bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-200 active:bg-slate-200 dark:active:bg-gray-700 text-xs font-semibold border border-slate-200/80 dark:border-gray-700 transition"
+                title="撤回上一个落点"
+                aria-label="撤回上一个落点"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+                <span>撤回</span>
+              </button>
+            )}
 
-                {canFinish ? (
-                  <button
-                    onClick={onFinishDrawing}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 active:from-emerald-700 active:to-green-700 text-white text-xs font-black shadow-lg shadow-emerald-600/30 transition active:scale-[0.97]"
-                  >
-                    <Check className="w-4 h-4 stroke-[3]" />
-                    <span>完成保存</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={onCancelDrawing}
-                    className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 dark:bg-gray-800/80 text-slate-500 active:text-slate-800 dark:text-gray-400 dark:active:text-white text-xs font-medium transition"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                    <span>取消</span>
-                  </button>
-                )}
-              </>
+            {/* 准星落点 (核心主按钮，准星模式下占主要宽度，拇指盲操极其舒适) */}
+            {reticleMode && onAddCenterPoint && (
+              <button
+                onClick={() => {
+                  onAddCenterPoint();
+                  if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(25);
+                }}
+                className="flex-1 flex items-center justify-center gap-2 h-10 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 active:scale-95 text-white text-xs font-black shadow-lg shadow-orange-500/25 transition cursor-pointer border border-amber-300/40"
+                title="在屏幕中心十字准星处采集标绘顶点"
+              >
+                <Target className="w-4 h-4 stroke-[2.5]" />
+                <span>准星落点</span>
+              </button>
+            )}
+
+            {/* 量算模式：清空重测 */}
+            {isMeasureMode && drawingPointsCount > 0 && onClearMeasure && (
+              <button
+                onClick={onClearMeasure}
+                className="flex items-center justify-center gap-1.5 h-10 px-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-500/40 text-xs font-bold transition active:scale-95"
+                title="清空量算点并重新测量"
+              >
+                <Eraser className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>重测</span>
+              </button>
+            )}
+
+            {/* 标绘模式：完成保存按钮 */}
+            {!isMeasureMode && canFinish && onFinishDrawing && (
+              <button
+                onClick={onFinishDrawing}
+                className={`${
+                  reticleMode ? '' : 'flex-1'
+                } flex items-center justify-center gap-1.5 h-10 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 active:from-emerald-700 active:to-green-700 text-white text-xs font-black shadow-lg shadow-emerald-600/30 transition active:scale-95`}
+              >
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>完成保存</span>
+              </button>
+            )}
+
+            {/* 触控直接点选模式下未到完成点数时的温馨提示 */}
+            {!reticleMode && !canFinish && (
+              <div className="flex-1 text-center text-xs text-slate-400 dark:text-gray-500 font-medium">
+                轻触地图任意位置落点
+              </div>
             )}
           </div>
         </div>
